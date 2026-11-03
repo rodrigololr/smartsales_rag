@@ -1,8 +1,9 @@
 name: Specs and reference contracts
 on:
   pull_request:
+    branches: [main, develop]
   push:
-    branches: [main, docs/G01-sdd-tdd-and-pm-specs]
+    branches: [main, develop, docs/G01-sdd-tdd-and-pm-specs]
 permissions:
   contents: read
 jobs:

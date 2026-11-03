@@ -1,0 +1,53 @@
+name: "Pacote de Trabalho / Task da EAP (SDD + TDD)"
+description: "Criar uma nova tarefa técnica ou gerencial vinculada à EAP (1.0–7.0), Cronograma Gantt e Matriz RACI"
+title: "[CÓDIGO] Título da Atividade (EAP X.Y)"
+labels: ["status:backlog"]
+body:
+  - type: dropdown
+    id: package
+    attributes:
+      label: Pacote Operacional (Rede PERT/CPM e Gantt)
+      options:
+        - "G01 — TAP, escopo e RACI (M1)"
+        - "G03 — Riscos e comunicação (M1)"
+        - "B01 — Docker, pgvector e catálogo [CRÍTICO] (M1)"
+        - "M01 — Gateway e contratos OpenAPI [QUASE CRÍTICO] (M1)"
+        - "F01 — Wireframes Figma e setup Next.js (M1)"
+        - "B02 — Orquestração LLM e streaming [CRÍTICO] (M2)"
+        - "M02 — Rota SSE e sessões Redis [QUASE CRÍTICO] (M2)"
+        - "F02 — Interface de chat com SSE (M2)"
+        - "B03 — Ingestão de manuais e guardrails [CRÍTICO] (M3)"
+        - "M03 — Filtros semânticos e cache Redis [QUASE CRÍTICO] (M3)"
+        - "F03 — Citação da fonte e feedback (M3)"
+        - "B04 — Motor de regras cross-sell/upsell [CRÍTICO] (M4)"
+        - "B05 — Preparação RAGAS e Golden Set (M4)"
+        - "M04 — API de catálogo e tracking [QUASE CRÍTICO] (M4)"
+        - "M05 — Mock de checkout e conversão (M4)"
+        - "F04 — Cards dinâmicos de produto [QUASE CRÍTICO] (M4)"
+        - "G04 — Documentação técnica (M5)"
+        - "F05 — Testes E2E e ajustes finais [CRÍTICO] (M5)"
+        - "G02 — Relatório final e demo [CRÍTICO] (M5)"
+        - "RES — Monitoramento Contínuo (EAP 6.0) e Reserva M5"
+    validations:
+      required: true
+  - type: input
+    id: dates
+    attributes:
+      label: Janela de Execução (Início -> Prazo Final)
+      placeholder: "Ex: 22/09/2026 a 02/10/2026 (9 dias úteis | Folga: 0d)"
+    validations:
+      required: true
+  - type: input
+    id: raci
+    attributes:
+      label: Responsáveis RACI (R = Executor | A = Aprovador)
+      placeholder: "Ex: A: Filipe | R: Diogo, Filipe"
+    validations:
+      required: true
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Entregáveis da EAP e Critérios de Aceite (SDD + TDD)
+      placeholder: "- [ ] Subpacote EAP...\n- [ ] Testes TDD (UT/IT/E2E)..."
+    validations:
+      required: true

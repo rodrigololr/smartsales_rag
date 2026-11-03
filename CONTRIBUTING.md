@@ -16,15 +16,21 @@ Nenhuma linha de código de produção deve ser mesclada na `main` sem seguir os
 
 ## 2. Convenção de Branches e Commits
 
-### 2.1. Nomenclatura de Branches
-Todas as *branches* devem referenciar explicitamente o código do pacote operacional (`G01–G04`, `B01–B05`, `M01–M05`, `F01–F05`) e o subpacote da EAP (`1.1–7.4`):
+### 2.1. Fluxo Gitflow (`feature/* → develop → main`) e Nomenclatura de Branches
 
-| Tipo | Formato da Branch | Exemplo Real no Projeto |
-| :--- | :--- | :--- |
-| **Feature Técnica** | `feat/<PACOTE>-<descricao-curta>` | `feat/B01-pgvector-catalog-ingestion` |
-| **Correção de Bug** | `fix/<PACOTE>-<descricao-curta>` | `fix/M02-sse-reconnection-timeout` |
-| **Testes / QA / RAGAS** | `test/<PACOTE>-<descricao-curta>` | `test/B05-ragas-golden-set-suite` |
-| **Documentação / Spec** | `docs/<PACOTE>-<descricao-curta>` | `docs/G04-openapi-swagger-publish` |
+O repositório adota proteção estrita nas branches **`develop`** (integração contínua da Sprint) e **`main`** (produção/entregas de Marco `M1–M5`):
+- **Proibido *push* direto em `main` e `develop`**: Toda alteração deve entrar via *Pull Request* com status check CI verde (`spec-contracts` / testes automatizados) e **no mínimo 1 revisão aprovada (*Code Review*)** por outro integrante (Aprovador `A` da camada na Matriz RACI).
+- **Fluxo diário**: Crie sua branch a partir de `develop` $\rightarrow$ abra PR para `develop` $\rightarrow$ após homologação do Marco (`M1–M5`), abra PR de `develop` para `main`.
+
+Todas as *branches* de trabalho devem referenciar explicitamente o código do pacote operacional (`G01–G04`, `B01–B05`, `M01–M05`, `F01–F05`) e o subpacote da EAP (`1.1–7.4`):
+
+| Tipo | Formato da Branch | Destino do PR | Exemplo Real no Projeto |
+| :--- | :--- | :---: | :--- |
+| **Integração Contínua** | `develop` | `main` (Marcos `M1–M5`) | `develop` |
+| **Feature Técnica** | `feat/<PACOTE>-<descricao-curta>` | `develop` | `feat/B01-pgvector-catalog-ingestion` |
+| **Correção de Bug** | `fix/<PACOTE>-<descricao-curta>` | `develop` | `fix/M02-sse-reconnection-timeout` |
+| **Testes / QA / RAGAS** | `test/<PACOTE>-<descricao-curta>` | `develop` | `test/B05-ragas-golden-set-suite` |
+| **Documentação / Spec** | `docs/<PACOTE>-<descricao-curta>` | `develop` | `docs/G04-openapi-swagger-publish` |
 
 ### 2.2. Padrão de Commits (*Conventional Commits 1.0.0*)
 Todos os commits devem seguir a especificação **`<tipo>(<escopo>): <descrição imperativa curta>`**, onde `<escopo>` é obrigatoriamente o código do pacote (`B01–B05`, `M01–M05`, `F01–F05`, `G01–G04`):
