@@ -123,7 +123,7 @@ Toda comunicação de *streaming* entre o **Middle-end** e o **Frontend** deve e
 
 1. `event: metadata` — Emitido **uma única vez**, imediatamente antes do primeiro evento de conteúdo (`token` ou `error`): `{"message_id": "...", "session_id": "...", "cache_hit": false, "ttft_ms": 890}`.
 2. `event: token` — Fragmento incremental de texto renderizado em tempo real na UI: `{"delta": "..."}`.
-3. `event: correction` *(opcional)* — Emitido pelo `OutputGuardrail (G-OUT)` após os tokens quando detecta divergência; o Frontend **substitui** o texto da bolha: `{"violation_code": "VOLTAGE_MISMATCH | PRICE_MISMATCH | MISSING_CITATION", "content": "<texto completo corrigido>"}`.
+3. `event: correction` *(opcional)* — Emitido pelo `OutputGuardrail (G-OUT)` apenas para fallback seguro em falha de transporte; o Frontend **substitui** o texto da bolha: `{"violation_code": "STREAM_INTERRUPTED", "content": "<texto completo corrigido>"}`.
 4. `event: citations` — Fontes técnicas verificadas: `{"citations": [{"chunk_id": "...", "sku": "...", "manual_title": "...", "page_number": 14, "section_title": "...", "similarity_score": 0.89, "excerpt": "..."}]}`.
 5. `event: recommendations` — *Product Cards* validados no SQL (máx. 3: 1 `PRIMARY`, até 1 `UPSELL`, até 1 `CROSS_SELL`): `{"products": [{"sku": "...", "name": "...", "price": 649.90, "stock_quantity": 12, "voltage": "220V", "capacity_liters": 4.0, "power_watts": 1500, "image_url": "...", "marketplace": "AMAZON | MERCADO_LIVRE | SHOPEE | LOJA_OFICIAL", "checkout_url": "https://...", "recommendation_type": "PRIMARY | UPSELL | CROSS_SELL", "badge_label": "...", "justification": "..."}]}`.
 6. `event: error` — Falha controlada ou *fallback* (**não** encerra o stream): `{"code": "GUARDRAIL_BLOCKED | LOW_SIMILARITY_FALLBACK | LLM_UNAVAILABLE | INTERNAL_ERROR", "recoverable": true, "fallback_message": "..."}`.
@@ -191,3 +191,5 @@ O fluxo de dependência é estritamente unidirecional (`Presentation → Applica
 - **Vai mexer no Gateway, Redis, SSE ou Checkout Mock (`M01` a `M05`)?** Leia [`specs/architecture/03_openapi_and_sse_contracts.md`](specs/architecture/03_openapi_and_sse_contracts.md) e [`specs/components/02_middleend_gateway_sse_redis_spec.md`](specs/components/02_middleend_gateway_sse_redis_spec.md).
 - **Vai mexer na UI do Chat, Cards ou Feedback (`F01` a `F05`)?** Leia [`specs/components/03_frontend_chat_and_cards_spec.md`](specs/components/03_frontend_chat_and_cards_spec.md) e [`specs/diagrams_and_pm/05_diagrama_sequencia.md`](specs/diagrams_and_pm/05_diagrama_sequencia.md).
 - **Vai consultar prazos, responsabilidades ou riscos (`G01` a `G04`)?** Consulte [`specs/diagrams_and_pm/`](specs/diagrams_and_pm/).
+
+Baseline normativa: consultar `specs/01_BASELINE_REVISADA.md` e `openapi.yaml`. Tokens contêm somente sentenças previamente validadas; error após tokens descarta conteúdo parcial e termina em done(error), se conexão aberta. Toda pergunta inclui client_request_id preservado nos retries.

@@ -24,7 +24,7 @@ flowchart LR
         HRET <--> PG
         HRET --> REC["<b>RecommendationEngine</b><br/>stock > 0: Primary + Upsell (<=+35%)<br/>+ 1 Cross-sell"]
         HRET --> GEN["<b>RAGStreamGenerator</b><br/>System Prompt + Context Chunks"]
-        GEN --> GOUT["<b>OutputGuardrail (G-OUT)</b><br/>Valida Citações e Voltagem/Preço<br/>(emite correction se divergir)"]
+        GEN --> GOUT["<b>OutputGuardrail (G-OUT)</b><br/>Valida Citações e Voltagem/Preço<br/>(retém e valida antes de publicar)"]
         REC & GOUT --> OUT["Stream Interno para o Gateway"]
     end
 
@@ -38,7 +38,7 @@ flowchart LR
 
 ### 2.0. Execução da Ingestão do Catálogo Local (`UC08`)
 - Disparo pelo Operador/Lojista via CLI: `python -m app.ingestion.run --catalog data/catalog.json --manuals data/manuals/` (também usado no *seed* do `docker compose` e do CI).
-- Etapas: validação de *schema* do catálogo (`UT-B01-01`) → *upsert* em `products`/`product_relations` → para cada PDF novo ou alterado (`content_hash` SHA-256 diferente) cria/atualiza `ingestion_jobs` (`PENDING → RUNNING → INDEXED`) → extração, *chunking*, *embeddings* e *upsert* em `manual_chunks` → ao final, `INCR catalog:version` no Redis (`RN09`).
+- Etapas: validação de *schema* do catálogo (`UT-B01-01`) → *upsert* em `products`/`product_relations` → para cada PDF novo ou alterado (`content_hash` SHA-256 diferente) cria/atualiza `ingestion_jobs` (`PENDING → RUNNING → INDEXED`) → extração, *chunking*, *embeddings* e substituição transacional dos chunks da versão anterior (seção 6) → ao final, `INCR catalog:version` no Redis (`RN09`).
 - Falhas: até `3` tentativas com *backoff* exponencial; esgotadas, o job vai para `NEEDS_INTERVENTION` e é listado na saída da CLI e no painel `/admin/metricas` (`UC09`). Produtos removidos do *seed* são marcados `is_active = FALSE` e seus *chunks* apagados.
 
 ### 2.1. Regras de Processamento de Manuais Técnicos (`EAP 4.2`)
@@ -83,9 +83,11 @@ REGRAS OBRIGATÓRIAS E INEGOCIÁVEIS:
 
 ```python
 from decimal import Decimal
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PlainSerializer
+
+Money = Annotated[Decimal, PlainSerializer(float, when_used="json")]
 
 class RetrievedChunk(BaseModel):
     chunk_id: UUID
@@ -99,7 +101,7 @@ class RetrievedChunk(BaseModel):
 class ProductRecommendation(BaseModel):
     sku: str
     name: str
-    price: Decimal = Field(gt=0)
+    price: Money = Field(gt=0, max_digits=10, decimal_places=2)
     stock_quantity: int = Field(gt=0)
     voltage: Literal["127V", "220V", "BIVOLT", "N/A"]
     capacity_liters: Optional[float] = None
@@ -119,7 +121,8 @@ class GuardrailCheckResult(BaseModel):
         "LOW_SIMILARITY_SCORE",
         "VOLTAGE_MISMATCH",
         "PRICE_MISMATCH",
-        "MISSING_CITATION"
+        "MISSING_CITATION",
+        "CAPACITY_MISMATCH", "POWER_MISMATCH", "UNSUPPORTED_CLAIM"
     ]] = None
     safe_fallback_response: Optional[str] = None
 ```
@@ -130,16 +133,20 @@ class GuardrailCheckResult(BaseModel):
 | :--- | :---: | :--- |
 | `PROMPT_INJECTION`, `OUT_OF_DOMAIN` | `G-IN` | `error` com `code = "GUARDRAIL_BLOCKED"` |
 | `LOW_SIMILARITY_SCORE` | `G-RET` | `error` com `code = "LOW_SIMILARITY_FALLBACK"` + `recommendations` (similares em estoque) |
-| `VOLTAGE_MISMATCH`, `PRICE_MISMATCH`, `MISSING_CITATION` | `G-OUT` | `correction` com o texto completo corrigido |
+| `VOLTAGE_MISMATCH`, `PRICE_MISMATCH`, `MISSING_CITATION`, `CAPACITY_MISMATCH`, `POWER_MISMATCH`, `UNSUPPORTED_CLAIM` | `G-OUT` | Bloqueia a sentença privada e publica somente template validado |
 
 ---
 
-## 5. Especificação do Verificador Factual Pós-Geração (`OutputGuardrail` — `B03`)
+## 5. Especificação do Verificador Factual antes da Publicação (`OutputGuardrail` — `B03`)
 
-O módulo `OutputGuardrail` acumula o texto transmitido e, ao fim da geração, executa três verificações determinísticas em $< 10\text{ ms}$ antes de emitir os eventos `citations` e `recommendations`. Como os tokens já foram exibidos, qualquer violação é tratada com o evento SSE `correction`, cujo `content` substitui integralmente o texto da bolha no Frontend:
-1. **Verificação de Voltagem (`check_voltage_consistency`)**:
-   - Se o `SKU` primário é exclusivamente `220V` e o texto gerado afirma que o referido `SKU` é `127V` ou `Bivolt` (sem estar comparando com outro `SKU` `127V`), marca `violation_code = "VOLTAGE_MISMATCH"` e reescreve a afirmação com a voltagem do SQL no `content` do evento `correction`.
-2. **Verificação de Preço (`check_price_consistency`)**:
-   - Extrai todos os valores monetários `R$ X.XXX,XX` do texto e valida se pertencem ao conjunto `{p.price for p in recommendations}`; divergência gera `PRICE_MISMATCH` e substituição pelo preço canônico do SQL.
-3. **Verificação de Citações (`check_citations_exist`)**:
-   - Confirma que cada `chunk_id` e `page_number` emitido no evento `citations` pertence ao subconjunto de `RetrievedChunk`s efetivamente recuperados naquele turno.
+O módulo retém cada sentença do LLM em buffer privado. Antes de publicar qualquer token dessa sentença, resolve as afirmações como `(sku, atributo, valor, unidade, chunk_id, página)`. Compara voltagem, preço, capacidade e potência com o registro daquele SKU e verifica que a evidência citada sustenta a afirmação, não apenas que o ID existe. Comparações são verificadas separadamente por SKU. O conjunto de preços dos cards não é um validador de associação.
+
+Afirmações ambíguas, unidades não normalizáveis e fatos sem suporte são substituídos, antes da publicação, por template determinístico de ausência de evidência. Para compatibilidade, materiais e dimensões sem validador determinístico, publicar apenas extrato literal do trecho verificado ou fallback; nunca confiar somente no LLM como verificador. Recomendações SQL e chunks dos produtos recomendados são obtidos antes de montar o prompt e verificar suas afirmações.
+
+O evento `correction` fica reservado à substituição por conteúdo seguro após falha de transporte; não é mecanismo para corrigir um fato incorreto já exposto. Código de violação interno inclui `CAPACITY_MISMATCH`, `POWER_MISMATCH`, `UNSUPPORTED_CLAIM`, além dos existentes. Toda medição de alucinação avalia os fatos do texto efetivamente publicado. As tentativas bloqueadas são contadas separadamente. O orçamento de 320 ms de entrada, 90 ms de recuperação e 1.150 ms de geração passa a incluir o buffer/validação da primeira sentença; TTFT nominal é alvo a medir, não garantia provada pela soma de estimativas. Homologação exige medir p95 até o primeiro token validado no navegador, sem desabilitar G-OUT para atingir SLA.
+
+## 6. Ingestão versionada e publicação atômica
+
+Cada manual possui `manual_source` estável e `manual_version` (SHA-256 do PDF). A extração e os embeddings são preparados fora da transação. Sob lock do produto, uma única transação apaga todos os chunks do `manual_source` substituído e insere o conjunto completo da nova versão; apenas depois marca o job INDEXED. Falha faz rollback e preserva integralmente a versão anterior. PDF menor não deixa páginas antigas. `INCR catalog:version` ocorre após commit; falha no Redis bloqueia leitura/escrita do cache até reconciliar a versão. Uma revisão nunca mistura versões na mesma busca.
+
+Se não houver nenhuma sentença aprovada e a consulta não puder ser respondida com evidência, emitir error LOW_SIMILARITY_FALLBACK, recomendações determinísticas e end; o Gateway conclui com done(fallback). Nunca transmitir o rascunho rejeitado.

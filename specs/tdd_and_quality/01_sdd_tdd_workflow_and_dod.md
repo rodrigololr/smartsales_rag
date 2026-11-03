@@ -42,7 +42,7 @@ flowchart TB
 | :--- | :--- | :--- | :---: | :--- |
 | **1. Testes Unitários (`UT`)** | Funções puras: *chunking* (`500/50`), normalização de cache, cálculo de *score* de *Upsell* (`+35%`), *Guardrails* (`G-IN`, `G-OUT`), componentes React isolados. | `Pytest` (Python)<br/>`Vitest + RTL` (TS) | **$\ge 75\%$** nas regras de negócio (`>= 70%` global) | A cada `git push` (`< 15s`) |
 | **2. Testes de Contrato e Integração (`IT` / `CT`)** | Ingestão do *seed* local, busca híbrida real no `pgvector` (via container de teste), sessão e cache no `Redis`, streaming SSE e contingência no FastAPI, métricas e transação `FOR UPDATE` do Mock Checkout (`IT-B01-01` a `IT-M05-01`, `CT-M01-01`). | `Pytest Async` + `httpx` + `testcontainers` | **100%** dos endpoints OpenAPI 3.1 testados | Em todo Pull Request (`< 60s`) |
-| **3. Avaliação Cognitiva RAG (`RAGAS`)** | *Faithfulness*, *Answer Relevance*, *Context Precision* e Taxa de Alucinação sobre o *Golden Set* de 50 perguntas técnicas. | `RAGAS` + `Pytest` | **Faithfulness $\ge 0,85$** (alvo $\ge 90\%$)<br/>**Alucinação $\le 5\%$**<br/>**`P@5 >= 0,80`** | Em PRs que alterem `backend/app/retrieval`, `generation` ou `prompts` |
+| **3. Avaliação Cognitiva RAG (`RAGAS`)** | *Faithfulness*, *Answer Relevance*, *Context Precision* e Taxa de Alucinação sobre o *Golden Set* de 50 perguntas técnicas. | `RAGAS` + `Pytest` | **Faithfulness $\ge 0,85$** (alvo $\ge 90\%$)<br/>**Alucinação $\le 5\%$**<br/>**`P@5 >= 0,80`** | Nos caminhos semânticos definidos pelo job `eval-rag-quality-gate` (seção 3) |
 | **4. Testes End-to-End e Performance (`E2E`)** | Jornada completa no navegador (Pergunta $\to$ Streaming SSE $\to$ Citação $\to$ Card Upsell $\to$ Mock Checkout $\to$ Like/Dislike) + aferição de `TTFT`. | `Playwright` + Script de Benchmark SSE | **100% de aprovação** dos 8 fluxos críticos (`E2E-01` a `E2E-08`);<br/>**$\text{TTFT} \le 1,5\text{ s}$** nominal ($\le 2,0\text{ s p95}$) | No fechamento de cada Sprint e nos Marcos `M2`, `M3`, `M4`, `M5` |
 
 ---
@@ -64,7 +64,7 @@ O pipeline do GitHub Actions é dividido em 4 *jobs* paralelos bloqueantes (*Req
    - Executa `npx playwright test` validando o contrato de streaming e renderização de cards.
 4. **`eval-rag-quality-gate`**:
    - Executa o subconjunto rápido de regressão do *Golden Set* garantindo **0 inversões de voltagem/preço** e **Faithfulness $\ge 0,85$**;
-   - Roda apenas em PRs internos que alterem `backend/app/retrieval`, `generation`, `guardrails` ou `prompts` (requer o *secret* `OPENAI_API_KEY`) e respeita o teto de consumo do contrato `01` (`R13`).
+   - Roda regressão rápida em alterações de `backend/app/**` (inclui ingestion, recommendation, modelos/settings), `backend/tests/ragas_eval/**`, `data/**`, dependências/lockfiles do Backend e configuração do avaliador/CI. Requer `OPENAI_API_KEY` e respeita `R13`. PR sem secret roda testes determinísticos e permanece com avaliação cognitiva PENDENTE; um mantenedor executa o job protegido no commit exato após revisão, sem expor secrets a código de fork. Nunca considerar skip como qualidade aprovada. Avaliação completa dos 50 casos é obrigatória no commit integrado após B04 e em toda alteração semântica posterior antes de homologar M4/M5.
 
 ---
 
@@ -72,7 +72,7 @@ O pipeline do GitHub Actions é dividido em 4 *jobs* paralelos bloqueantes (*Req
 
 | Critério de Aceite | Backend & IA (`B01–B05`) | Middle-end (`M01–M05`) | Frontend (`F01–F05`) |
 | :--- | :---: | :---: | :---: |
-| Testes unitários escritos **antes** ou junto ao código (TDD) com cobertura $\ge 70\%$ | Obrigatório | Obrigatório | Obrigatório |
+| Testes unitários escritos **antes** do código, com evidência da falha esperada (TDD) com cobertura $\ge 70\%$ | Obrigatório | Obrigatório | Obrigatório |
 | Validação estrita de tipos (`Pydantic v2` / `TypeScript strict`) sem uso de `any` | Obrigatório | Obrigatório | Obrigatório |
 | Conformidade com os contratos de [`03_openapi_and_sse_contracts.md`](../architecture/03_openapi_and_sse_contracts.md) | Obrigatório | Obrigatório | Obrigatório |
 | Verificação de *Guardrails* (`estoque > 0`, `similarity >= 0.72`, teto `+35%` de *upsell*) | Obrigatório | N/A (Pass-through) | Exibição fiel do Badge |

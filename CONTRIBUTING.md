@@ -111,3 +111,7 @@ Os códigos abaixo seguem exatamente o [Plano de Gerenciamento das Comunicaçõe
 | **C07** | **Resultados de testes e qualidade do RAG** | A cada *build* testada / sprint | GitHub Issues + relatório de testes | **Victor Hugo** / **Well** |
 | **C08** | ***Sprint Review*, retrospectiva (PDCA) e aceite parcial** | Quinzenal, fim da sprint (`02/10`, `16/10`, `30/10`, `13/11`) | Google Meet + ambiente de homologação + FigJam | **Walber** |
 | **C09** | **Entrega final, demo/*pitch* e lições aprendidas** | Marco `M5` (`24/11/2026`) | Presencial (UFAL) + Slides/Demo | **Antônio Rodrigo** |
+
+## Validar a baseline documental
+
+Antes de iniciar a aplicação, validar contratos e exemplos com `python -m pip install -r tests/requirements-specs.txt` e `python -m unittest discover -s tests -v`. O workflow Specs and reference contracts executa essas checagens sem secrets. Esta suíte cobre os exemplos documentados e a validade OpenAPI; não substitui os testes futuros da aplicação nem o Golden Set real. As decisões da revisão estão em `specs/01_BASELINE_REVISADA.md`.

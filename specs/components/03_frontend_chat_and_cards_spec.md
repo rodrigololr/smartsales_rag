@@ -137,7 +137,7 @@ O hook `useSSEChatStream` gerencia o ciclo de vida da requisição `POST /api/v1
    - `COMPLETED`: Ao receber `done` (sempre o último evento), habilita a barra de feedback (`👍` / `👎`) e reabilita o campo de envio.
    - *Estes estados são apenas visuais; não correspondem a `chat_sessions.state` (`ACTIVE | ENDED`).*
 2. **Resiliência em Conexões Móveis Instáveis (Mitigação do Risco `R07`)**:
-   - Se a conexão cair antes do evento `done`, o hook descarta o texto parcial e **reenvia a mesma requisição `POST` uma única vez**; caso persista a falha, exibe botão `"Tentar novamente"` mantendo a pergunta do usuário preservada.
+   - Se a conexão cair antes do evento `done`, o hook descarta o texto parcial e **reenvia a mesma requisição `POST`, incluindo o mesmo `client_request_id`, uma única vez**; caso persista a falha, exibe botão `"Tentar novamente"` mantendo a pergunta do usuário preservada.
 
 ---
 
@@ -165,3 +165,7 @@ Cada card renderizado na vitrine da mensagem deve exibir obrigatoriamente:
 ### 4.4. Painel de Métricas do Operador/Lojista (`AdminMetricsPage` — `UC09`, `RF16`)
 - Rota `/admin/metricas` (fora do layout da vitrine), solicita o `ADMIN_TOKEN` uma vez (guardado em `sessionStorage`) e chama `GET /api/v1/metrics/summary` com o cabeçalho `X-Admin-Token`.
 - Exibe *cards* de KPI (`TTFT p50/p95`, tempo total `p95`, *cache hit ratio*, taxa `5xx`, aprovação de *likes*, CTR dos cards e checkouts confirmados) comparados às metas da [Árvore de Qualidade](../diagrams_and_pm/10_qualidade_arvore_metricas.md) e a lista das dúvidas mais frequentes. Em `401`, volta a pedir o token.
+
+## 5. Vitrine, retry e texto seguro
+
+Carregar a vitrine e a pesquisa em `GET /api/v1/products` com os parâmetros/resultado normativos da seção 5 do contrato. Criar `client_request_id` UUID v4 antes de enviar a pergunta e preservar o mesmo ID/payload na única reconexão automática. Tratar 409 TURN_IN_PROGRESS aguardando Retry-After sem criar outro turno; 409 IDEMPOTENCY_CONFLICT é erro de cliente, não retry; 410 pede novo envio explícito. No evento error, descartar todo conteúdo parcial e mostrar fallback. Nenhum token recebido pode depender de correction posterior para se tornar factualmente seguro.

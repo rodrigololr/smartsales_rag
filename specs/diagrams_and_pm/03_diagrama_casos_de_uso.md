@@ -19,68 +19,58 @@ O **Diagrama de Casos de Uso** delimita a fronteira funcional da plataforma **Sm
 
 ---
 
-## 3. Diagrama de Casos de Uso
+## 3. Diagrama de Casos de Uso (PlantUML)
 
-```mermaid
-flowchart LR
-    %% Atores Externos Esquerda
-    Consumidor(["👤 Consumidor / Cliente"])
+```plantuml
+@startuml
+left to right direction
 
-    %% Fronteira do Sistema
-    subgraph Sistema["<b>Assistente de Vendas (SmartSales RAG)</b>"]
-        direction TB
-        UC07(["<b>UC07: Iniciar / Reiniciar Sessão de Chat</b>"])
-        UC01(["<b>UC01: Tirar Dúvidas Técnicas</b><br/>(Voltagem, capacidade, especificações)"])
-        UC02(["<b>UC02: Consultar Base do Catálogo</b>"])
-        UC03(["<b>UC03: Receber Recomendações</b><br/>(Produtos similares / Cross-sell / Upsell)"])
-        UC04(["<b>UC04: Interagir com Card de Produto</b><br/>(Ver detalhes, fotos e preço)"])
-        UC05(["<b>UC05: Direcionar para Checkout</b><br/>(Mock checkout + link de afiliado)"])
-        UC06(["<b>UC06: Avaliar Resposta</b><br/>(Feedback Positivo / Negativo)"])
-        UC08(["<b>UC08: Sincronizar Catálogo de Produtos</b><br/>(Ingestão local via CLI)"])
-        UC09(["<b>UC09: Visualizar Métricas de Conversão e RAG</b><br/>(/admin/metricas)"])
+actor "Consumidor / Cliente" as Consumidor
+actor "Operador / Lojista" as Operador
+actor "OpenAI\n(LLM e Embeddings)" as IA
+actor "Marketplace / Afiliado" as Marketplace
 
-        subgraph Core["Core Services"]
-            RAG[["<<service>><br/><b>Busca Vetorial / RAG</b>"]]
-            LLM_SRV[["<<service>><br/><b>LLM</b>"]]
-        end
-    end
+rectangle "SmartSales RAG" {
+  usecase "UC07: Iniciar / Reiniciar\nsessão de chat" as UC07
+  usecase "UC01: Tirar\ndúvidas técnicas" as UC01
+  usecase "UC02: Consultar\nbase do catálogo" as UC02
+  usecase "UC03: Receber\nrecomendações" as UC03
+  usecase "UC04: Inspecionar\nproduto recomendado" as UC04
+  usecase "UC05: Direcionar\npara checkout" as UC05
+  usecase "UC06: Avaliar\nresposta" as UC06
+  usecase "UC08: Sincronizar\ncatálogo e manuais" as UC08
+  usecase "UC09: Visualizar\nmétricas de conversão e RAG" as UC09
+}
 
-    %% Atores Externos Direita
-    Marketplace(["🛒 Marketplace / Afiliado"])
-    Lojista(["👔 Operador / Lojista"])
+Consumidor --> UC07
+Consumidor --> UC01
+Consumidor --> UC03
+Consumidor --> UC04
+Consumidor --> UC05
+Consumidor --> UC06
+Operador --> UC08
+Operador --> UC09
 
-    %% Associações do Consumidor
-    Consumidor --- UC07
-    Consumidor --- UC01
-    Consumidor --- UC04
-    Consumidor --- UC06
+UC01 ..> UC02 : <<include>>
+UC03 ..> UC01 : <<extend>>\n[intenção de compra ou incompatibilidade]
+UC05 ..> UC04 : <<extend>>\n[clique em Comprar]
 
-    %% Relacionamentos <<include>> e <<extend>>
-    UC01 -.->|"<<include>>"| UC02
-    UC03 -.->|"<<extend>>"| UC01
-    UC05 -.->|"<<extend>>"| UC04
+IA --> UC01
+IA --> UC02
+IA --> UC08
+Marketplace --> UC05
 
-    %% Ligações com Serviços Core
-    UC01 --- LLM_SRV
-    UC02 --- RAG
-    UC08 --- RAG
+note bottom of UC02
+  Recuperação e cache são detalhes internos.
+  A associação ao provedor se aplica ao caminho
+  que solicita embeddings; cache pode evitá-lo.
+end note
 
-    %% Associações com Sistema Externo e Operador/Lojista
-    UC05 --- Marketplace
-    Lojista --- UC08
-    Lojista --- UC09
-
-    style Sistema fill:#f8fafc,stroke:#1e3a8a,stroke-width:2px
-    style Core fill:#eff6ff,stroke:#3b82f6,stroke-dasharray: 5 5
-    style UC01 fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px
-    style UC02 fill:#dbeafe,stroke:#1d4ed8,stroke-width:2px
-    style UC03 fill:#dcfce7,stroke:#15803d,stroke-width:2px
-    style UC04 fill:#dcfce7,stroke:#15803d,stroke-width:2px
-    style UC05 fill:#fef3c7,stroke:#b45309,stroke-width:2px
-    style UC06 fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px
-    style UC07 fill:#e0e7ff,stroke:#4338ca,stroke-width:2px
-    style UC08 fill:#fce7f3,stroke:#be185d,stroke-width:2px
-    style UC09 fill:#fce7f3,stroke:#be185d,stroke-width:2px
+note bottom of UC05
+  Checkout simulado e redirecionamento ao anúncio.
+  Não há pagamento nem API externa de loja.
+end note
+@enduml
 ```
 
 ---

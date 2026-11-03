@@ -62,9 +62,9 @@ Para cumprir a meta SMART de **$\text{TTFT} \le 1,5\text{ s}$** (nominal) e **$\
 | **2. Checagem de Cache Semântico no Redis** | Middle-end (`M03`) | `15 ms` | `30 ms` | Lookup por hash normalizado + índice de chaves em memória. |
 | **3. Guardrail de Entrada (`G-IN`) + Geração de Embedding da Query** | Backend (`B02`, `B03`) | `180 ms` | `320 ms` | `text-embedding-3-small` com conexão HTTP/2 persistente (*keep-alive*). |
 | **4. Busca Híbrida (`pgvector` HNSW + Filtros SQL de Catálogo)** | Backend + PostgreSQL (`B01`, `B02`) | `45 ms` | `90 ms` | Índice `HNSW` (`m=16, ef_construction=64`) + índice B-Tree composto em `(is_active, stock_quantity, voltage)`. |
-| **5. Montagem do Prompt + Tempo até 1º Token do LLM (`gpt-4o-mini`)** | Backend + OpenAI (`B02`) | `650 ms` | `1.150 ms` | Prompt enxuto (`top_k = 5` *chunks*) + `stream=True` direto para o gerador SSE. |
+| **5. Montagem do Prompt + Tempo até 1º Token do LLM (`gpt-4o-mini`)** | Backend + OpenAI (`B02`) | `650 ms` | `1.150 ms` | Prompt enxuto (`top_k = 5` *chunks*) + `stream=True` com buffer e validação da primeira sentença antes do SSE. |
 | **6. Propagação SSE para o Navegador** | Middle-end + Frontend (`M02`, `F02`) | `35 ms` | `60 ms` | Desativação de *buffering* (`X-Accel-Buffering: no`, `Cache-Control: no-cache`). |
-| **TOTAL ATÉ O PRIMEIRO TOKEN (`TTFT`)** | **Ponta a Ponta** | **`950 ms` (`0,95 s`)** | **`1.700 ms` (`1,70 s`)** | **100% dentro da Meta SMART ($\le 1,5\text{ s}$ nominal / $\le 2,0\text{ s p95}$)** |
+| **TOTAL ATÉ O PRIMEIRO TOKEN (`TTFT`)** | **Ponta a Ponta** | **`950 ms` (`0,95 s`)** | **`1.700 ms` (`1,70 s`)** | **Orçamento teórico a aferir na homologação para a Meta SMART ($\le 1,5\text{ s}$ nominal / $\le 2,0\text{ s p95}$)** |
 
 > [!TIP]
 > **Caminho Rápido (*Cache Hit* no Redis — $\ge 30\%$ das requisições)**: Nas consultas recorrentes atendidas pelo Redis (`M03`), as etapas 3, 4 e 5 são contornadas e o **$\text{TTFT}$ cai para $\le 120\text{ ms}$**.

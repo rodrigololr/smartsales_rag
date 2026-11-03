@@ -166,12 +166,14 @@ CREATE TABLE manual_chunks (
     manual_title VARCHAR(255) NOT NULL,
     page_number INTEGER NOT NULL CHECK (page_number >= 1),
     chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),
+    manual_source TEXT NOT NULL,
+    manual_version VARCHAR(64) NOT NULL,
     section_title VARCHAR(255),
     content TEXT NOT NULL,
     embedding vector(1536) NOT NULL,
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (product_id, page_number, chunk_index)
+    UNIQUE (product_id, manual_source, page_number, chunk_index)
 );
 
 -- Índice HNSW para Busca de Similaridade de Cosseno em Sub-50ms
@@ -292,8 +294,8 @@ FROM manual_chunks mc
 INNER JOIN products p ON p.id = mc.product_id
 WHERE p.is_active = TRUE
   AND (:sku_scope IS NULL OR mc.sku = ANY(:sku_scope))
-  AND (:voltage_filter IS NULL OR p.voltage IN (:voltage_filter, 'BIVOLT'))
-  AND (:category_filter IS NULL OR p.category = :category_filter)
+  AND (:sku_scope IS NOT NULL OR :voltage_filter IS NULL OR p.voltage IN (:voltage_filter, 'BIVOLT'))
+  AND (:sku_scope IS NOT NULL OR :category_filter IS NULL OR p.category = :category_filter)
   AND (1 - (mc.embedding <=> CAST(:query_embedding AS vector))) >= :similarity_threshold
 ORDER BY mc.embedding <=> CAST(:query_embedding AS vector) ASC
 LIMIT 5;
@@ -310,3 +312,22 @@ LIMIT 5;
 | `cache:sem:{catalog_ver}:{sha256_query}` | `STRING` | `3600s` (60m) | JSON contendo `{ "answer_text": "...", "citations": [...], "recommendations": [...] }`. | `M03` |
 | `catalog:version` | `STRING` (`INCR`) | Sem expiração | Inteiro incremental (ex.: `42`, usado na chave como `v42`) incrementado pela CLI de ingestão (`B01`/`B03`) e pelo *mock checkout* quando o estoque zera ou o preço muda (`M05`), invalidando *caches* antigos (`RN09`). | `M03` / `B01` / `M05` |
 | `ratelimit:ip:{client_ip}` | `STRING` (`INCR`) | `60s` (1m) | Contador de requisições por minuto (limite padrão: `30 req/min` por IP/sessão). | `M01` |
+
+Com SKU explícito, recuperar sua evidência independentemente da preferência de compra; voltagem e categoria restringem apenas buscas abertas e a elegibilidade dos cards. Publicação de versões de manuais segue a seção 6 da spec Backend. Nunca aplicar filtro de estoque à evidência.
+
+## 5. Registro idempotente de turnos
+
+```sql
+CREATE TABLE chat_turn_requests (
+    session_id UUID NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    client_request_id UUID NOT NULL,
+    payload_hash VARCHAR(64) NOT NULL,
+    message_id UUID UNIQUE REFERENCES chat_messages(id),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('RUNNING','COMPLETED','FAILED','EXPIRED')),
+    terminal_payload JSONB,
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '24 hours'),
+    PRIMARY KEY (session_id, client_request_id)
+);
+```
+
+Adquirir por INSERT ON CONFLICT e ler estado sob lock; apenas o vencedor chama o Backend. Persistir mensagem, payload terminal e COMPLETED/FAILED na mesma transação antes de done. Reserva órfã RUNNING após falha do worker é reconciliada para FAILED, nunca dispara geração duplicada automaticamente; lease de execução com heartbeat é mantido pelo dono do turno. Expirar payload após 24h e preservar hash/ID como tombstone EXPIRED até o encerramento da sessão, respeitando limite de retenção de 90 dias.

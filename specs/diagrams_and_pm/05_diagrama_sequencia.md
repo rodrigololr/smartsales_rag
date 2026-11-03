@@ -74,22 +74,25 @@ sequenceDiagram
         PG-->>BE: 18: Chunks com similarity_score e metadados de página
 
         alt Trechos relevantes (score ≥ limiar)
-            BE->>OAI: 19: Prompt + chunks + guardrails (stream = true)
+            BE->>PG: Seleciona recomendações SQL e evidências dos candidatos antes do prompt
+            PG-->>BE: Dados por SKU e chunks verificados
+            BE->>OAI: 19: Prompt + chunks + recomendações verificadas (stream = true)
             loop Streaming de tokens
-                OAI-->>BE: 20: Delta da resposta
+                OAI-->>BE: 20: Sentença em buffer privado
+                BE->>BE: Valida fatos/evidências por SKU antes de publicar
                 BE-->>GW: 21: token (NDJSON interno)
                 GW-->>FE: 22: event metadata (1x) e event token
                 FE-->>Consumidor: 23: Renderiza texto progressivamente
             end
-            BE->>BE: 24: G-OUT valida voltagem, preço e citações
-            opt Divergência detectada
+            BE->>BE: 24: Consolida sentenças já validadas antes da publicação
+            opt Falha de transporte exige fallback seguro
                 BE-->>GW: 25: correction (texto corrigido)
                 GW-->>FE: 26: event correction (substitui o texto da bolha)
             end
             BE-->>GW: 27: citations verificadas
             GW-->>FE: 28: event citations (badges de página do manual)
             opt Intenção de compra ou incompatibilidade detectada (UC03)
-                BE->>PG: 29: Motor de regras SQL (RN04, RN05, stock_quantity > 0)
+                BE->>PG: 29: Revalida estoque/preço dos candidatos já usados no prompt
                 PG-->>BE: 30: Candidatos PRIMARY, UPSELL e CROSS_SELL
                 BE-->>GW: 31: recommendations (máx. 3 cards)
                 GW-->>FE: 32: event recommendations
@@ -107,9 +110,9 @@ sequenceDiagram
         end
     end
 
-    GW-->>FE: 41: event done (finish_reason, total_latency_ms, tokens_used)
+    GW->>PG: 43: Persiste turno validado e conclusão idempotente
     GW->>RD: 42: Atualiza histórico e grava cache (se elegível)
-    GW->>PG: 43: INSERT chat_messages (ttft_ms, total_latency_ms, cache_hit)
+    GW-->>FE: 41: event done após persistência (finish_reason, total_latency_ms, tokens_used)
 
     Note over Consumidor, Lojista: BLOCO 3 — UC05 e UC06: Mock checkout e avaliação da resposta (Passos 44 a 56)
     opt UC05 - Consumidor clica em Comprar na {Marketplace}
@@ -192,8 +195,8 @@ sequenceDiagram
 | **22** | Gateway | Frontend | Evento SSE (`metadata` 1x, `token`) | `loop [Streaming de tokens]` | Antes do primeiro token emite `event: metadata` (`ttft_ms` medido nesse instante); em seguida `event: token {"delta": "..."}` com *flush* imediato (`EAP 4.6`). |
 | **23** | Frontend | Consumidor | Atualização UI | `loop [Streaming de tokens]` | Renderiza o texto progressivamente (`EAP 4.9`). |
 | **24** | Backend RAG | Backend RAG | Auto-chamada Interna | — | `OutputGuardrail (G-OUT)` verifica voltagem, preço (`RN08`) e citações (`RN07`) contra os dados SQL e os *chunks* do turno. |
-| **25** | Backend RAG | Gateway | Stream interno | `opt [Divergência detectada]` | Emite `correction` com `violation_code` e o texto completo corrigido. |
-| **26** | Gateway | Frontend | Evento SSE (`correction`) | `opt [Divergência detectada]` | O Frontend substitui o texto da bolha pelo conteúdo corrigido. |
+| **25** | Backend RAG | Gateway | Stream interno | `opt [Falha de transporte]` | Emite correction STREAM_INTERRUPTED com template seguro de falha de transporte; fatos já foram validados antes dos tokens. |
+| **26** | Gateway | Frontend | Evento SSE (`correction`) | `opt [Falha de transporte]` | O Frontend substitui o texto parcial pelo fallback seguro de transporte. |
 | **27** | Backend RAG | Gateway | Stream interno | — | Lista de citações verificadas (`chunk_id`, `manual_title`, `page_number`, `excerpt`). |
 | **28** | Gateway | Frontend | Evento SSE (`citations`) | — | Renderiza os *badges* de página do manual (`EAP 4.9`, `RF11`). |
 | **29** | Backend RAG | PostgreSQL | Síncrona (SQL) | `opt [Intenção de compra ou incompatibilidade]` | Motor determinístico de *upsell* (`RN04`, teto `+35%`) e *cross-sell* (`RN05`, 1 item), sempre com `stock_quantity > 0` e voltagem compatível (`EAP 4.4`). |

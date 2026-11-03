@@ -1,0 +1,17 @@
+name: Specs and reference contracts
+on:
+  pull_request:
+  push:
+    branches: [main, docs/G01-sdd-tdd-and-pm-specs]
+permissions:
+  contents: read
+jobs:
+  spec-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r tests/requirements-specs.txt
+      - run: python -m unittest discover -s tests -v

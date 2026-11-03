@@ -67,6 +67,14 @@ flowchart LR
 ## 4. Integração com o Ciclo PDCA de Melhoria Contínua (`EAP 5.1`, `5.4`)
 
 Conforme especificado em [`13_qualidade_ciclo_pdca.md`](../diagrams_and_pm/13_qualidade_ciclo_pdca.md):
-1. Sempre que uma execução da suíte RAGAS apresentar `Faithfulness < 0.85` ou `P@5 < 0.80` em qualquer caso do *Golden Set*, o *build* da PR é bloqueado;
+1. Sempre que uma execução da suíte RAGAS apresentar `Faithfulness < 0.85` ou `P@5 < 0.80` na média macro dos casos respondíveis aplicáveis do *Golden Set*, o *build* da PR é bloqueado;
 2. A causa raiz é classificada nas 6 espinhas do [Diagrama de Ishikawa](../diagrams_and_pm/11_qualidade_diagrama_ishikawa.md) (*Método, Máquina, Matéria-Prima, Medida, Meio Ambiente, Mão de Obra*);
 3. O ajuste no *chunking*, nos metadados SQL ou no *System Prompt* é aplicado e um novo caso de regressão é adicionado ao *Golden Set*.
+
+## 5. Aplicabilidade e agregação dos gates
+
+Cada fixture define `answerable`, `expected_action` (ANSWER, REFUSE ou FALLBACK), `relevant_chunk_ids` e `applicable_metrics`. P@5 é número de chunks relevantes nos cinco slots dividido por 5, mesmo com menos de cinco retornos; aplica-se somente a casos respondíveis com ao menos cinco chunks relevantes rotulados no corpus. Casos respondíveis com menos de cinco evidências usam precision@returned (relevantes/retornados, zero para retorno vazio) e recall das evidências esperadas, ambos >= 0.80. A média macro por métrica ignora somente casos explicitamente não aplicáveis, nunca falhas ou NaN. Faithfulness/Answer Relevance aplicam-se apenas a ANSWER com afirmações factuais; média >= pisos da seção 1. Ausência de amostra aplicável reprova a avaliação, não vira aprovação automática.
+
+Casos negativos/adversariais não recebem P@5 nem Faithfulness: exigir 100% de `expected_action` correto, zero afirmações críticas sem suporte e nenhuma chamada de geração aberta quando G-IN/G-RET bloquear. Toda inversão crítica publicada reprova, independentemente da média. O relatório mostra denominadores, casos excluídos e razão, erros de juiz e contagem de recusas indevidas. Para negativos, recuperação vazia é sucesso esperado. G-OUT conta bloqueios internos separadamente da alucinação publicada.
+
+Antes de homologar, versionar os 50 casos reais, PDFs/hash, IDs relevantes, configuração/modelo do juiz e versão de política. B05 prepara a suíte no período previsto; a avaliação final completa ocorre obrigatoriamente no commit integrado após B04 e novamente após qualquer mudança semântica até o aceite M5.

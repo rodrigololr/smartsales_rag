@@ -11,6 +11,7 @@ Este documento define o contrato formal de comunicação entre **Frontend**, **M
 | `POST` | `/api/v1/sessions` | Cria ou recupera uma sessão conversacional anônima (`session_id`) e seu histórico ativo (`UC07`). | `application/json` | `M01`, `M02` |
 | `DELETE` | `/api/v1/sessions/{session_id}` | Encerra a sessão atual (botão *"Reiniciar conversa"* — `UC07`): marca `state = 'ENDED'` e remove as chaves Redis da sessão. | `204 No Content` | `M02` |
 | `POST` | `/api/v1/chat/stream` | Envia mensagem do usuário e abre o fluxo de *streaming* de resposta, citações e recomendações (`UC01`, `UC02`, `UC03`). | `text/event-stream` (`SSE`) | `M02`, `B02`, `F02` |
+| `GET` | `/api/v1/products` | Lista/pesquisa a vitrine inicial (q, categoria, voltagem, paginação). | `application/json` | `M04`, `F01` |
 | `GET` | `/api/v1/products/{sku}` | Consulta determinística de detalhes, preço atualizado e estoque em tempo real de um `SKU` (`UC04`). | `application/json` | `M04`, `B01` |
 | `POST` | `/api/v1/feedback` | Registra avaliação explícita (`LIKE` ou `DISLIKE` + motivo) sobre uma mensagem do assistente (`UC06`). | `application/json` | `M05`, `F03` |
 | `POST` | `/api/v1/checkout/mock` | Executa a validação atômica de estoque/preço, registra a conversão simulada e devolve o link do marketplace (`UC05`). | `application/json` | `M05`, `F04` |
@@ -27,6 +28,7 @@ Este documento define o contrato formal de comunicação entre **Frontend**, **M
 ```json
 {
   "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "client_request_id": "b2e32625-00f1-46e8-89cb-53b0906d4521",
   "message": "Essa Airfryer de 4L serve para 5 pessoas? Posso usar forma de alumínio nela?",
   "context_filters": {
     "preferred_voltage": "220V",
@@ -53,7 +55,7 @@ sequenceDiagram
         BE-->>GW: token delta
         GW-->>FE: event: token {"delta": "Segundo o manual..."}
     end
-    opt G-OUT detecta divergência de voltagem/preço/citação
+    opt Falha de transporte requer substituir conteúdo por fallback seguro
         BE-->>GW: correction
         GW-->>FE: event: correction {"violation_code", "content"}
     end
@@ -85,11 +87,11 @@ event: token
 data: {"delta": "Sim, você pode utilizar formas de alumínio dentro da **Airfryer SmartChef 4L**, desde que não bloqueiem o fluxo de ar quente [Fonte: Manual Airfryer SmartChef 4L, p. 14]."}
 ```
 
-#### Evento 3: `correction` (Opcional — emitido pelo `OutputGuardrail` após os tokens)
-O Frontend **substitui** integralmente o texto da bolha pelo `content` recebido. `violation_code` ∈ `VOLTAGE_MISMATCH | PRICE_MISMATCH | MISSING_CITATION`.
+#### Evento 3: `correction` (Opcional — emitido somente para substituir conteúdo parcial por fallback seguro)
+O Frontend **substitui** integralmente o texto da bolha pelo `content` recebido. `violation_code` ∈ `STREAM_INTERRUPTED`.
 ```text
 event: correction
-data: {"violation_code": "VOLTAGE_MISMATCH", "content": "Este modelo (AF-400-220V) é exclusivamente 220V [Fonte: Manual Oficial Airfryer SmartChef 4L, p. 3]. Para tomadas 127V, a variante AF-400-127V está disponível em estoque."}
+data: {"violation_code": "STREAM_INTERRUPTED", "content": "A resposta foi interrompida. Tente novamente para consultar as especificações verificadas."}
 ```
 
 #### Evento 4: `citations` (Emitido após os tokens com as fontes auditadas do manual)
@@ -358,3 +360,19 @@ Rede interna (`BACKEND_INTERNAL_URL`), não exposto publicamente. Resposta em `a
 {"event": "end", "data": {"tokens_used": 412, "intent": "TECHNICAL_QA"}}
 ```
 *(`end` é interno: sinaliza ao Gateway o fim da geração para que ele persista o turno e emita o `done` público.)*
+
+## 5. Contratos normativos complementares
+
+### Catálogo inicial
+
+`GET /api/v1/products?q=&category=&voltage=&page=1&page_size=20` retorna `{items: ProductDetailResponse[], page, page_size, total}`. `q` (0–200 caracteres) pesquisa nome/SKU sem diferenciar caixa; categoria é igualdade; voltagem aceita 127V/220V e inclui BIVOLT/N/A. Apenas ativos com estoque positivo. Ordenação fixa por nome crescente e SKU crescente. `page>=1`, `1<=page_size<=100`; página além do total retorna items vazio. Ausência de filtro não restringe. A vitrine lê exclusivamente esse endpoint; estoque/preço continuam revalidados no checkout.
+
+### Identidade de turno e repetição
+
+`ChatStreamRequest.client_request_id` UUID v4 é obrigatório, criado pelo navegador antes do primeiro envio e preservado nos retries. Chave de deduplicação: `(session_id, client_request_id)`, persistida em PostgreSQL com UNIQUE, hash de payload e estado RUNNING/COMPLETED/FAILED por 24h; Redis pode acelerar mas não é fonte exclusiva. Mesmo ID/payload concluído reproduz resultado validado com o mesmo message_id e sem nova geração/persistência de turno; métricas de entrega podem ser novas, mas não duplicar métricas lógicas. Mesmo ID em execução retorna 409 `TURN_IN_PROGRESS` com Retry-After; aguardar e repetir o mesmo ID. Payload diferente retorna 409 `IDEMPOTENCY_CONFLICT`. Novo pedido explícito depois de FAILED recebe novo ID; replay de FAILED retorna o resultado terminal gravado. Concluir e persistir antes de `done`, tornando segura a perda desse evento. Não compartilhar esses registros entre sessões. Após 24h, apagar o payload mas manter tombstone até o fim da sessão (máximo de 90 dias); ID expirado retorna 410 `TURN_EXPIRED`, solicitando envio explícito novo.
+
+### Dinheiro e falhas parciais
+
+Todos os valores monetários REST/SSE são JSON number em BRL, com duas casas de precisão de domínio; SQL e cálculos usam Decimal, com serialização JSON explícita conforme `Money` no Backend. Não usar float para cálculo/comparação de negócio. `displayed_price` é convertido de sua representação decimal para Decimal antes da comparação. Schemas de saída validam o tipo efetivamente serializado.
+
+Sequência adicional válida: `metadata → token(N×) → error → [recommendations] → done(error)`. Em `error`, a UI descarta texto/citações/cards parciais e mostra somente fallback_message e novos cards validados. Não reiniciar geração depois de tokens já publicados. `metadata` continua único; `done` somente se conexão aberta. EOF sem `end` interno é falha, nunca `stop`. `correction` pode substituir texto por fallback seguro, mas nenhum token pode conter sentença crítica ainda não aprovada. `end` é marcador interno obrigatório em sucesso/fallback e inclui tokens_used.

@@ -61,7 +61,7 @@ flowchart LR
     %% Etapa 4 de Desenvolvimento
     B04["<b>B04 - Motor de regras cross-sell/upsell [CRÍTICO]</b><br/>O/M/P: 5 / 7 / 9 · E = 7,0 · Dur: 7d<br/>ES: 25 · EF: 32 | LS: 25 · LF: 32<br/>Folga: 0d"]:::critico
     M04["<b>M04 - API de catálogo e tracking</b><br/>O/M/P: 5 / 7 / 10 · E = 7,2 · Dur: 7d<br/>ES: 24 · EF: 31 | LS: 25 · LF: 32<br/>Folga: 1d"]:::normal
-    B05["<b>B05 - Avaliação RAGAS</b><br/>O/M/P: 4 / 5 / 7 · E = 5,2 · Dur: 5d<br/>ES: 25 · EF: 30 | LS: 32 · LF: 37<br/>Folga: 7d"]:::normal
+    B05["<b>B05 - Preparação RAGAS</b><br/>O/M/P: 4 / 5 / 7 · E = 5,2 · Dur: 5d<br/>ES: 25 · EF: 30 | LS: 32 · LF: 37<br/>Folga: 7d"]:::normal
     F04["<b>F04 - Cards dinâmicos de produto</b><br/>O/M/P: 5 / 7 / 9 · E = 7,0 · Dur: 7d<br/>ES: 24 · EF: 31 | LS: 25 · LF: 32<br/>Folga: 1d"]:::normal
     M05["<b>M05 - Mock de checkout e conversão</b><br/>O/M/P: 3 / 5 / 7 · E = 5,0 · Dur: 5d<br/>ES: 24 · EF: 29 | LS: 27 · LF: 32<br/>Folga: 3d"]:::normal
 
@@ -121,7 +121,7 @@ flowchart LR
 
 ---
 
-## 3. Tabela Completa de Cálculo PERT / CPM (17 Pacotes de Rede)
+## 3. Tabela Completa de Cálculo PERT / CPM (19 Pacotes de Rede)
 
 *Nota: Os pacotes contínuos de Monitoramento e Controle (`6.1 Conduzir rituais ágeis`, `6.2 Controlar prazo, escopo e riscos` e `6.3 Registrar métricas de desempenho SPI`) acompanham transversalmente toda a execução de `G01`/`G03` até `G02`.*
 
@@ -140,7 +140,7 @@ flowchart LR
 | **F03** | Citação da fonte e feedback | `4.11` | `F02` | 5 | 7 | 9 | 7,0 | 0,67 | **7** | 15 | 22 | 18 | 25 | 3d | Não Crítico |
 | **B04** | Motor de regras cross-sell/upsell | `4.4` | `B03` | 5 | 7 | 9 | 7,0 | 0,67 | **7** | 25 | 32 | 25 | 32 | **0d** | **CRÍTICO** |
 | **M04** | API de catálogo e tracking | `4.7` | `M03` | 5 | 7 | 10 | 7,2 | 0,83 | **7** | 24 | 31 | 25 | 32 | 1d | Quase Crítico |
-| **B05** | Avaliação RAGAS | `5.1`, `5.3` | `B03`, `M03` | 4 | 5 | 7 | 5,2 | 0,50 | **5** | 25 | 30 | 32 | 37 | 7d | Não Crítico |
+| **B05** | Preparação RAGAS | `5.1`, `5.3` | `B03`, `M03` | 4 | 5 | 7 | 5,2 | 0,50 | **5** | 25 | 30 | 32 | 37 | 7d | Não Crítico |
 | **F04** | Cards dinâmicos de produto | `4.10` | `M03`, `F03` | 5 | 7 | 9 | 7,0 | 0,67 | **7** | 24 | 31 | 25 | 32 | 1d | Quase Crítico |
 | **M05** | Mock de checkout e conversão | `4.8` | `M03`, `F03` | 3 | 5 | 7 | 5,0 | 0,67 | **5** | 24 | 29 | 27 | 32 | 3d | Não Crítico |
 | **G04** | Documentação técnica | `7.1` | `B04`, `M04` | 2 | 3 | 5 | 3,2 | 0,50 | **3** | 32 | 35 | 34 | 37 | 2d | Não Crítico |
@@ -166,3 +166,5 @@ $$\text{Início} \longrightarrow \mathbf{B01} \ (9\text{d}) \longrightarrow \mat
 A trilha de **Middle-end e Integração de Cards**:
 $$\mathbf{M01} \ (8\text{d}) \longrightarrow \mathbf{M02} \ (8\text{d}) \longrightarrow \mathbf{M03} \ (7\text{d}) \longrightarrow \{\mathbf{M04} \ (7\text{d}), \ \mathbf{F04} \ (7\text{d})\} \longrightarrow \mathbf{F05}$$
 possui **Folga Total de apenas 1 dia útil**. Qualquer atraso superior a 1 dia útil nas entregas de **Pablo** e **Well** (`M01` a `M04`) ou na construção dos *cards* dinâmicos por **Eduardo** e **Victor Hugo** (`F04`) desloca imediatamente a atividade crítica `F05` (`ES = 32`).
+
+B05 (5 dias, ES25–EF30) prepara fixtures, calibração e runner; não é aceite final. A avaliação completa integrada pertence a F05 (ES32–EF37), já dependente de B04, e ao gate M4 no commit de integração. Falha bloqueia M4/M5 e consome a janela F05; não há folga fictícia de homologação. As durações e o caminho crítico de 40 dias permanecem iguais. Reservar execução/reteste RAGAS dentro das horas F05, não somar nova atividade sem replanejar.

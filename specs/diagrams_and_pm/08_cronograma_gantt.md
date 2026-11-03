@@ -2,7 +2,7 @@
 
 ## 1. Visão Geral do Cronograma
 
-O cronograma executivo do projeto **SmartSales RAG** distribui os **17 pacotes de trabalho da rede CPM/PERT** ao longo de **9 semanas (41 dias úteis)**, compreendendo o período de **22/09/2026** a **24/11/2026**.
+O cronograma executivo do projeto **SmartSales RAG** distribui os **19 pacotes de trabalho da rede CPM/PERT** ao longo de **9 semanas (41 dias úteis)**, compreendendo o período de **22/09/2026** a **24/11/2026**.
 
 O planejamento combina:
 - **Calendário Acadêmico UFAL 2026.2** (Resolução nº 126/2026-CONSUNI/UFAL, de 17/07/2026) como calendário de trabalho: além dos fins de semana, não são dias úteis do projeto `12/10` (N. Sra. Aparecida), `15/10` (Dia do Professor — feriado total na UFAL), `28/10` (Dia do Servidor Público — ponto facultativo, tratado como não trabalhado), `02/11` (Finados) e `20/11` (Consciência Negra). A SINPETE (`26/10` a `30/10`) não suspende o trabalho do projeto.
@@ -32,7 +32,7 @@ gantt
     B02 - Orquestração LLM e streaming [CRÍTICO] (8d)  :crit, b02, 2026-10-05, 8d
     B03 - Ingestão de manuais e guardrails [CRÍTICO] (8d) :crit, b03, 2026-10-19, 8d
     B04 - Motor de regras cross-sell/upsell [CRÍTICO] (7d) :crit, b04, 2026-10-30, 7d
-    B05 - Avaliação RAGAS (5d | Folga 7d)              :b05, 2026-10-30, 5d
+    B05 - Preparação RAGAS (5d | Folga 7d)              :b05, 2026-10-30, 5d
 
     section Middle-end e Gateway
     M01 - Gateway e contratos OpenAPI (8d | Folga 1d)  :m01, 2026-09-22, 8d
@@ -77,7 +77,7 @@ gantt
 | **F03** | Citação da fonte e feedback | `4.11` | Frontend/UX | Eduardo, Victor Hugo | `F02` | 7d | `15` – `22` | 14/10/2026 | 23/10/2026 | 3d | Não |
 | **B04** | Motor de regras cross-sell/upsell | `4.4` | Backend e IA | Diogo, Filipe | `B03` | 7d | `25` – `32` | 30/10/2026 | 10/11/2026 | **0d** | **SIM** |
 | **M04** | API de catálogo e tracking | `4.7` | Middle-end | Pablo, Well | `M03` | 7d | `24` – `31` | 29/10/2026 | 09/11/2026 | 1d | Não |
-| **B05** | Avaliação RAGAS | `5.1`, `5.3` | Backend / QA | Filipe, Diogo, Victor Hugo | `B03`, `M03` | 5d | `25` – `30` | 30/10/2026 | 06/11/2026 | 7d | Não |
+| **B05** | Preparação RAGAS | `5.1`, `5.3` | Backend / QA | Filipe, Diogo, Victor Hugo | `B03`, `M03` | 5d | `25` – `30` | 30/10/2026 | 06/11/2026 | 7d | Não |
 | **F04** | Cards dinâmicos de produto | `4.10` | Frontend/UX | Victor Hugo, Eduardo | `M03`, `F03` | 7d | `24` – `31` | 29/10/2026 | 09/11/2026 | 1d | Não |
 | **M05** | Mock de checkout e conversão | `4.8` | Middle-end | Pablo, Well | `M03`, `F03` | 5d | `24` – `29` | 29/10/2026 | 05/11/2026 | 3d | Não |
 | **G04** | Documentação técnica | `7.1` | Gerência/Tech | Filipe, Diogo, Pablo, Eduardo | `B04`, `M04` | 3d | `32` – `35` | 11/11/2026 | 13/11/2026 | 2d | Não |
@@ -112,3 +112,5 @@ gantt
 | **M3** | **RAG Fiel com Guardrails, Citação e Cache** | `29/10/2026` | Dia `25` | `B03`, `M03`, `F03` | Ingestão de manuais PDF concluída, *guardrails* anti-alucinação ativos, citações de fonte e botões *like/dislike* renderizados na UI e cache semântico ativo. |
 | **M4** | **Vendas Consultivas, Cards e Checkout Integrados** | `10/11/2026` | Dia `32` | `B04`, `B05`, `M04`, `M05`, `F04` | Motor de regras (*cross-sell* e *upsell*) integrado ao catálogo local, *cards* dinâmicos com botão `Comprar` revalidando estoque/preço no *checkout mock* e redirecionando ao marketplace/afiliado, página `/admin/metricas` e relatório RAGAS emitido. |
 | **M5** | **Entrega Final Homologada e Pitch** | `24/11/2026` | Dia `41` | `G04`, `F05`, `G02` + Reserva | 100% dos testes E2E aprovados (`0` defeitos críticos), documentação técnica consolidada (`README` + `Swagger`), relatório de encerramento e *pitch* final realizados. |
+
+B05 termina a preparação em 06/11. M4 em 10/11 exige avaliação completa do commit que integra B04, sem trabalho adicional após a data para declarar o marco aceito. O runner preparado executa esse gate automatizado no fechamento de B04. F05 (11–17/11), dependente de B04, inclui repetição completa e correções do RAG; qualquer mudança semântica exige novo resultado antes de M5. Gate reprovado marca M4 atrasado e aciona C06; não antecipar aceite com resultados de B05.

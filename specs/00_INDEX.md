@@ -117,3 +117,7 @@ flowchart TD
 27. **[`15_gestao_comunicacoes.md`](diagrams_and_pm/15_gestao_comunicacoes.md)** — Matriz do Plano de Gerenciamento das Comunicações (`C01` a `C09`)
 28. **[`16_gestao_riscos.md`](diagrams_and_pm/16_gestao_riscos.md)** — Matriz de Riscos Quantitativa (`P × I`) e Catálogo (`R01` a `R20`)
 29. **[`17_gestao_aquisicoes.md`](diagrams_and_pm/17_gestao_aquisicoes.md)** — Matriz de Gerenciamento das Aquisições (`01` a `06`)
+
+## Baseline normativa revisada
+
+Ver [decisões e rastreabilidade das correções](01_BASELINE_REVISADA.md) e [contrato executável](../openapi.yaml).
