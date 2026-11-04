@@ -7,6 +7,18 @@
 
 ---
 
+## Implementação local iniciada
+
+Os primeiros módulos Python estão em `backend/app/recommendation/` (motor
+determinístico B04), `middleend/app/cache/` (identidade de cache M03) e
+`middleend/app/sse/` (geração de eventos M02). Cada frente possui testes unitários
+e pode ser desenvolvida em paralelo às demais.
+
+Consulte [Desenvolvimento local](docs/DEVELOPMENT.md) para instalar as dependências,
+executar testes e entender as interfaces. Os adaptadores SQL, Redis e HTTP, o RAG
+com IA e o frontend continuam previstos nas especificações abaixo; os módulos
+iniciais ainda dependem dessas integrações para compor a aplicação completa.
+
 ## 1. Visão Geral do Projeto
 
 O **SmartSales RAG** é uma plataforma web *full-stack* de vendas consultivas B2B/B2B2C que integra Grandes Modelos de Linguagem (**LLMs**) ao catálogo dinâmico de produtos e aos manuais técnicos de fabricantes por meio de **RAG (*Retrieval-Augmented Generation*)**, **busca híbrida vetorial (`pgvector`) + metadados SQL**, **cache semântico (`Redis`)** e **transmissão em tempo real via *Server-Sent Events* (`SSE`)**.
