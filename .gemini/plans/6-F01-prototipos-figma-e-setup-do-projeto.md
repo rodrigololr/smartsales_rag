@@ -14,7 +14,7 @@
 ---
 
 ## 1. Objetivo e Escopo
-- **Meta do Pacote**: Entregar o setup inicial da camada `frontend/` com Next.js 14+ (App Router), TypeScript (`strict: true`), Tailwind CSS, tipagem alinhada ao `openapi.yaml`, configuração de testes unitários com Vitest + React Testing Library e o primeiro componente funcional testado (`SmartSalesPage` com `ContextualChatDrawer` atendendo ao teste `UT-F01-01`).
+- **Meta do Pacote**: Entregar o setup inicial da camada `frontend/` com Next.js 16 (App Router), React 19, TypeScript 6 (`strict: true`), Tailwind CSS 4 (CSS-first) e shadcn/ui, tipagem alinhada ao `openapi.yaml`, configuração de testes unitários com Vitest + React Testing Library e o primeiro componente funcional testado (`SmartSalesPage` com `ContextualChatDrawer` atendendo ao teste `UT-F01-01`).
 - **Entregáveis da EAP**:
   - [ ] **EAP 3.4 — Prototipar interfaces no Figma**: Documentar a especificação dos protótipos de alta fidelidade e arquitetura de componentes do Figma no frontend.
   - [ ] **EAP 3.5 (Front) — Setup Next.js 14+ (App Router) + TypeScript strict + TailwindCSS**: Configuração de package.json, tsconfig.json, Tailwind, Vitest, tipagem estrita de chat/catálogo e implementação base.
@@ -38,7 +38,7 @@
 ## 4. Lista de Tarefas Atômicas (1 Commit por Task)
 
 - [x] **Task 1: Setup Next.js 14+, Tailwind CSS e TypeScript Strict**
-  - **Arquivos**: `frontend/package.json`, `frontend/tsconfig.json`, `frontend/tailwind.config.ts`, `frontend/postcss.config.js`, `frontend/next.config.js`
+  - **Arquivos**: `frontend/package.json`, `frontend/tsconfig.json`, `frontend/src/app/globals.css`, `frontend/postcss.config.mjs`, `frontend/eslint.config.mjs`, `frontend/components.json`, `frontend/next.config.js`
   - **Commit**: `feat(F01): setup Next.js 14 project with TailwindCSS and TypeScript strict`
 
 - [x] **Task 2: Tipagem OpenAPI e Setup de Testes Vitest**
@@ -61,7 +61,7 @@
 
 ## 5. Critérios de Aceite e Comandos de Validação
 ```bash
-npm --prefix frontend run test:unit
-npm --prefix frontend run lint
+pnpm -C frontend run test:unit
+pnpm -C frontend run lint
 uv run --with-requirements tests/requirements-specs.txt python -m unittest discover -s tests -v
 ```

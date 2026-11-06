@@ -1,6 +1,6 @@
 # SmartSales RAG — Camada Frontend (`frontend/`)
 
-Este diretório contém o módulo de interface conversacional e vitrine de catálogo do **SmartSales RAG**, implementado em **Next.js 14+ (App Router)**, **React 18**, **TypeScript 5 (strict)** e **Tailwind CSS**.
+Este diretório contém o módulo de interface conversacional e vitrine de catálogo do **SmartSales RAG**, implementado em **Next.js 16 (App Router)**, **React 19**, **TypeScript 6 (strict)**, **Tailwind CSS 4** e **shadcn/ui** (preset `base-nova`).
 
 ---
 
@@ -33,8 +33,11 @@ frontend/
 │   ├── components/
 │   │   ├── catalog/
 │   │   │   └── CatalogAndProductView.tsx   # Grid de produtos e seletores
-│   │   └── chat/
-│   │       └── ContextualChatDrawer.tsx    # Drawer lateral do Consultor IA
+│   │   ├── chat/
+│   │   │   └── ContextualChatDrawer.tsx    # Drawer lateral do Consultor IA (Sheet)
+│   │   └── ui/                      # Componentes shadcn/ui (Button, Card, Badge, Sheet...)
+│   ├── lib/
+│   │   └── utils.ts                 # Helper cn() para composição de classes
 │   ├── test/
 │   │   └── setup.ts                 # Configuração de jest-dom para testes
 │   └── types/
@@ -43,28 +46,37 @@ frontend/
 ├── tests/
 │   └── unit/
 │       └── SmartSalesPage.test.tsx  # Teste TDD UT-F01-01
+├── components.json                  # Configuração do shadcn/ui
+├── eslint.config.mjs                # ESLint flat config (Next.js 16)
 ├── next.config.js                   # Configurações do Next.js
-├── tailwind.config.ts               # Paleta e extensões do Tailwind CSS
+├── postcss.config.mjs               # Plugin @tailwindcss/postcss (Tailwind v4)
 ├── tsconfig.json                    # TypeScript com strict: true e paths "@/..."
-└── vitest.config.ts                 # Runner de testes Vitest com ambiente JSDOM
+└── vitest.config.mts                # Runner de testes Vitest com ambiente JSDOM
 ```
+
+> **Tailwind CSS 4**: a configuração é *CSS-first*. Tokens de tema (cores, raios, fontes) ficam em `src/app/globals.css` via `@theme inline`; não existe mais `tailwind.config.ts`.
 
 ---
 
 ## 3. Scripts e Comandos de Desenvolvimento
 
+Este projeto usa **pnpm** (o `pnpm-lock.yaml` é o lockfile oficial).
+
 ```bash
+# Instalar dependências
+pnpm install
+
 # Executar servidor de desenvolvimento
-npm run dev
+pnpm dev
 
 # Executar testes unitários (Vitest)
-npm run test:unit
+pnpm test:unit
 
 # Executar linter (ESLint)
-npm run lint
+pnpm lint
 
 # Executar build de produção
-npm run build
+pnpm build
 ```
 
 ---
