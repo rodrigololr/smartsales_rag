@@ -29,14 +29,32 @@ frontend/
 │   ├── app/
 │   │   ├── globals.css              # Diretivas Tailwind e variáveis de tema
 │   │   ├── layout.tsx               # Root Layout com metadados e lang="pt-BR"
-│   │   └── page.tsx                 # SmartSalesPage: orquestrador da vitrine e drawer
+│   │   ├── page.tsx                 # SmartSalesPage: vitrine, busca, detalhe e drawer
+│   │   └── admin/metricas/page.tsx  # Painel do operador (UC09)
 │   ├── components/
+│   │   ├── admin/
+│   │   │   └── AdminMetricsDashboard.tsx   # Token gate, KPIs e dúvidas frequentes
 │   │   ├── catalog/
 │   │   │   └── CatalogAndProductView.tsx   # Grid de produtos e seletores
 │   │   ├── chat/
-│   │   │   └── ContextualChatDrawer.tsx    # Drawer lateral do Consultor IA (Sheet)
+│   │   │   ├── ContextualChatDrawer.tsx    # Drawer lateral do Consultor IA (Sheet)
+│   │   │   ├── AssistantMessage.tsx        # Bolha, citações, cards e feedback
+│   │   │   ├── CitationList.tsx            # Badges + trecho literal do manual
+│   │   │   └── MessageFeedbackBar.tsx      # Like/Dislike com motivo
+│   │   ├── checkout/
+│   │   │   └── CheckoutDialog.tsx          # Mock checkout e redirect ao marketplace
+│   │   ├── shop/
+│   │   │   ├── ProductDetailPanel.tsx      # Página de detalhe do produto selecionado
+│   │   │   └── ProductRecommendationCarousel.tsx
+│   │   ├── shared/
+│   │   │   └── ProductThumb.tsx            # Thumbnail ilustrado por categoria
 │   │   └── ui/                      # Componentes shadcn/ui (Button, Card, Badge, Sheet...)
+│   ├── hooks/
+│   │   └── use-chat-session.ts      # Estado da conversa + streaming mockado
 │   ├── lib/
+│   │   ├── format.ts                # BRL, percentuais, marketplace e datas
+│   │   ├── mock-api.ts              # SSE, checkout, feedback e métricas simulados
+│   │   ├── mock-data.ts             # Catálogo, recomendações, citações e KPIs
 │   │   └── utils.ts                 # Helper cn() para composição de classes
 │   ├── test/
 │   │   └── setup.ts                 # Configuração de jest-dom para testes
@@ -44,8 +62,7 @@ frontend/
 │       ├── catalog.ts               # Contratos de catálogo de produtos
 │       └── chat.ts                  # Schemas OpenAPI 3.1 (SSE, citações, cards, métricas)
 ├── tests/
-│   └── unit/
-│       └── SmartSalesPage.test.tsx  # Teste TDD UT-F01-01
+│   └── unit/                        # UT-F01-01, UT-F02-01, UT-F03-01/02, UT-F04-01, UT-F05-01
 ├── components.json                  # Configuração do shadcn/ui
 ├── eslint.config.mjs                # ESLint flat config (Next.js 16)
 ├── next.config.js                   # Configurações do Next.js
@@ -83,4 +100,18 @@ pnpm build
 
 ## 4. Contratos e Tipagem Estrita
 
-Todos os contratos de eventos SSE, citações (`ManualCitation`), cards de recomendação (`ProductCardData`) e feedbacks (`FeedbackRating`) estão estritamente tipados em `src/types/chat.ts`, em total conformidade com a especificação OpenAPI 3.1 do gateway (`specs/architecture/03_openapi_and_sse_contracts.md`).
+Todos os contratos de eventos SSE, citações (`ManualCitation`), cards de recomendação (`ProductCardData`), feedbacks (`FeedbackRating`), checkout (`Checkout`/`CheckoutConflict`) e métricas (`MetricsSummary`) estão estritamente tipados em `src/types/chat.ts`, em total conformidade com a especificação OpenAPI 3.1 do gateway (`specs/architecture/03_openapi_and_sse_contracts.md`).
+
+---
+
+## 5. MVP de Interface (dados mockados)
+
+Enquanto o backend/middle-end não expõem os endpoints, a camada de UI roda com uma API simulada em `src/lib/mock-api.ts` (mesmos tipos do OpenAPI). Telas e fluxos disponíveis:
+
+- **Vitrine responsiva (mobile first)**: busca por nome/SKU/marca, filtro por voltagem, grid `1 → 2 → 3` colunas e página de detalhe do produto selecionado.
+- **Detalhe do produto**: especificações, estoque, preço, CTA de compra e abertura do consultor.
+- **Consultor IA (Side-Drawer)**: streaming token a token simulado, *skeleton* de consulta, respostas contextuais por produto, citações clicáveis com trecho literal do manual, carrossel `PRIMARY`/`UPSELL`/`CROSS_SELL`, feedback Like/Dislike com motivo, reinício de sessão e *fallback* seguro com retry.
+- **Mock Checkout**: validação simulada de estoque/preço, confirmação e link de redirect para o marketplace; estados de `OUT_OF_STOCK`/`PRICE_CHANGED` já tratados.
+- **Painel `/admin/metricas`**: token gate em `sessionStorage`, KPIs comparados às metas (TTFT, p95, cache, 5xx, likes, CTR, checkouts) e ranking de dúvidas frequentes. Token de demonstração: `admin-demo`.
+
+Para integrar a API real, basta substituir as funções de `mock-api.ts` pelos `fetch` dos contratos (a interface dos componentes e do hook `useChatSession` permanece a mesma).
