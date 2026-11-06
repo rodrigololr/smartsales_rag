@@ -45,11 +45,11 @@
   - **Arquivos**: `frontend/src/types/chat.ts`, `frontend/vitest.config.ts`, `frontend/src/test/setup.ts`
   - **Commit**: `feat(F01): configure TypeScript types from OpenAPI and Vitest testing setup`
 
-- [ ] **Task 3: Testes TDD Red (UT-F01-01)**
+- [x] **Task 3: Testes TDD Red (UT-F01-01)**
   - **Arquivos**: `frontend/tests/unit/SmartSalesPage.test.tsx`
   - **Commit**: `test(F01): add UT-F01-01 test for SmartSalesPage and ContextualChatDrawer`
 
-- [ ] **Task 4: Implementação TDD Green (SmartSalesPage e ContextualChatDrawer)**
+- [x] **Task 4: Implementação TDD Green (SmartSalesPage e ContextualChatDrawer)**
   - **Arquivos**: `frontend/src/app/page.tsx`, `frontend/src/app/layout.tsx`, `frontend/src/app/globals.css`, `frontend/src/components/chat/ContextualChatDrawer.tsx`, `frontend/src/components/catalog/CatalogAndProductView.tsx`
   - **Commit**: `feat(F01): implement SmartSalesPage showcase and contextual chat drawer`
 
