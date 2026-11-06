@@ -230,3 +230,28 @@
     @apply font-sans;
 	}
 }
+
+@layer components {
+  /* Expande/recolhe o painel de detalhe animando a altura da linha do grid. */
+  .detail-reveal {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @starting-style {
+    .detail-reveal {
+      grid-template-rows: 0fr;
+    }
+  }
+
+  .detail-reveal[data-state="closed"] {
+    grid-template-rows: 0fr;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .detail-reveal {
+      transition: none;
+    }
+  }
+}

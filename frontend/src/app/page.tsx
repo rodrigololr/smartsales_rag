@@ -164,6 +164,7 @@ export default function SmartSalesPage() {
 
         {selectedProduct ? (
           <ProductDetailPanel
+            key={selectedProduct.sku}
             product={selectedProduct}
             onConsult={() => setIsDrawerOpen(true)}
             onClear={() => setSelectedProduct(null)}
