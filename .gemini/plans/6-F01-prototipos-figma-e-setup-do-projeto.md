@@ -41,7 +41,7 @@
   - **Arquivos**: `frontend/package.json`, `frontend/tsconfig.json`, `frontend/tailwind.config.ts`, `frontend/postcss.config.js`, `frontend/next.config.js`
   - **Commit**: `feat(F01): setup Next.js 14 project with TailwindCSS and TypeScript strict`
 
-- [ ] **Task 2: Tipagem OpenAPI e Setup de Testes Vitest**
+- [x] **Task 2: Tipagem OpenAPI e Setup de Testes Vitest**
   - **Arquivos**: `frontend/src/types/chat.ts`, `frontend/vitest.config.ts`, `frontend/src/test/setup.ts`
   - **Commit**: `feat(F01): configure TypeScript types from OpenAPI and Vitest testing setup`
 
