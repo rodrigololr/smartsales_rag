@@ -53,7 +53,7 @@
   - **Arquivos**: `frontend/src/app/page.tsx`, `frontend/src/app/layout.tsx`, `frontend/src/app/globals.css`, `frontend/src/components/chat/ContextualChatDrawer.tsx`, `frontend/src/components/catalog/CatalogAndProductView.tsx`
   - **Commit**: `feat(F01): implement SmartSalesPage showcase and contextual chat drawer`
 
-- [ ] **Task 5: Documentação Figma EAP 3.4 e Gate de Qualidade**
+- [x] **Task 5: Documentação Figma EAP 3.4 e Gate de Qualidade**
   - **Arquivos**: `frontend/README.md`, `specs/components/03_frontend_chat_and_cards_spec.md`
   - **Commit**: `docs(F01): document Figma prototype spec and validate quality gates`
 
