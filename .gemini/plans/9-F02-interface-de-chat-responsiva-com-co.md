@@ -44,7 +44,7 @@
   - **Arquivos**: `frontend/src/hooks/useSSEChatStream.ts`, `frontend/src/utils/sseParser.ts`
   - **Commit**: `feat(F02): implement useSSEChatStream hook with resilient SSE parser`
 
-- [ ] **Task 2: Testes TDD Red (UT-F02-01 e UT-F02-02)**
+- [x] **Task 2: Testes TDD Red (UT-F02-01 e UT-F02-02)**
   - **Arquivos**: `frontend/tests/unit/useSSEChatStream.test.tsx`
   - **Commit**: `test(F02): add unit tests UT-F02-01 and UT-F02-02 for SSE stream hook`
 
