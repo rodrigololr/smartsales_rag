@@ -56,7 +56,7 @@
   - **Arquivos**: `frontend/src/components/chat/ContextualChatDrawer.tsx`, `frontend/src/app/page.tsx`, `frontend/tests/unit/ContextualChatDrawer.test.tsx`
   - **Commit**: `feat(F02): integrate SSE chat streaming and skeleton in ContextualChatDrawer`
 
-- [ ] **Task 5: Refactor, Linters e Gates de Qualidade**
+- [x] **Task 5: Refactor, Linters e Gates de Qualidade**
   - **Arquivos**: Módulos alterados, `frontend/README.md`
   - **Commit**: `refactor(F02): refine streaming error handling and validate quality gates`
 
