@@ -218,18 +218,20 @@ def cmd_start(args: argparse.Namespace) -> None:
     slug = args.slug or slugify(meta["title"])
     b_type = args.branch_type or meta["default_branch_type"]
     branch_name = f"{b_type}/{pkg}-{slug}"
+    base_branch = args.base or "develop"
 
     print(f"[INFO] Pacote: {pkg} | Marco: {meta['milestone']} | Sprint: {meta['sprint']}")
-    print(f"[INFO] Branch calculada: {branch_name}")
+    print(f"[INFO] Branch calculada: {branch_name} (a partir de: {base_branch})")
 
     if not args.dry_run:
-        # Garantir retorno para develop e atualização
-        print("[INFO] Atualizando branch develop...")
-        run_cmd(["git", "checkout", "develop"], cwd=repo_root)
-        try:
-            run_cmd(["git", "pull", "origin", "develop"], cwd=repo_root, check=False)
-        except Exception:
-            pass
+        # Garantir checkout da branch base
+        print(f"[INFO] Alternando para a branch base '{base_branch}'...")
+        run_cmd(["git", "checkout", base_branch], cwd=repo_root)
+        if base_branch == "develop":
+            try:
+                run_cmd(["git", "pull", "origin", "develop"], cwd=repo_root, check=False)
+            except Exception:
+                pass
 
         # Criar ou alternar para a branch de trabalho
         branches = run_cmd(["git", "branch", "--list", branch_name], cwd=repo_root).stdout.strip()
@@ -237,8 +239,8 @@ def cmd_start(args: argparse.Namespace) -> None:
             print(f"[INFO] Alternando para branch existente: {branch_name}")
             run_cmd(["git", "checkout", branch_name], cwd=repo_root)
         else:
-            print(f"[INFO] Criando nova branch a partir de develop: {branch_name}")
-            run_cmd(["git", "checkout", "-b", branch_name], cwd=repo_root)
+            print(f"[INFO] Criando nova branch a partir de {base_branch}: {branch_name}")
+            run_cmd(["git", "checkout", "-b", branch_name, base_branch], cwd=repo_root)
 
     # Gerar plano em .gemini/plans/<id>-<package>-<slug>.md
     plans_dir = repo_root / ".gemini" / "plans"
@@ -372,6 +374,8 @@ def cmd_pr(args: argparse.Namespace) -> None:
     if not subpackages_text:
         subpackages_text = "3.5, 4.1"
 
+    base_branch = getattr(args, "base", None) or "develop"
+
     # Montar corpo do PR conforme .github/PULL_REQUEST_TEMPLATE.md
     pr_body = f"""## 1. Identificação do Pacote (EAP / Gantt)
 
@@ -438,7 +442,7 @@ def cmd_pr(args: argparse.Namespace) -> None:
     cmd_gh = [
         "gh", "pr", "create",
         "--repo", args.repo,
-        "--base", "develop",
+        "--base", base_branch,
         "--head", current_branch,
         "--title", clean_title,
         "--body", clean_body,
@@ -460,6 +464,7 @@ def main() -> None:
     # Subcomando 'start'
     p_start = subparsers.add_parser("start", help="Inicia o desenvolvimento de uma issue (branch + plano)")
     p_start.add_argument("issue", help="URL completa da issue ou número (ex: https://github.com/.../issues/6 ou 6)")
+    p_start.add_argument("--base", default="develop", help="Branch base a partir da qual criar a nova branch (padrão: develop)")
     p_start.add_argument("--branch-type", choices=["feat", "fix", "test", "docs"], help="Tipo de branch (feat/fix/test/docs)")
     p_start.add_argument("--slug", help="Slug personalizado para o nome da branch")
     p_start.add_argument("--overwrite-plan", action="store_true", help="Sobrescrever plano se já existir")
@@ -468,6 +473,7 @@ def main() -> None:
     # Subcomando 'pr'
     p_pr = subparsers.add_parser("pr", help="Abre o Pull Request oficial vinculado à issue sem emojis")
     p_pr.add_argument("issue", help="URL completa da issue ou número")
+    p_pr.add_argument("--base", default="develop", help="Branch de destino do PR (padrão: develop)")
     p_pr.add_argument("--summary", help="Resumo detalhado das alterações técnicas realizadas")
     p_pr.add_argument("--dry-run", action="store_true", help="Apenas visualizar o corpo do PR sem enviar")
 
