@@ -37,7 +37,7 @@
 
 ## 4. Lista de Tarefas Atômicas (1 Commit por Task)
 
-- [ ] **Task 1: Setup Next.js 14+, Tailwind CSS e TypeScript Strict**
+- [x] **Task 1: Setup Next.js 14+, Tailwind CSS e TypeScript Strict**
   - **Arquivos**: `frontend/package.json`, `frontend/tsconfig.json`, `frontend/tailwind.config.ts`, `frontend/postcss.config.js`, `frontend/next.config.js`
   - **Commit**: `feat(F01): setup Next.js 14 project with TailwindCSS and TypeScript strict`
 
