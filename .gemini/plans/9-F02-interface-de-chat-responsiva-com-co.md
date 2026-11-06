@@ -52,7 +52,7 @@
   - **Arquivos**: `frontend/src/components/chat/MessageList.tsx`, `frontend/src/components/chat/AssistantMessageBubble.tsx`, `frontend/src/components/chat/ResetSessionButton.tsx`, `frontend/src/components/layout/StoreHeader.tsx`
   - **Commit**: `feat(F02): implement MessageList, AssistantMessageBubble and ResetSessionButton`
 
-- [ ] **Task 4: Integração do Streaming no ContextualChatDrawer e Vitrine**
+- [x] **Task 4: Integração do Streaming no ContextualChatDrawer e Vitrine**
   - **Arquivos**: `frontend/src/components/chat/ContextualChatDrawer.tsx`, `frontend/src/app/page.tsx`, `frontend/tests/unit/ContextualChatDrawer.test.tsx`
   - **Commit**: `feat(F02): integrate SSE chat streaming and skeleton in ContextualChatDrawer`
 

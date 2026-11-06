@@ -17,7 +17,9 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   // Auto-scroll inteligente durante o streaming (EAP 4.9)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (typeof bottomRef.current?.scrollIntoView === "function") {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   return (
