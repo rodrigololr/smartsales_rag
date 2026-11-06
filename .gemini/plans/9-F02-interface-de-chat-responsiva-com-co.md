@@ -48,7 +48,7 @@
   - **Arquivos**: `frontend/tests/unit/useSSEChatStream.test.tsx`
   - **Commit**: `test(F02): add unit tests UT-F02-01 and UT-F02-02 for SSE stream hook`
 
-- [ ] **Task 3: Componentes de Chat (MessageList, AssistantMessageBubble, ResetSessionButton, StoreHeader)**
+- [x] **Task 3: Componentes de Chat (MessageList, AssistantMessageBubble, ResetSessionButton, StoreHeader)**
   - **Arquivos**: `frontend/src/components/chat/MessageList.tsx`, `frontend/src/components/chat/AssistantMessageBubble.tsx`, `frontend/src/components/chat/ResetSessionButton.tsx`, `frontend/src/components/layout/StoreHeader.tsx`
   - **Commit**: `feat(F02): implement MessageList, AssistantMessageBubble and ResetSessionButton`
 
