@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import React from "react";
 import SmartSalesPage from "@/app/page";
 
@@ -8,7 +8,9 @@ describe("UT-F01-01: SmartSalesPage e ContextualChatDrawer", () => {
     render(<SmartSalesPage />);
 
     // 1. Verifica título da loja ou catálogo
-    expect(screen.getByText(/SmartSales/i)).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("banner")).getByText(/SmartSales/i)
+    ).toBeInTheDocument();
 
     // 2. Localiza o produto base AF-400-220V
     const productCard = screen.getByTestId("product-card-AF-400-220V");

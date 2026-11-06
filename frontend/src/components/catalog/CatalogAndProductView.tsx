@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Product } from "@/types/catalog";
-import { Sparkles, CheckCircle, ShieldAlert } from "lucide-react";
+import { SearchX, Sparkles, CheckCircle, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,13 +19,33 @@ export interface CatalogAndProductViewProps {
   products: Product[];
   selectedProduct: Product | null;
   onSelectProduct: (product: Product) => void;
+  onViewProduct: (product: Product) => void;
 }
 
 export const CatalogAndProductView: React.FC<CatalogAndProductViewProps> = ({
   products,
   selectedProduct,
   onSelectProduct,
+  onViewProduct,
 }) => {
+  if (!products.length) {
+    return (
+      <Card className="items-center justify-center py-12 text-center">
+        <CardContent className="flex flex-col items-center gap-3">
+          <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <SearchX className="size-6" />
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">Nenhum produto encontrado</p>
+            <p className="text-sm text-muted-foreground">
+              Ajuste a busca ou o filtro de voltagem para ver outros itens.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <section className="w-full">
       <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -35,9 +55,12 @@ export const CatalogAndProductView: React.FC<CatalogAndProductViewProps> = ({
             Selecione um produto para tirar dúvidas com o Consultor IA ancorado no manual oficial.
           </p>
         </div>
+        <Badge variant="secondary" className="w-fit">
+          {products.length} {products.length === 1 ? "produto" : "produtos"}
+        </Badge>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
         {products.map((product) => {
           const isSelected = selectedProduct?.sku === product.sku;
           const formattedPrice = new Intl.NumberFormat("pt-BR", {
@@ -85,7 +108,7 @@ export const CatalogAndProductView: React.FC<CatalogAndProductViewProps> = ({
                   {product.description}
                 </p>
 
-                <div className="mt-auto flex items-baseline gap-2">
+                <div className="mt-auto flex flex-wrap items-baseline gap-2">
                   <span className="text-xl font-bold text-foreground">{formattedPrice}</span>
                   {product.stock_quantity > 0 ? (
                     <span className="flex items-center gap-1 text-xs text-emerald-600">
@@ -99,15 +122,24 @@ export const CatalogAndProductView: React.FC<CatalogAndProductViewProps> = ({
                 </div>
               </CardContent>
 
-              <CardFooter>
+              <CardFooter className="gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  data-testid={`view-product-btn-${product.sku}`}
+                  onClick={() => onViewProduct(product)}
+                  className="flex-1"
+                >
+                  Detalhes
+                </Button>
                 <Button
                   type="button"
                   data-testid={`consult-ai-btn-${product.sku}`}
                   onClick={() => onSelectProduct(product)}
-                  className="w-full"
+                  className="flex-[1.5] gap-1.5 text-xs"
                 >
                   <Sparkles />
-                  <span>Consultar IA sobre este item</span>
+                  <span className="truncate">Consultar IA sobre este item</span>
                 </Button>
               </CardFooter>
             </Card>
