@@ -314,7 +314,7 @@ def cmd_start(args: argparse.Namespace) -> None:
 uv run --with-requirements tests/requirements-specs.txt python -m unittest discover -s tests -v
 
 # Frontend (quando aplicável):
-npm --prefix frontend run test:unit
+pnpm -C frontend run test:unit
 ```
 """
 
