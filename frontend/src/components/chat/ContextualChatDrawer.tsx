@@ -1,8 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
-import { Product } from "@/types/catalog";
-import { X, Send, Bot, Sparkles, BookOpen, AlertCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  AlertCircle,
+  BookOpen,
+  Bot,
+  RotateCcw,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
+import type { Product } from "@/types/catalog";
+import { useChatSession } from "@/hooks/use-chat-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +21,7 @@ import {
   SheetDescription,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { AssistantMessage } from "@/components/chat/AssistantMessage";
 
 export interface ContextualChatDrawerProps {
   product: Product | null;
@@ -25,10 +35,28 @@ export const ContextualChatDrawer: React.FC<ContextualChatDrawerProps> = ({
   onClose,
 }) => {
   const [prompt, setPrompt] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const {
+    sessionId,
+    messages,
+    isStreaming,
+    send,
+    retry,
+    reset,
+    submitFeedback,
+  } = useChatSession(product);
 
-  if (!product) {
-    return null;
-  }
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    if (typeof element.scrollTo === "function") {
+      element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+    } else {
+      element.scrollTop = element.scrollHeight;
+    }
+  }, [messages, isOpen]);
+
+  if (!product) return null;
 
   const quickSuggestions = [
     `Qual é a voltagem oficial deste modelo (${product.voltage})?`,
@@ -38,15 +66,20 @@ export const ContextualChatDrawer: React.FC<ContextualChatDrawerProps> = ({
     "Quais materiais de forma e assadeira posso utilizar?",
   ];
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt.trim()) return;
-    // Disparo inicial do chat (implementado no pacote F02 com useSSEChatStream)
+  const handleSend = (text: string) => {
+    if (!text.trim() || isStreaming) return;
+    send(text);
     setPrompt("");
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    setPrompt(suggestion);
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    handleSend(prompt);
+  };
+
+  const handleReset = () => {
+    reset();
+    setPrompt("");
   };
 
   return (
@@ -77,22 +110,36 @@ export const ContextualChatDrawer: React.FC<ContextualChatDrawerProps> = ({
                   IA RAG
                 </Badge>
               </div>
-              <SheetDescription className="max-w-[260px] truncate text-xs">
+              <SheetDescription className="max-w-[240px] truncate text-xs">
                 Ancorado no manual de: {product.name}
               </SheetDescription>
             </div>
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            data-testid="close-drawer-btn"
-            onClick={onClose}
-            aria-label="Fechar painel"
-          >
-            <X className="size-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleReset}
+              data-testid="reset-chat-btn"
+              aria-label="Reiniciar conversa"
+              className="text-muted-foreground"
+            >
+              <RotateCcw className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              data-testid="close-drawer-btn"
+              onClick={onClose}
+              aria-label="Fechar painel"
+              className="text-muted-foreground"
+            >
+              <X className="size-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Cartão de Contexto do Produto Ativo */}
@@ -108,58 +155,84 @@ export const ContextualChatDrawer: React.FC<ContextualChatDrawerProps> = ({
           </Badge>
         </div>
 
-        {/* Corpo da Conversa / Sugestões */}
-        <div className="flex-1 space-y-4 overflow-y-auto p-4">
-          <div className="flex items-start gap-2.5 rounded-xl bg-muted p-3.5 text-xs leading-relaxed text-muted-foreground">
-            <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
-            <div>
-              <p className="mb-1 font-medium text-foreground">
-                Olá! Sou o consultor técnico de vendas.
-              </p>
-              <p>
-                Posso esclarecer especificações exatas deste produto, validar voltagem,
-                medidas e sugerir upgrades compatíveis com base nos manuais de fábrica.
-              </p>
-            </div>
-          </div>
+        {/* Corpo da Conversa */}
+        <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
+          {messages.length === 0 ? (
+            <>
+              <div className="flex items-start gap-2.5 rounded-xl bg-muted p-3.5 text-xs leading-relaxed text-muted-foreground">
+                <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
+                <div>
+                  <p className="mb-1 font-medium text-foreground">
+                    Olá! Sou o consultor técnico de vendas.
+                  </p>
+                  <p>
+                    Posso esclarecer especificações exatas deste produto, validar
+                    voltagem, medidas e sugerir upgrades compatíveis com base nos
+                    manuais de fábrica.
+                  </p>
+                </div>
+              </div>
 
-          <div>
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Perguntas frequentes deste produto
-            </h4>
-            <div className="flex flex-col gap-2">
-              {quickSuggestions.map((suggestion, idx) => (
-                <Button
-                  key={idx}
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  className="group h-auto w-full justify-between gap-2 whitespace-normal px-2.5 py-2 text-left text-xs font-normal text-muted-foreground hover:text-foreground"
-                >
-                  <span>{suggestion}</span>
-                  <Sparkles className="shrink-0 text-muted-foreground/60 group-hover:text-primary" />
-                </Button>
-              ))}
-            </div>
-          </div>
+              <div>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Perguntas frequentes deste produto
+                </h4>
+                <div className="flex flex-col gap-2">
+                  {quickSuggestions.map((suggestion, index) => (
+                    <Button
+                      key={suggestion}
+                      type="button"
+                      variant="outline"
+                      disabled={isStreaming}
+                      onClick={() => handleSend(suggestion)}
+                      data-testid={`quick-suggestion-${index}`}
+                      className="group h-auto w-full justify-between gap-2 whitespace-normal px-2.5 py-2 text-left text-xs font-normal text-muted-foreground hover:text-foreground"
+                    >
+                      <span>{suggestion}</span>
+                      <Sparkles className="shrink-0 text-muted-foreground/60 group-hover:text-primary" />
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            messages.map((message) =>
+              message.role === "user" ? (
+                <div key={message.id} className="flex justify-end">
+                  <div className="max-w-[85%] rounded-xl rounded-tr-sm bg-primary px-3 py-2 text-sm leading-relaxed text-primary-foreground">
+                    {message.content}
+                  </div>
+                </div>
+              ) : (
+                <AssistantMessage
+                  key={message.id}
+                  message={message}
+                  sessionId={sessionId}
+                  onRetry={retry}
+                  onFeedback={submitFeedback}
+                />
+              )
+            )
+          )}
         </div>
 
         {/* Área de Input */}
-        <form onSubmit={handleSend} className="border-t border-border bg-card p-4">
+        <form onSubmit={handleSubmit} className="border-t border-border bg-card p-4">
           <div className="relative flex items-center">
             <Input
               type="text"
               data-testid="chat-prompt-input"
               aria-label="Pergunta para o consultor"
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(event) => setPrompt(event.target.value)}
+              disabled={isStreaming}
               placeholder={`Tire uma dúvida sobre ${product.name}...`}
               className="pr-12"
             />
             <Button
               type="submit"
               size="icon-sm"
-              disabled={!prompt.trim()}
+              disabled={!prompt.trim() || isStreaming}
               className="absolute right-1.5"
               aria-label="Enviar pergunta"
             >
@@ -167,8 +240,8 @@ export const ContextualChatDrawer: React.FC<ContextualChatDrawerProps> = ({
             </Button>
           </div>
           <p className="mt-2 flex items-center justify-center gap-1 text-center text-[10px] text-muted-foreground">
-            <AlertCircle className="size-3" /> Respostas ancoradas estritamente em manuais de
-            fábrica.
+            <AlertCircle className="size-3" /> Respostas ancoradas estritamente em
+            manuais de fábrica.
           </p>
         </form>
       </SheetContent>
