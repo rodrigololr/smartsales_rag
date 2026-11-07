@@ -231,3 +231,35 @@ def test_metrics_calculations_and_gates() -> None:
     assert report.technical_hallucination_rate == 0.0
     assert report.action_accuracy == 1.0
     assert report.all_gates_passed is True
+
+
+def test_eval_runner_mock_evaluation_and_gates() -> None:
+    """Task 4: Test full execution of the RAGAS evaluation runner across all 50 fixtures."""
+    from .eval_runner import run_ragas_evaluation
+    
+    report = run_ragas_evaluation(fixture_path=FIXTURE_PATH, mock_mode=True)
+    
+    assert report.total_cases == 50
+    assert report.evaluated_cases == 50
+    assert len(report.case_results) == 50
+    
+    # Gate 1: Faithfulness >= 0.85
+    assert report.faithfulness_macro >= 0.85, f"Faithfulness below gate: {report.faithfulness_macro}"
+    
+    # Gate 2: Technical Hallucination Rate <= 0.05
+    assert report.technical_hallucination_rate <= 0.05, f"Hallucination rate above gate: {report.technical_hallucination_rate}"
+    
+    # Gate 3: Retrieval Precision >= 0.80
+    assert report.precision_at_5_macro >= 0.80, f"Precision below gate: {report.precision_at_5_macro}"
+    
+    # Gate 4: Answer Relevance >= 0.85
+    assert report.answer_relevance_macro >= 0.85, f"Relevance below gate: {report.answer_relevance_macro}"
+    
+    # Gate 5: Business Rule Adherence == 1.0
+    assert report.business_rule_adherence_rate == 1.0, f"Business rule adherence below 1.0: {report.business_rule_adherence_rate}"
+    
+    # Gate 6: Action Accuracy == 1.0
+    assert report.action_accuracy == 1.0, f"Action accuracy below 1.0: {report.action_accuracy}"
+    
+    assert report.all_gates_passed is True
+    assert len(report.gates) == 6

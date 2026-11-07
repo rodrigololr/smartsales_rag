@@ -144,22 +144,25 @@ def calculate_answer_relevance(query: str, actual_answer: str, expected_answer: 
     norm_ans = _normalize(actual_answer)
     norm_exp = _normalize(expected_answer)
 
-    query_tokens = set(re.findall(r"\b\w+\b", norm_query)) - {"qual", "como", "posso", "que", "para", "uma"}
-    expected_tokens = set(re.findall(r"\b\w+\b", norm_exp)) - {"para", "com", "uma", "este", "esse"}
+    query_tokens = set(re.findall(r"\b\w+\b", norm_query)) - {
+        "qual", "como", "posso", "que", "para", "uma", "este", "esta", "com", "por", "sobre"
+    }
+    expected_tokens = set(re.findall(r"\b\w+\b", norm_exp)) - {
+        "para", "com", "uma", "este", "esse", "esta", "essa", "que", "nao", "sao"
+    }
 
     if not query_tokens or not expected_tokens:
         return 1.0
 
     ans_tokens = set(re.findall(r"\b\w+\b", norm_ans))
 
-    query_overlap = len(query_tokens & ans_tokens) / len(query_tokens)
-    expected_overlap = len(expected_tokens & ans_tokens) / len(expected_tokens)
+    query_overlap = len(query_tokens & ans_tokens) / len(query_tokens) if query_tokens else 1.0
+    expected_overlap = len(expected_tokens & ans_tokens) / len(expected_tokens) if expected_tokens else 1.0
 
-    # If key entities from query and expected answer are present
-    if query_overlap >= 0.80 and expected_overlap >= 0.40:
-        base = max(query_overlap, expected_overlap)
-        return min(1.0, round(base * 0.95, 4))
-    score = 0.5 * query_overlap + 0.5 * expected_overlap
+    # Ground truth alignment is primary signal; query overlap provides intent verification
+    score = 0.70 * expected_overlap + 0.30 * query_overlap
+    if expected_overlap >= 0.80:
+        score = max(score, 0.85 + 0.15 * query_overlap)
     return min(1.0, round(score, 4))
 
 

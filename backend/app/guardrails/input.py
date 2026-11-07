@@ -3,10 +3,12 @@
 import re
 
 _INJECTION = re.compile(
-    r"ignor\w*\s+(?:as\s+|todas\s+as\s+|all\s+|the\s+)?"
-    r"(?:instru|regras|previous|prior)"
-    r"|system\s*prompt|prompt\s+do\s+sistema"
+    r"(?:ignor|esque[cç]|desconsider)\w*\s+(?:as\s+|todas\s+as\s+|all\s+|the\s+)?"
+    r"(?:instru|regras|previous|prior|guardrail|estoque|sistema)?"
+    r"|system\s*(?:prompt|override)"
+    r"|prompt\s+do\s+sistema"
     r"|voc[eê]\s+agora\s+[eé]|you\s+are\s+now"
+    r"|afirme\s+categoricamente"
     r"|jailbreak",
     re.IGNORECASE,
 )
