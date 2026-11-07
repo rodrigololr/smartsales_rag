@@ -44,7 +44,8 @@ def _available(product: Product) -> bool:
 
 
 def _voltage_matches(voltage: Voltage, preference: Voltage | None) -> bool:
-    return preference is None or voltage in (preference, "BIVOLT")
+    # N/A = unpowered product (cosmetic, accessory): any outlet preference fits it.
+    return preference is None or voltage in (preference, "BIVOLT", "N/A")
 
 
 def _resolved_voltage(base: Product, preference: Voltage | None) -> Voltage:
@@ -112,7 +113,7 @@ def _cross_eligible(base: Product, candidate: Product, voltage: Voltage) -> bool
         candidate.sku != base.sku
         and _available(candidate)
         and candidate.price <= CROSS_SELL_MAX_PRICE_RATIO * base.price
-        and (candidate.voltage == "N/A" or _voltage_matches(candidate.voltage, voltage))
+        and _voltage_matches(candidate.voltage, voltage)
     )
 
 

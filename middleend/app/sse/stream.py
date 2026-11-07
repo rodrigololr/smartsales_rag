@@ -19,9 +19,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import sys
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Literal, cast
 
@@ -30,6 +29,7 @@ from .models import (
     Citation,
     CompletedTurn,
     DisconnectRequest,
+    ErrorCode,
     FinishReason,
     ProductCard,
     PublicEventName,
@@ -61,6 +61,8 @@ class _Turn:
     had_tokens: bool = False
     error_seen: bool = False
     finish_reason: FinishReason = "stop"
+    error_code: ErrorCode | None = None
+    recoverable: bool | None = None
     tokens_used: int = 0
     intent: str | None = None
     content: list[str] = field(default_factory=list)
@@ -86,6 +88,8 @@ class _Turn:
         require(not self.error_seen)
         self.error_seen = True
         code = payload["code"]
+        self.error_code = cast(ErrorCode, code)
+        self.recoverable = cast(bool, payload["recoverable"])
         self.finish_reason = (
             "error"
             if self.had_tokens or code in {"INTERNAL_ERROR", "LLM_UNAVAILABLE"}
@@ -129,6 +133,8 @@ class _Turn:
             cache_hit=self.cache_hit,
             ttft_ms=self.ttft_ms,
             total_latency_ms=self.elapsed(),
+            error_code=self.error_code,
+            recoverable=self.recoverable,
         )
 
 
@@ -174,18 +180,21 @@ async def _failure_frames(
         if isinstance(failure, (TimeoutError, ConnectionError))
         else "INTERNAL_ERROR"
     )
-    async for frame in _frames(
-        request,
-        turn,
-        "error",
-        {
-            "code": code,
-            "recoverable": True,
-            "fallback_message": SAFE_FAILURE_MESSAGE,
-        },
-    ):
-        yield frame
-    if not await _connected(request, turn):
+    # Contract allows a single error per turn: keep the backend's if already published.
+    if not turn.error_seen:
+        async for frame in _frames(
+            request,
+            turn,
+            "error",
+            {
+                "code": code,
+                "recoverable": True,
+                "fallback_message": SAFE_FAILURE_MESSAGE,
+            },
+        ):
+            yield frame
+    # stage 6 = cards already published after that error; never send a second set.
+    if turn.stage == 6 or not await _connected(request, turn):
         return
     try:
         fallback = products(await fallback_products())
@@ -199,17 +208,16 @@ async def _failure_frames(
 async def _cleanup(
     backend: BackendStream, release_turn: Callable[[], Awaitable[None]], session_id: str
 ) -> None:
+    """Logged, never raised: the turn outcome is already decided (and maybe persisted)."""
     try:
         await backend.aclose()
     except Exception:
         logger.exception("backend_close_failed", extra={"session_id": session_id})
-        raise
     finally:
         try:
             await release_turn()
         except Exception:
             logger.exception("release_turn_failed", extra={"session_id": session_id})
-            raise
 
 
 async def _finish_cleanup(
@@ -218,7 +226,6 @@ async def _finish_cleanup(
     session_id: str,
 ) -> None:
     """Shield resource cleanup when cancellation arrives while cleanup awaits."""
-    pending_exception = sys.exception()
     cleanup = asyncio.create_task(_cleanup(backend, release_turn, session_id))
     try:
         await asyncio.shield(cleanup)
@@ -227,13 +234,37 @@ async def _finish_cleanup(
             await asyncio.shield(cleanup)
         finally:
             raise
-    except Exception:
-        if pending_exception is None:
-            raise
-        # Keep original cancellation/consumer close; adapter failure was logged.
 
 
-async def sse_chat_generator(
+class SSEStream:
+    """Async iterator of SSE frames that releases resources even if closed unread.
+
+    An async generator closed before its first read never runs its finally block,
+    which would leak the session lock and the backend stream.
+    """
+
+    def __init__(
+        self, frames: AsyncGenerator[str, None], cleanup: Callable[[], Awaitable[None]]
+    ) -> None:
+        self._frames = frames
+        self._cleanup = cleanup
+        self._started = False
+
+    def __aiter__(self) -> SSEStream:
+        return self
+
+    async def __anext__(self) -> str:
+        self._started = True
+        return await self._frames.__anext__()
+
+    async def aclose(self) -> None:
+        if not self._started:
+            self._started = True
+            await self._cleanup()
+        await self._frames.aclose()
+
+
+def sse_chat_generator(
     request: DisconnectRequest,
     session_id: str,
     message_id: str,
@@ -245,17 +276,32 @@ async def sse_chat_generator(
     *,
     started_at: float | None = None,
     clock: Callable[[], float] = time.perf_counter,
-) -> AsyncIterator[str]:
+) -> SSEStream:
     """Emit ordered SSE, persist approved completion, release resources then done.
 
     Adapter exceptions are caught and logged at this stream boundary; cancellation
-    and GeneratorExit propagate. Cleanup failures propagate after both resource
-    operations are attempted, so no success done is fabricated on cleanup failure.
+    and GeneratorExit propagate. Cleanup failures are logged and never replace the
+    decided outcome: a persisted turn still gets its done, so the client won't resend it.
     Every frame and final persistence is preceded by a disconnect check.
     """
     turn = _Turn(
         session_id, message_id, cache_hit, clock() if started_at is None else started_at, clock
     )
+    frames = _sse_frames(
+        request, turn, backend_stream, release_turn, fallback_products, complete_turn
+    )
+    return SSEStream(frames, lambda: _finish_cleanup(backend_stream, release_turn, session_id))
+
+
+async def _sse_frames(
+    request: DisconnectRequest,
+    turn: _Turn,
+    backend_stream: BackendStream,
+    release_turn: Callable[[], Awaitable[None]],
+    fallback_products: Callable[[], Awaitable[list[ProductCard]]],
+    complete_turn: Callable[[CompletedTurn], Awaitable[None]],
+) -> AsyncGenerator[str, None]:
+    session_id, message_id = turn.session_id, turn.message_id
     try:
         try:
             if not await _connected(request, turn):

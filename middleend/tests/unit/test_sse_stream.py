@@ -194,6 +194,26 @@ def test_guardrail_fallback_is_completed_with_safe_message():
     assert harness.completed[0].finish_reason == "fallback"
 
 
+def test_completed_fallback_keeps_error_code_for_replay():
+    def turn_for(code):
+        fallback = {"code": code, "recoverable": False, "fallback_message": "Mensagem segura."}
+        harness = Harness(Backend([{"event": "error", "data": fallback}, end(0)]))
+        run(harness.collect())
+        return harness.completed[0]
+
+    blocked = turn_for("GUARDRAIL_BLOCKED")
+    low_similarity = turn_for("LOW_SIMILARITY_FALLBACK")
+    assert (blocked.error_code, blocked.recoverable) == ("GUARDRAIL_BLOCKED", False)
+    assert low_similarity.error_code == "LOW_SIMILARITY_FALLBACK"
+
+
+def test_successful_turn_has_no_error_code():
+    harness = Harness(Backend([token(), end()]))
+    run(harness.collect())
+    assert harness.completed[0].error_code is None
+    assert harness.completed[0].recoverable is None
+
+
 def test_model_error_after_partial_tokens_discards_partial_and_is_not_persisted():
     failure = {
         "code": "LLM_UNAVAILABLE",
@@ -360,16 +380,76 @@ def test_correction_replaces_persisted_text_and_real_citations_are_preserved():
     assert harness.completed[0].citations == (citation,)
 
 
-def test_cleanup_failure_still_releases_and_does_not_emit_done():
+def test_cleanup_failure_after_persist_still_releases_and_emits_done():
+    # Turn is already persisted; withholding done would make the client re-send it.
     class FailingClose(Backend):
         async def aclose(self):
             self.closed = True
             raise RuntimeError("close failed")
 
     harness = Harness(FailingClose([token(), end()]))
-    with pytest.raises(RuntimeError, match="close failed"):
-        run(harness.collect())
+    events = run(harness.collect())
+    assert [name for name, _ in events] == ["metadata", "token", "done"]
+    assert events[-1][1]["finish_reason"] == "stop"
+    assert harness.backend.closed and harness.released == 1 and harness.completed
+
+
+def test_release_failure_is_logged_and_done_still_emitted():
+    harness = Harness(Backend([token(), end()]))
+
+    async def release():
+        harness.released += 1
+        raise RuntimeError("redis down")
+
+    harness.release = release
+    events = run(harness.collect())
+    assert events[-1][0] == "done" and harness.released == 1
+
+
+def test_close_before_first_read_still_releases_resources():
+    harness = Harness(Backend([token(), end()]))
+
+    async def consume():
+        await harness.stream().aclose()
+
+    run(consume())
     assert harness.backend.closed and harness.released == 1
+    assert harness.backend.reads == 0
+
+
+def test_fallback_then_eof_emits_a_single_error():
+    fallback = {
+        "code": "LOW_SIMILARITY_FALLBACK",
+        "recoverable": True,
+        "fallback_message": "Não encontrei essa especificação.",
+    }
+    harness = Harness(Backend([{"event": "error", "data": fallback}]))
+    events = run(harness.collect())
+    assert [name for name, _ in events] == ["metadata", "error", "recommendations", "done"]
+    assert events[1][1]["code"] == "LOW_SIMILARITY_FALLBACK"
+    assert events[-1][1]["finish_reason"] == "error"
+
+
+def test_fallback_completion_failure_does_not_repeat_error_or_cards():
+    fallback = {
+        "code": "LOW_SIMILARITY_FALLBACK",
+        "recoverable": True,
+        "fallback_message": "Não encontrei essa especificação.",
+    }
+    harness = Harness(
+        Backend(
+            [
+                {"event": "error", "data": fallback},
+                {"event": "recommendations", "data": {"products": []}},
+                end(0),
+            ]
+        )
+    )
+    harness.completion_failure = RuntimeError("db down")
+    events = run(harness.collect())
+    assert [name for name, _ in events] == ["metadata", "error", "recommendations", "done"]
+    assert events[-1][1]["finish_reason"] == "error"
+    assert harness.fallback_calls == 0
 
 
 def test_disconnect_between_metadata_and_token_suppresses_content_and_done():

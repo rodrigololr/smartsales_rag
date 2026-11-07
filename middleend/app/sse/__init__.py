@@ -16,7 +16,7 @@ from .models import (
     RecommendationsPayload,
     TokenPayload,
 )
-from .stream import format_sse, sse_chat_generator
+from .stream import SSEStream, format_sse, sse_chat_generator
 
 __all__ = [
     "BackendEvent",
@@ -34,5 +34,6 @@ __all__ = [
     "RecommendationsPayload",
     "TokenPayload",
     "format_sse",
+    "SSEStream",
     "sse_chat_generator",
 ]

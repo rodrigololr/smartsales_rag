@@ -98,7 +98,12 @@ class DisconnectRequest(Protocol):
     async def is_disconnected(self) -> bool: ...
 
 
-class BackendStream(AsyncIterator[Mapping[str, object]], Protocol):
+# Methods spelled out: Protocol may not subclass AsyncIterator before Python 3.12.x.
+class BackendStream(Protocol):
+    def __aiter__(self) -> AsyncIterator[Mapping[str, object]]: ...
+
+    async def __anext__(self) -> Mapping[str, object]: ...
+
     async def aclose(self) -> None: ...
 
 
@@ -117,3 +122,6 @@ class CompletedTurn:
     cache_hit: bool
     ttft_ms: int
     total_latency_ms: int
+    # Set on fallback turns so a replay can rebuild the original error event.
+    error_code: ErrorCode | None = None
+    recoverable: bool | None = None

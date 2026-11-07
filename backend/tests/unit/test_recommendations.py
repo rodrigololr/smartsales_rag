@@ -224,6 +224,17 @@ def test_requested_voltage_restricts_primary_and_upsell_and_accepts_bivolt() -> 
     assert chosen is not None and chosen.product.voltage == "BIVOLT"
 
 
+@pytest.mark.parametrize("preference", ["127V", "220V"])
+def test_unpowered_products_survive_any_voltage_preference(preference: str) -> None:
+    base = replace(product(), category="cosmetic", subcategory="base", voltage="N/A")
+    better = RecommendationCandidate(
+        replace(base, sku="SYNTH-UP", price=Decimal("625.00"), capacity_liters=Decimal("5.5")),
+        similarities=(Decimal("0.8"),),
+    )
+    selected = RecommendationEngine().recommend(base, [better], [], requested_voltage=preference)
+    assert [item.recommendation_type for item in selected] == ["PRIMARY", "UPSELL"]
+
+
 def test_upsell_can_be_disabled_for_direct_purchase_intent() -> None:
     selected = RecommendationEngine().recommend(
         product(), [upsell()], [accessory()], allow_upsell=False
