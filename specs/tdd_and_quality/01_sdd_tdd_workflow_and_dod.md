@@ -53,14 +53,14 @@ O pipeline do GitHub Actions é dividido em 4 *jobs* paralelos bloqueantes (*Req
 
 1. **`lint-and-typecheck`**:
    - Python (`backend/` e `middleend/`): `ruff check .`, `ruff format --check .`, `mypy app`;
-   - Frontend (`frontend/`): `npm run lint`, `npx tsc --noEmit`.
+   - Frontend (`frontend/`): `pnpm lint`, `pnpm exec tsc --noEmit`.
 2. **`test-backend-and-middleend`**:
    - Sobe serviços `pgvector/pgvector:pg16` e `redis:7.2-alpine` como *service containers* do GitHub Actions e carrega o *seed* do catálogo local (`python -m app.ingestion.run` com embeddings *mockados*);
    - Executa as suítes em **passos separados**, cada uma no seu diretório (os dois serviços possuem um pacote chamado `app`, que colidiria num único processo do Pytest):
      - `cd backend && pytest tests/unit tests/integration --cov=app --cov-fail-under=70`;
      - `cd middleend && pytest tests --cov=app --cov-fail-under=70`.
 3. **`test-frontend-and-e2e`**:
-   - Executa `npm --prefix frontend run test:unit -- --coverage`;
+   - Executa `pnpm -C frontend run test:unit -- --coverage`;
    - Executa `npx playwright test` validando o contrato de streaming e renderização de cards.
 4. **`eval-rag-quality-gate`**:
    - Executa o subconjunto rápido de regressão do *Golden Set* garantindo **0 inversões de voltagem/preço** e **Faithfulness $\ge 0,85$**;

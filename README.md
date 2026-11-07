@@ -90,7 +90,7 @@ Quando o usuário entra em um produto na nossa plataforma, o **Painel Lateral do
 ```mermaid
 flowchart LR
     subgraph CLIENT ["Camada 1 — Frontend (Vercel)"]
-        UI["<b>Next.js 14+ / React 18 (TypeScript)</b><br/>• Chat UI com Streaming SSE<br/>• Product Cards (Upsell/Cross-sell)<br/>• Badges de Citação & Like/Dislike"]
+        UI["<b>Next.js 16 / React 19 (TypeScript)</b><br/>• Chat UI com Streaming SSE<br/>• Product Cards (Upsell/Cross-sell)<br/>• Badges de Citação & Like/Dislike"]
     end
 
     subgraph GATEWAY ["Camada 2 — Middle-end / Gateway (Railway)"]
@@ -120,7 +120,7 @@ flowchart LR
 
 | Camada | Tecnologia Principal | Provedor Cloud / Ambiente | Responsáveis Diretos |
 | :--- | :--- | :--- | :--- |
-| **Frontend & UI/UX** | Next.js 14+ (App Router), React 18, TypeScript, Tailwind CSS, Lucide Icons, Playwright / Vitest | Vercel | **Eduardo**, **Victor Hugo** |
+| **Frontend & UI/UX** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, shadcn/ui, Lucide Icons, Playwright / Vitest | Vercel | **Eduardo**, **Victor Hugo** |
 | **Middle-end / Gateway** | Python FastAPI (Async SSE Gateway), Pydantic v2, Redis Client (`redis-py`), SQLAlchemy 2.0 + `asyncpg`, OpenAPI 3.1 | Railway + Upstash Redis | **Pablo**, **Well** |
 | **Backend & IA (RAG)** | Python 3.11+, LangChain, OpenAI SDK (`gpt-4o-mini`, `text-embedding-3-small`), RAGAS, Pytest | Railway | **Filipe**, **Diogo** |
 | **Banco de Dados & Vetores** | PostgreSQL 16 + extensão `pgvector` (índice `HNSW`), SQLAlchemy 2.0 / Alembic | Supabase + Docker Compose | **Filipe**, **Diogo** |

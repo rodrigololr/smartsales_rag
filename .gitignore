@@ -1,4 +1,6 @@
+# Python
 .venv/
+venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -8,6 +10,23 @@ __pycache__/
 .coverage.*
 coverage.xml
 htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+dist/
+coverage/
+
+# Environments
 .env
 .env.*
 !.env.example
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local tooling artifacts
+.openchamber/
