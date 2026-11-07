@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquare, ShoppingCart, Star, X } from "lucide-react";
 import type { Product } from "@/types/catalog";
 import { createId, formatBRL } from "@/lib/format";
@@ -28,7 +28,8 @@ export function ProductDetailPanel({
   const [isClosing, setIsClosing] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finished = useRef(false);
-  const card = toPrimaryCard(product);
+  // Stable identity: CheckoutDialog re-runs the checkout call whenever `card` changes.
+  const card = useMemo(() => toPrimaryCard(product), [product]);
 
   useEffect(() => {
     return () => {

@@ -228,7 +228,7 @@ export const buildRecommendations = (base: Product): ProductCardData[] => {
     ];
   }
 
-  const upsell = findProduct("AF-800-220V");
+  const upsell = findProduct("AF-550-220V");
   const cross = findProduct("KIT-SIL-01");
   return [
     primary,
@@ -238,7 +238,7 @@ export const buildRecommendations = (base: Product): ProductCardData[] => {
             upsell,
             "UPSELL",
             "Upgrade Recomendado — Maior Capacidade",
-            "Atende famílias maiores com cesto duplo de 8L e painel touch."
+            "Cesto de 5,5L atende de 5 a 6 pessoas em uma única fornada."
           ),
         ]
       : []),

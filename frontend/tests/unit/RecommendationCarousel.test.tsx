@@ -19,16 +19,16 @@ describe("UT-F04-01: ProductRecommendationCarousel e Mock Checkout", () => {
     );
 
     expect(screen.getByTestId("recommendation-card-AF-400-220V")).toBeInTheDocument();
-    expect(screen.getByTestId("recommendation-card-AF-800-220V")).toBeInTheDocument();
+    expect(screen.getByTestId("recommendation-card-AF-550-220V")).toBeInTheDocument();
     expect(screen.getByTestId("recommendation-card-KIT-SIL-01")).toBeInTheDocument();
     expect(screen.getByText("Produto Consultado")).toBeInTheDocument();
     expect(
       screen.getByText("Upgrade Recomendado — Maior Capacidade")
     ).toBeInTheDocument();
     expect(screen.getByText("Compre Junto Compatível")).toBeInTheDocument();
-    expect(screen.getByText("R$ 674,90")).toBeInTheDocument();
+    expect(screen.getByText("R$ 629,90")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("buy-now-btn-AF-800-220V"));
+    fireEvent.click(screen.getByTestId("buy-now-btn-AF-550-220V"));
 
     const confirmation = await screen.findByTestId("checkout-confirmed", undefined, {
       timeout: 3000,
@@ -37,7 +37,7 @@ describe("UT-F04-01: ProductRecommendationCarousel e Mock Checkout", () => {
     expect(screen.getByText(/Compra confirmada/i)).toBeInTheDocument();
     expect(screen.getByTestId("checkout-redirect-link")).toHaveAttribute(
       "href",
-      expect.stringContaining("amazon.com.br")
+      expect.stringContaining("mercadolivre.com.br")
     );
   });
 });
