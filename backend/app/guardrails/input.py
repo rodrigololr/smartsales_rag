@@ -3,8 +3,8 @@
 import re
 
 _INJECTION = re.compile(
-    r"(?:ignor|esque[cç]|desconsider)\w*\s+(?:as\s+|todas\s+as\s+|all\s+|the\s+)?"
-    r"(?:instru|regras|previous|prior|guardrail|estoque|sistema)?"
+    r"(?:ignor|esque[cç]|desconsider)\w*\s+(?:as\s+|todas\s+as\s+|all\s+|the\s+|o\s+)?"
+    r"(?:instru|regras|previous|prior|guardrail|estoque|sistema)"
     r"|system\s*(?:prompt|override)"
     r"|prompt\s+do\s+sistema"
     r"|voc[eê]\s+agora\s+[eé]|you\s+are\s+now"

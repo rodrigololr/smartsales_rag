@@ -203,11 +203,11 @@ def aggregate_macro_metrics(results: list[EvalCaseResult]) -> EvaluationReport:
     f_macro = round(sum(faithfulness_vals) / len(faithfulness_vals), 4) if faithfulness_vals else 1.0
 
     # Precision macro (uses precision_at_5 when available, else precision_returned)
-    prec_vals = [
-        r.precision_at_5 if r.precision_at_5 is not None else r.precision_returned
-        for r in results
-        if (r.precision_at_5 is not None or r.precision_returned is not None)
-    ]
+    prec_vals: list[float] = []
+    for r in results:
+        val = r.precision_at_5 if r.precision_at_5 is not None else r.precision_returned
+        if val is not None:
+            prec_vals.append(val)
     p_macro = round(sum(prec_vals) / len(prec_vals), 4) if prec_vals else 1.0
 
     # Technical Hallucination Rate

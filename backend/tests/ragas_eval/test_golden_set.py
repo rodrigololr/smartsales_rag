@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+
 import pytest
 
 FIXTURE_PATH = Path(__file__).parent / "golden_set.json"
@@ -64,7 +65,7 @@ def test_golden_set_file_and_schema() -> None:
 
 def test_models_parsing_and_validation() -> None:
     """Task 2: Verify Pydantic models parse golden_set.json and validate constraints."""
-    from .models import GoldenSetFixture, EvalCaseResult, EvaluationReport, GateResult
+    from .models import EvalCaseResult, EvaluationReport, GateResult, GoldenSetFixture
     
     with open(FIXTURE_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -127,12 +128,12 @@ def test_models_parsing_and_validation() -> None:
 def test_metrics_calculations_and_gates() -> None:
     """Task 3: Test deterministic metrics calculation and quality gates."""
     from .metrics import (
+        aggregate_macro_metrics,
+        calculate_answer_relevance,
+        calculate_business_rule_adherence,
         calculate_faithfulness,
         calculate_retrieval_precision,
         calculate_technical_hallucination,
-        calculate_answer_relevance,
-        calculate_business_rule_adherence,
-        aggregate_macro_metrics,
     )
     from .models import EvalCaseResult
     

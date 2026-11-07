@@ -1,6 +1,7 @@
 """Pydantic models for Golden Set fixtures and RAGAS evaluation (B05 / EAP 5.1)."""
 
 from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
 CategoryType = Literal[

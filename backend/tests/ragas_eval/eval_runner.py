@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from app.guardrails.input import is_prompt_injection
+
 from .metrics import (
     aggregate_macro_metrics,
     calculate_answer_relevance,
