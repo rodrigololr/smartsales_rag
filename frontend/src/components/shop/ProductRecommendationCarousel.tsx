@@ -56,7 +56,7 @@ function RecommendationCard({
 
         <div className="flex items-start gap-2.5">
           <ProductThumb
-            product={{ name: card.name, subcategory: subcategoryOf(card) }}
+            product={{ name: card.name, subcategory: subcategoryOf(card), image_url: card.image_url }}
             className="size-12 shrink-0"
           />
           <div className="min-w-0">

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-label="Cafeteira Expresso Aroma Pro">
+<title>Cafeteira Expresso Aroma Pro</title>
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef0f4"/></radialGradient>
+<linearGradient id="body" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1f2329"/><stop offset=".55" stop-color="#3a3f47"/><stop offset="1" stop-color="#1a1d22"/></linearGradient>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9aa1ab"/><stop offset=".5" stop-color="#e9ecf0"/><stop offset="1" stop-color="#8b929c"/></linearGradient>
+<linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d1014"/><stop offset="1" stop-color="#262b33"/></linearGradient>
+<radialGradient id="shadow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="800" height="800" fill="url(#bg)"/>
+<ellipse cx="400" cy="700" rx="235.0" ry="26" fill="url(#shadow)"/>
+<rect x="200" y="200" width="400" height="490" rx="40" fill="url(#steel)"/>
+<rect x="200" y="200" width="400" height="120" rx="40" fill="#2a2f36"/>
+<rect x="200" y="280" width="400" height="40" fill="#2a2f36"/>
+<circle cx="270" cy="260" r="18" fill="#111" stroke="#9aa1ab" stroke-width="3"/>
+<circle cx="330" cy="260" r="18" fill="#111" stroke="#9aa1ab" stroke-width="3"/>
+<circle cx="530" cy="260" r="26" fill="#111" stroke="#c0c6ce" stroke-width="4"/>
+<circle cx="390" cy="260" r="6" fill="#22c55e"/>
+<rect x="330" y="330" width="140" height="44" rx="10" fill="#4b525c"/>
+<rect x="342" y="374" width="116" height="36" rx="8" fill="#1f2329"/>
+<rect x="458" y="380" width="150" height="24" rx="12" fill="#111"/>
+<path d="M560 330 L560 470 Q560 500 540 510" fill="none" stroke="#c0c6ce" stroke-width="10" stroke-linecap="round"/>
+<path d="M352 480 L448 480 L440 560 Q438 575 420 575 L380 575 Q362 575 360 560 Z" fill="#ffffff" stroke="#d1d5db" stroke-width="3"/>
+<path d="M448 500 Q478 505 470 535 Q465 550 444 548" fill="none" stroke="#d1d5db" stroke-width="6"/>
+<ellipse cx="400" cy="486" rx="44" ry="7" fill="#6b4226"/>
+<rect x="240" y="590" width="320" height="60" rx="14" fill="#2a2f36"/>
+<g stroke="#4b525c" stroke-width="4"><line x1="270" y1="604" x2="270" y2="636"/><line x1="294" y1="604" x2="294" y2="636"/><line x1="318" y1="604" x2="318" y2="636"/><line x1="342" y1="604" x2="342" y2="636"/><line x1="366" y1="604" x2="366" y2="636"/><line x1="390" y1="604" x2="390" y2="636"/><line x1="414" y1="604" x2="414" y2="636"/><line x1="438" y1="604" x2="438" y2="636"/><line x1="462" y1="604" x2="462" y2="636"/><line x1="486" y1="604" x2="486" y2="636"/><line x1="510" y1="604" x2="510" y2="636"/><line x1="534" y1="604" x2="534" y2="636"/></g>
+<text x="580" y="676" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#4b525c">1,5L</text>
+</svg>

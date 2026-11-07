@@ -6,18 +6,17 @@ Este diretório contém o módulo de interface conversacional e vitrine de catá
 
 ## 1. Contexto e Protótipos Figma (EAP 3.4)
 
-A interface foi projetada para vendas consultivas B2B/B2B2C de produtos técnicos (eletroportáteis, eletrônicos, cosméticos), baseada no conceito de **Vitrine Split-View com Painel Lateral Contextual (*Contextual Side-Drawer*, inspirado no Amazon Rufus)**:
+A interface foi projetada para vendas consultivas B2B/B2B2C de produtos técnicos (eletroportáteis, eletrônicos, cosméticos), baseada em um **catálogo comum com página de produto e Consultor IA fixo ao lado (inspirado no Amazon Rufus)**:
 
 ### 1.1. Diretrizes de UI/UX e Componentes do Figma
-- **Vitrine e Busca (`CatalogAndProductView`)**:
-  - Grid responsivo (mobile `375px`, tablet `768px`, desktop `1440px`).
-  - Cards de produto com indicação visual estrita de voltagem (`127V`, `220V`, `Bivolt`), preço formatado em BRL (`Intl.NumberFormat`) e estoque em tempo real.
-  - Botão de ação primária *"Consultar IA sobre este item"* (`data-testid="consult-ai-btn-{sku}"`) que ancora a sessão do chat no SKU ativo.
-- **Painel Lateral do Consultor IA (`ContextualChatDrawer`)**:
-  - Drawer deslizante no lado direito (`sm:w-[480px]`, mobile tela cheia).
-  - Ancoragem automática no manual do produto selecionado (`current_product_sku`).
-  - Sugestões rápidas inteligentes (pílulas de perguntas frequentes do item ativo).
-  - Acessibilidade: sem overflow horizontal, `role="dialog"`, suporte a teclado e leitores de tela.
+- **Catálogo (`ProductGrid`, rota `/`)**:
+  - Grid responsivo com foto, nome, avaliação, preço em BRL, voltagem e estoque; busca e filtro de voltagem.
+  - O card inteiro (`data-testid="product-card-{sku}"`) leva à página do item.
+- **Página do produto (`ProductPageView`, rota `/produto/[sku]`)**:
+  - Galeria com miniaturas (`ProductGallery`), título, avaliação, ficha técnica, "Sobre este item" e caixa de compra com checkout (`ProductBuyBox`).
+  - **Consultor IA (`ProductAssistant`)** fixo à esquerda no desktop, colado na borda da tela, ancorado no `current_product_sku`, com perguntas sugeridas conforme o tipo de produto.
+  - No celular/tablet, o consultor abre pelo botão flutuante "Pergunte ao Consultor IA" em um `Sheet` (`ContextualChatDrawer`); as duas visões compartilham a mesma conversa.
+- **Imagens:** ilustrações SVG próprias em `public/images/` (produtos fictícios do MVP). Para usar fotos reais, troque `image_url`/`gallery` no catálogo.
 
 ---
 
@@ -29,25 +28,31 @@ frontend/
 │   ├── app/
 │   │   ├── globals.css              # Diretivas Tailwind e variáveis de tema
 │   │   ├── layout.tsx               # Root Layout com metadados e lang="pt-BR"
-│   │   ├── page.tsx                 # SmartSalesPage: vitrine, busca, detalhe e drawer
+│   │   ├── page.tsx                 # Catálogo com busca e filtro de voltagem
+│   │   ├── produto/[sku]/page.tsx   # Página do produto (SSG por SKU)
 │   │   └── admin/metricas/page.tsx  # Painel do operador (UC09)
 │   ├── components/
 │   │   ├── admin/
 │   │   │   └── AdminMetricsDashboard.tsx   # Token gate, KPIs e dúvidas frequentes
 │   │   ├── catalog/
-│   │   │   └── CatalogAndProductView.tsx   # Grid de produtos e seletores
+│   │   │   └── ProductGrid.tsx             # Grid de produtos com foto
 │   │   ├── chat/
-│   │   │   ├── ContextualChatDrawer.tsx    # Drawer lateral do Consultor IA (Sheet)
+│   │   │   ├── ProductAssistant.tsx        # Consultor IA do produto (painel)
+│   │   │   ├── ContextualChatDrawer.tsx    # Consultor no celular (Sheet)
 │   │   │   ├── AssistantMessage.tsx        # Bolha, citações, cards e feedback
 │   │   │   ├── CitationList.tsx            # Badges + trecho literal do manual
 │   │   │   └── MessageFeedbackBar.tsx      # Like/Dislike com motivo
 │   │   ├── checkout/
 │   │   │   └── CheckoutDialog.tsx          # Mock checkout e redirect ao marketplace
 │   │   ├── shop/
-│   │   │   ├── ProductDetailPanel.tsx      # Página de detalhe do produto selecionado
+│   │   │   ├── ProductPageView.tsx         # Layout da página do produto + consultor
+│   │   │   ├── ProductGallery.tsx          # Foto principal e miniaturas
+│   │   │   ├── ProductBuyBox.tsx           # Preço, estoque e checkout
 │   │   │   └── ProductRecommendationCarousel.tsx
 │   │   ├── shared/
-│   │   │   └── ProductThumb.tsx            # Thumbnail ilustrado por categoria
+│   │   │   └── ProductThumb.tsx            # Foto do produto (ícone se faltar imagem)
+│   │   ├── layout/
+│   │   │   └── StoreHeader.tsx             # Cabeçalho da loja
 │   │   └── ui/                      # Componentes shadcn/ui (Button, Card, Badge, Sheet...)
 │   ├── hooks/
 │   │   └── use-chat-session.ts      # Estado da conversa (API real ou mock)
