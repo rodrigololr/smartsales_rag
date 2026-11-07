@@ -5,41 +5,65 @@ Os incrementos B04, M03 e M02 implementam regras independentes já definidas em
 banco, Redis ou credenciais de IA. As regras pertencem aos módulos de domínio;
 adaptadores de infraestrutura deverão fornecer catálogo, contexto e stream.
 
-## Preparação (Python 3.11+)
+## Preparação (uv + Python 3.12)
 
-Na raiz do repositório, crie e ative um ambiente virtual. Exemplo no PowerShell:
+Use o [uv](https://docs.astral.sh/uv/) para o ambiente Python. Na raiz:
 
-```powershell
-python -m venv .venv
-.venv/Scripts/Activate.ps1
-python -m pip install -r requirements-dev.txt
+```bash
+uv venv --python 3.12
+uv pip install -r requirements-dev.txt
 ```
 
-Em Linux/macOS, ative com `source .venv/bin/activate`. A CI usa Python 3.12.
-`requirements-dev.txt` fixa as ferramentas e inclui as dependências dos testes
-documentais. Os módulos iniciais utilizam a biblioteca padrão do Python.
+`requirements-dev.txt` inclui as dependências de `backend/requirements.txt`,
+`middleend/requirements.txt` e dos testes documentais. Execute cada serviço em um
+processo separado: ambos possuem seu próprio pacote `app`, como previsto na
+arquitetura.
 
 ## Verificação
 
 Na raiz, valide os contratos e exemplos documentais:
 
-```powershell
-python -m unittest discover -s tests -v
+```bash
+uv run --no-project python -m unittest discover -s tests -v
 ```
 
-Entre em `backend/` e execute:
+Entre em `backend/` (e depois em `middleend/`) e execute:
 
-```powershell
-python -m pytest tests/unit -v --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=70
-python -m ruff check app tests/unit
-python -m mypy app
+```bash
+uv run --no-project python -m pytest tests -v --cov=app --cov-branch --cov-fail-under=70
+uv run --no-project python -m ruff check app tests
+uv run --no-project python -m mypy app
 ```
 
-Repita os mesmos comandos dentro de `middleend/`. Execute cada serviço em um
-processo separado: ambos possuem seu próprio pacote `app`, como previsto na
-arquitetura. O workflow `Python domain modules` executa essas verificações
-independentemente para as duas camadas. `Specs and reference contracts` continua
+O teste de integração do backend (`tests/integration`) usa um PostgreSQL com
+pgvector descartável e só roda com `TEST_DATABASE_URL` definido:
+
+```bash
+docker run -d --name smartsales-pgvector-test -p 5544:5432 -e POSTGRES_USER=smartsales \
+  -e POSTGRES_PASSWORD=smartsales -e POSTGRES_DB=smartsales pgvector/pgvector:pg16
+TEST_DATABASE_URL=postgresql://smartsales:smartsales@localhost:5544/smartsales \
+  uv run --no-project python -m pytest tests/integration -v
+```
+
+O workflow `Python domain modules` sobe esse banco como serviço e executa as
+verificações das duas camadas com uv. `Specs and reference contracts` continua
 validando a documentação e o OpenAPI.
+
+## MVP sem Docker (três terminais)
+
+```bash
+# 1. backend (:8001) — precisa de DATABASE_URL e OPENAI_API_KEY (veja backend/.env.example)
+cd backend && uv run --no-project python -m app.ingestion.run --catalog ../data/catalog.json --manuals ../data/manuals/
+cd backend && uv run --no-project uvicorn app.main:app --port 8001
+# 2. middleend (:8000)
+cd middleend && uv run --no-project uvicorn app.main:app --port 8000
+# 3. frontend (:3000) apontando para o gateway
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 pnpm -C frontend dev
+```
+
+Contrato interno: o middle-end chama `POST /internal/rag/stream` do backend com
+`{sku, question, history}` e recebe NDJSON com os eventos internos do M02
+(`token` só com sentenças aprovadas pelo G-OUT, `citations`, `error`, `end`).
 
 ## Frentes paralelas e limites
 

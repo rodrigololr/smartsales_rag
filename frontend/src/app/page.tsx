@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { Product } from "@/types/catalog";
 import { CATALOG_PRODUCTS } from "@/lib/mock-data";
+import { API_BASE_URL } from "@/lib/chat-api";
 import { CatalogAndProductView } from "@/components/catalog/CatalogAndProductView";
 import { ContextualChatDrawer } from "@/components/chat/ContextualChatDrawer";
 import { ProductDetailPanel } from "@/components/shop/ProductDetailPanel";
@@ -189,7 +190,10 @@ export default function SmartSalesPage() {
 
       <footer className="border-t border-border bg-muted/30 py-4">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6 lg:px-8">
-          <span>SmartSales RAG · MVP demonstrativo com dados mockados</span>
+          <span>
+            SmartSales RAG ·{" "}
+            {API_BASE_URL ? "Consultor conectado ao RAG dos manuais" : "MVP demonstrativo com dados mockados"}
+          </span>
           <span>Manuais oficiais · Citações verificáveis · Checkout simulado</span>
         </div>
       </footer>

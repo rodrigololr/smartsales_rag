@@ -7,17 +7,23 @@
 
 ---
 
-## Implementação local iniciada
+## MVP: como rodar (apresentação de 10/11)
 
-Os primeiros módulos Python estão em `backend/app/recommendation/` (motor
-determinístico B04), `middleend/app/cache/` (identidade de cache M03) e
-`middleend/app/sse/` (geração de eventos M02). Cada frente possui testes unitários
-e pode ser desenvolvida em paralelo às demais.
+Escopo do MVP: catálogo com poucos itens e, em cada produto, um Consultor IA no painel lateral (estilo Rufus/Alexa da Amazon) que responde **somente sobre aquele produto**, com RAG sobre a ficha técnica do catálogo e o manual do fabricante, citando a página da fonte. Upsell/cross-sell, cache Redis, checkout e feedback reais ficam para as próximas entregas.
 
-Consulte [Desenvolvimento local](docs/DEVELOPMENT.md) para instalar as dependências,
-executar testes e entender as interfaces. Os adaptadores SQL, Redis e HTTP, o RAG
-com IA e o frontend continuam previstos nas especificações abaixo; os módulos
-iniciais ainda dependem dessas integrações para compor a aplicação completa.
+```bash
+cp .env.example .env          # preencha OPENAI_API_KEY
+docker compose up --build     # db (pgvector) -> ingest -> backend -> middleend -> frontend
+# Vitrine: http://localhost:3000   Gateway: http://localhost:8000/api/v1/health
+```
+
+- **Manuais do cliente:** coloque o PDF em `data/manuals/<SKU>.pdf` (ex.: `AF-400-220V.pdf`) e rode de novo o serviço `ingest` (`docker compose run --rm ingest`). Os `.txt` atuais são manuais **sintéticos de demonstração**.
+- **Catálogo:** `data/catalog.json` (os mesmos SKUs da vitrine do frontend).
+- **Limiar de similaridade:** antes da demo, calibre `SIMILARITY_THRESHOLD` com perguntas reais. Com o banco e a chave configurados: `cd backend && uv run --no-project python -m app.retrieval.inspect --sku AF-400-220V "Posso usar forma de vidro?"`. Se as respostas boas ficarem abaixo de 0.72, o chat cai em fallback.
+
+Fluxo: `frontend (Next.js) -> middleend :8000 (sessões, idempotência, SSE) -> backend :8001 (G-IN, busca pgvector filtrada pelo SKU, gpt-4o-mini, G-OUT por sentença) -> PostgreSQL + pgvector`.
+
+Consulte [Desenvolvimento local](docs/DEVELOPMENT.md) para rodar cada camada separadamente e executar os testes.
 
 ## 1. Visão Geral do Projeto
 
