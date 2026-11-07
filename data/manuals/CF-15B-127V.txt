@@ -1,0 +1,24 @@
+Cafeteira Expresso Aroma Pro
+Modelo CF-15B-127V
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).## Instruções de segurança
+Nunca remova o porta-filtro durante a extração: a água está sob pressão e em alta temperatura.
+Não ligue a cafeteira sem água no reservatório.## Componentes
+1. Reservatório removível de 1,5 litro
+2. Porta-filtro com filtros para 1 e 2 doses
+3. Bico vaporizador de leite
+4. Bandeja coletora removível
+5. Botões de café e de vapor## Preparando um expresso
+1. Encha o reservatório com água filtrada.
+2. Coloque o café moído no filtro e pressione levemente com o socador.
+3. Encaixe o porta-filtro e pressione o botão de café.
+A bomba trabalha com pressão de 15 bar.## Especificações elétricas
+Este modelo opera exclusivamente em 127V / 60 Hz, com potência nominal de 1050 W.
+Não utilize extensões ou adaptadores.
+Ligar a cafeteira em 220V danifica o produto e anula a garantia.## Vaporizador de leite
+Use uma jarra de inox com leite gelado até um terço da capacidade.
+Mergulhe o bico logo abaixo da superfície do leite e abra o vapor até formar a espuma.
+Após o uso, limpe o bico com pano úmido e libere vapor por 2 segundos.## Limpeza e descalcificação
+Esvazie e lave a bandeja coletora diariamente.
+Faça a descalcificação a cada 2 meses, ou antes se a água da região for dura, usando o Kit de Limpeza e Descalcificação AromaTech (KIT-CAF-01) conforme a embalagem.
+Não use vinagre: ele danifica as vedações internas.## Garantia
+Garantia de 12 meses contra defeitos de fabricação. A garantia não cobre danos por ligação em tensão incorreta nem por falta de descalcificação.

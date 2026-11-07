@@ -7,17 +7,24 @@
 
 ---
 
-## Implementação local iniciada
+## MVP: como rodar (apresentação de 10/11)
 
-Os primeiros módulos Python estão em `backend/app/recommendation/` (motor
-determinístico B04), `middleend/app/cache/` (identidade de cache M03) e
-`middleend/app/sse/` (geração de eventos M02). Cada frente possui testes unitários
-e pode ser desenvolvida em paralelo às demais.
+Escopo do MVP: catálogo comum com poucos itens (com fotos); ao abrir um produto, a página do item mostra galeria, ficha técnica e compra, com um Consultor IA fixo ao lado (estilo Rufus/Alexa da Amazon) que responde **somente sobre aquele produto**, com RAG sobre a ficha técnica do catálogo e o manual do fabricante, citando a página da fonte. Upsell/cross-sell, cache Redis, checkout e feedback reais ficam para as próximas entregas.
 
-Consulte [Desenvolvimento local](docs/DEVELOPMENT.md) para instalar as dependências,
-executar testes e entender as interfaces. Os adaptadores SQL, Redis e HTTP, o RAG
-com IA e o frontend continuam previstos nas especificações abaixo; os módulos
-iniciais ainda dependem dessas integrações para compor a aplicação completa.
+```bash
+cp .env.example .env          # preencha LLM_API_KEY (chave do Google Gemini)
+docker compose up --build     # db (pgvector) -> ingest -> backend -> middleend -> frontend
+# Vitrine: http://localhost:3000   Gateway: http://localhost:8000/api/v1/health
+```
+
+- **Manuais do cliente:** coloque o PDF em `data/manuals/<SKU>.pdf` (ex.: `AF-400-220V.pdf`) e rode de novo o serviço `ingest` (`docker compose run --rm ingest`). Os `.txt` atuais são manuais **sintéticos de demonstração**.
+- **Catálogo:** `data/catalog.json` (os mesmos SKUs da vitrine do frontend).
+- **Provedor de IA:** o MVP usa o Google Gemini pelo endpoint compatível com a API da OpenAI (`gemini-3.1-flash-lite` para respostas e `gemini-embedding-001` com 1536 dimensões). Para voltar à OpenAI das specs, basta trocar `LLM_BASE_URL`, `LLM_MODEL` e `EMBEDDING_MODEL` no `.env`.
+- **Limiar de similaridade:** calibrado em `0.60` para o `gemini-embedding-001` (respostas corretas ficaram entre 0.64 e 0.72; perguntas fora do escopo perto de 0.47). Ao trocar modelo ou manuais, recalibre: `cd backend && uv run --no-project python -m app.retrieval.inspect --sku AF-400-220V "Posso usar forma de vidro?"`.
+
+Fluxo: `frontend (Next.js) -> middleend :8000 (sessões, idempotência, SSE) -> backend :8001 (G-IN, busca pgvector filtrada pelo SKU, LLM via API compatível com OpenAI, G-OUT por sentença) -> PostgreSQL + pgvector`.
+
+Consulte [Desenvolvimento local](docs/DEVELOPMENT.md) para rodar cada camada separadamente e executar os testes.
 
 ## 1. Visão Geral do Projeto
 

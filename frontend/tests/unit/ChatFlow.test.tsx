@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import SmartSalesPage from "@/app/page";
+import { ProductPageView } from "@/components/shop/ProductPageView";
+import { findProduct } from "@/lib/mock-data";
+
+const airfryer = findProduct("AF-400-220V")!;
 
 describe("UT-F02-01: streaming mockado do Consultor IA", () => {
   it("envia uma sugestão e exibe resposta, citação, cards e feedback", async () => {
-    render(<SmartSalesPage />);
+    render(<ProductPageView product={airfryer} />);
 
-    fireEvent.click(screen.getByTestId("consult-ai-btn-AF-400-220V"));
     fireEvent.click(screen.getByTestId("quick-suggestion-0"));
 
     expect(
@@ -30,9 +32,8 @@ describe("UT-F02-01: streaming mockado do Consultor IA", () => {
   });
 
   it("exibe fallback seguro quando a pergunta está fora dos manuais", async () => {
-    render(<SmartSalesPage />);
+    render(<ProductPageView product={airfryer} />);
 
-    fireEvent.click(screen.getByTestId("consult-ai-btn-AF-400-220V"));
     fireEvent.change(screen.getByTestId("chat-prompt-input"), {
       target: { value: "Qual é a garantia vitalícia e o prazo de entrega?" },
     });

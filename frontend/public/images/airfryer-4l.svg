@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-label="Airfryer SmartChef 4L">
+<title>Airfryer SmartChef 4L</title>
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef0f4"/></radialGradient>
+<linearGradient id="body" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1f2329"/><stop offset=".55" stop-color="#3a3f47"/><stop offset="1" stop-color="#1a1d22"/></linearGradient>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9aa1ab"/><stop offset=".5" stop-color="#e9ecf0"/><stop offset="1" stop-color="#8b929c"/></linearGradient>
+<linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d1014"/><stop offset="1" stop-color="#262b33"/></linearGradient>
+<radialGradient id="shadow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="800" height="800" fill="url(#bg)"/>
+<ellipse cx="400" cy="700" rx="182.16" ry="26" fill="url(#shadow)"/>
+<rect x="234.4" y="285.2" width="331.2" height="404.8" rx="64.4" fill="url(#body)"/>
+<rect x="256.48" y="298.08" width="287.03999999999996" height="16.560000000000002" rx="8.280000000000001" fill="#ffffff" opacity=".08"/>
+<rect x="271.2" y="322.0" width="257.59999999999997" height="84.64" rx="20.240000000000002" fill="url(#glass)" stroke="#4b525c" stroke-width="2"/>
+<text x="400" y="374.4768" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="36.800000000000004" font-weight="700" fill="#f97316">180°</text>
+<circle cx="307.264" cy="364.32" r="12.88" fill="none" stroke="#8b929c" stroke-width="3"/>
+<circle cx="492.736" cy="364.32" r="12.88" fill="none" stroke="#8b929c" stroke-width="3"/>
+<rect x="262.0" y="434.24" width="276.0" height="222.64" rx="36.800000000000004" fill="#16191d" stroke="#3f454e" stroke-width="3"/>
+<rect x="295.12" y="460.9568" width="209.76" height="35.6224" rx="7.36" fill="#2b3038"/>
+<rect x="357.68" y="541.1072" width="84.64" height="75.6976" rx="18.400000000000002" fill="url(#steel)"/>
+<rect x="370.56" y="550.0128" width="58.879999999999995" height="17.8112" rx="4.6000000000000005" fill="#f97316" opacity=".85"/>
+<text x="534.32" y="677.12" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="18.400000000000002" font-weight="700" fill="#9aa1ab">4L</text>
+<rect x="280.4" y="684.0" width="27.6" height="10" rx="4" fill="#0b0d10"/>
+<rect x="492.0" y="684.0" width="27.6" height="10" rx="4" fill="#0b0d10"/>
+</svg>

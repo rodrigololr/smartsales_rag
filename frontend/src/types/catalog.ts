@@ -12,6 +12,8 @@ export interface Product {
   capacity_liters?: number | null;
   power_watts?: number | null;
   image_url: string;
+  /** Extra product photos for the product page gallery (frontend only). */
+  gallery?: string[];
   description: string;
   features?: string[];
   rating?: number;
