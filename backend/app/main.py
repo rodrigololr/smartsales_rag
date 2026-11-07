@@ -11,9 +11,8 @@ from functools import lru_cache
 import tiktoken
 from fastapi import Depends, FastAPI
 from fastapi.responses import StreamingResponse
-from openai import AsyncOpenAI
 
-from app.clients.openai_client import OpenAIChatModel, OpenAIEmbedder
+from app.clients.openai_client import OpenAIChatModel, OpenAIEmbedder, make_client
 from app.config import get_settings
 from app.db.repository import PostgresCatalog
 from app.models.schemas import RagRequest
@@ -28,7 +27,7 @@ app = FastAPI(title="SmartSales RAG Backend (interno)")
 @lru_cache
 def get_orchestrator() -> RAGOrchestrator:
     settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key, timeout=settings.llm_timeout_seconds)
+    client = make_client(settings)
     catalog = PostgresCatalog(settings.database_url)
     encoding = tiktoken.get_encoding(TOKEN_COUNT_ENCODING)
     return RAGOrchestrator(
@@ -45,6 +44,8 @@ def get_orchestrator() -> RAGOrchestrator:
             model=settings.llm_model,
             temperature=settings.llm_temperature,
             max_tokens=settings.llm_max_tokens,
+            first_token_timeout=settings.llm_first_token_timeout_seconds,
+            first_token_attempts=settings.llm_first_token_attempts,
         ),
         settings,
         count_tokens=lambda text: len(encoding.encode(text)),

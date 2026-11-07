@@ -6,9 +6,7 @@
 import argparse
 import asyncio
 
-from openai import AsyncOpenAI
-
-from app.clients.openai_client import OpenAIEmbedder
+from app.clients.openai_client import OpenAIEmbedder, make_client
 from app.config import get_settings
 from app.db.repository import PostgresCatalog
 
@@ -23,7 +21,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     settings = get_settings()
     embedder = OpenAIEmbedder(
-        AsyncOpenAI(api_key=settings.openai_api_key),
+        make_client(settings),
         model=settings.embedding_model,
         dimensions=settings.embedding_dimensions,
         batch_size=settings.embedding_batch_size,

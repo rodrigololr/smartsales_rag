@@ -1,4 +1,4 @@
-# MVP local: docker compose up --build  (requer OPENAI_API_KEY no arquivo .env da raiz)
+# MVP local: docker compose up --build  (requer LLM_API_KEY no arquivo .env da raiz)
 # Vitrine: http://localhost:3000  | Gateway: http://localhost:8000/api/v1/health
 services:
   db:
@@ -21,7 +21,10 @@ services:
     command: ["python", "-m", "app.ingestion.run", "--catalog", "/data/catalog.json", "--manuals", "/data/manuals"]
     environment: &backend-env
       DATABASE_URL: postgresql://smartsales:smartsales@db:5432/smartsales
-      OPENAI_API_KEY: ${OPENAI_API_KEY:?defina OPENAI_API_KEY no .env da raiz}
+      LLM_API_KEY: ${LLM_API_KEY:?defina LLM_API_KEY no .env da raiz}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       SIMILARITY_THRESHOLD: ${SIMILARITY_THRESHOLD:-0.72}
     volumes:
       - ./data:/data:ro

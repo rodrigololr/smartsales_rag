@@ -70,6 +70,57 @@ def test_chat_model_streams_non_empty_deltas_with_spec_parameters() -> None:
     assert completions.kwargs["temperature"] == 0.2 and completions.kwargs["max_tokens"] == 600
 
 
+class SlowThenFastCompletions:
+    """First call stalls before its first token; the retry answers immediately."""
+
+    def __init__(self, stalls: int) -> None:
+        self.stalls = stalls
+        self.calls = 0
+
+    async def create(self, **kwargs: Any) -> AsyncIterator[SimpleNamespace]:
+        self.calls += 1
+        stall = self.calls <= self.stalls
+
+        async def chunks() -> AsyncIterator[SimpleNamespace]:
+            if stall:
+                await asyncio.sleep(1)
+            yield SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content="ok"))])
+
+        return chunks()
+
+
+def _slow_model(completions: SlowThenFastCompletions) -> OpenAIChatModel:
+    return OpenAIChatModel(
+        fake_client(chat=SimpleNamespace(completions=completions)),
+        model="m",
+        temperature=0.2,
+        max_tokens=10,
+        first_token_timeout=0.05,
+        first_token_attempts=2,
+    )
+
+
+def test_first_token_timeout_retries_once() -> None:
+    completions = SlowThenFastCompletions(stalls=1)
+
+    async def collect() -> list[str]:
+        return [delta async for delta in _slow_model(completions).stream([])]
+
+    assert asyncio.run(collect()) == ["ok"]
+    assert completions.calls == 2
+
+
+def test_first_token_timeout_on_every_attempt_is_llm_unavailable() -> None:
+    completions = SlowThenFastCompletions(stalls=2)
+
+    async def collect() -> list[str]:
+        return [delta async for delta in _slow_model(completions).stream([])]
+
+    with pytest.raises(LLMUnavailableError):
+        asyncio.run(collect())
+    assert completions.calls == 2
+
+
 def test_openai_outage_becomes_llm_unavailable() -> None:
     outage = openai.APIConnectionError(request=httpx.Request("POST", "https://api.openai.com"))
     model = OpenAIChatModel(

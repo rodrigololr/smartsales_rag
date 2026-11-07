@@ -52,7 +52,7 @@ validando a documentação e o OpenAPI.
 ## MVP sem Docker (três terminais)
 
 ```bash
-# 1. backend (:8001) — precisa de DATABASE_URL e OPENAI_API_KEY (veja backend/.env.example)
+# 1. backend (:8001) — precisa de DATABASE_URL e LLM_API_KEY (veja backend/.env.example)
 cd backend && uv run --no-project python -m app.ingestion.run --catalog ../data/catalog.json --manuals ../data/manuals/
 cd backend && uv run --no-project uvicorn app.main:app --port 8001
 # 2. middleend (:8000)

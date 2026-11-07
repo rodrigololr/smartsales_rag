@@ -16,10 +16,9 @@ from pathlib import Path
 
 import psycopg
 import tiktoken
-from openai import AsyncOpenAI
 from pydantic import TypeAdapter
 
-from app.clients.openai_client import OpenAIEmbedder
+from app.clients.openai_client import OpenAIEmbedder, make_client
 from app.config import Settings, get_settings
 from app.db.repository import (
     ChunkRow,
@@ -157,10 +156,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO)
     settings = get_settings()
-    if not settings.openai_api_key:
-        parser.error("OPENAI_API_KEY não definido (veja backend/.env.example)")
+    if not settings.llm_api_key:
+        parser.error("LLM_API_KEY não definido (veja .env.example)")
     embedder = OpenAIEmbedder(
-        AsyncOpenAI(api_key=settings.openai_api_key),
+        make_client(settings),
         model=settings.embedding_model,
         dimensions=settings.embedding_dimensions,
         batch_size=settings.embedding_batch_size,
