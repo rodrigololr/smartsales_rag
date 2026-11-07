@@ -50,9 +50,11 @@ frontend/
 │   │   │   └── ProductThumb.tsx            # Thumbnail ilustrado por categoria
 │   │   └── ui/                      # Componentes shadcn/ui (Button, Card, Badge, Sheet...)
 │   ├── hooks/
-│   │   └── use-chat-session.ts      # Estado da conversa + streaming mockado
+│   │   └── use-chat-session.ts      # Estado da conversa (API real ou mock)
 │   ├── lib/
 │   │   ├── format.ts                # BRL, percentuais, marketplace e datas
+│   │   ├── chat-api.ts              # Cliente real: sessões e SSE do chat
+│   │   ├── sse-parser.ts            # Parser incremental de text/event-stream
 │   │   ├── mock-api.ts              # SSE, checkout, feedback e métricas simulados
 │   │   ├── mock-data.ts             # Catálogo, recomendações, citações e KPIs
 │   │   └── utils.ts                 # Helper cn() para composição de classes
@@ -114,4 +116,12 @@ Enquanto o backend/middle-end não expõem os endpoints, a camada de UI roda com
 - **Mock Checkout**: validação simulada de estoque/preço, confirmação e link de redirect para o marketplace; estados de `OUT_OF_STOCK`/`PRICE_CHANGED` já tratados.
 - **Painel `/admin/metricas`**: token gate em `sessionStorage`, KPIs comparados às metas (TTFT, p95, cache, 5xx, likes, CTR, checkouts) e ranking de dúvidas frequentes. Token de demonstração: `admin-demo`.
 
-Para integrar a API real, basta substituir as funções de `mock-api.ts` pelos `fetch` dos contratos (a interface dos componentes e do hook `useChatSession` permanece a mesma).
+### 5.1. Chat com o middle-end real
+
+Defina `NEXT_PUBLIC_API_BASE_URL` (veja `.env.example`) com a origem do middle-end, por exemplo `http://localhost:8000`. Com a variável definida, o `useChatSession` passa a usar `src/lib/chat-api.ts`:
+
+- cria a sessão em `POST /api/v1/sessions` com o `current_product_sku` do produto aberto;
+- envia `POST /api/v1/chat/stream` com `context_filters.current_product_sku` e um `client_request_id` por pergunta, consumindo o SSE com `fetch` + `ReadableStream` (parser em `src/lib/sse-parser.ts`);
+- se a conexão cair antes de `done`, descarta o texto parcial e reenvia uma única vez com o mesmo `client_request_id`; `409 TURN_IN_PROGRESS` aguarda o `Retry-After`; outros erros HTTP não são repetidos.
+
+Sem a variável, a UI continua usando a API simulada. Checkout, feedback e métricas ainda são simulados nos dois modos.
