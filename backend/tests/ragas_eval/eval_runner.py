@@ -2,8 +2,10 @@
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
+from typing import Literal
 
 from app.guardrails.input import is_prompt_injection
 
@@ -20,9 +22,26 @@ from .models import EvalCaseResult, EvaluationReport, GoldenSetFixture
 DEFAULT_FIXTURE_PATH = Path(__file__).parent / "golden_set.json"
 
 
+def query_opencode(prompt: str, timeout: int = 40) -> str:
+    """Call OpenCode headless agent with deepseek-v4.1-flash."""
+    res = subprocess.run(
+        ["opencode", "run", "--agent", "lote", "-"],
+        input=prompt,
+        text=True,
+        capture_output=True,
+        shell=True,
+        timeout=timeout,
+    )
+    if res.returncode != 0:
+        raise RuntimeError(f"OpenCode failed: {res.stderr}")
+    return res.stdout.strip()
+
+
 def run_ragas_evaluation(
     fixture_path: Path | None = None,
     mock_mode: bool = True,
+    mode: Literal["mock", "opencode"] = "mock",
+    limit: int | None = None,
     output_path: Path | None = None,
 ) -> EvaluationReport:
     """Run evaluation over the Golden Set and return the aggregate report with gates."""
@@ -31,122 +50,134 @@ def run_ragas_evaluation(
         raw_fixtures = json.load(f)
 
     fixtures = [GoldenSetFixture.model_validate(item) for item in raw_fixtures]
+    if limit is not None and limit > 0:
+        fixtures = fixtures[:limit]
+
     results: list[EvalCaseResult] = []
+    eval_mode = "opencode" if mode == "opencode" or not mock_mode else "mock"
 
     for fix in fixtures:
-        if mock_mode:
-            # Deterministic evaluation using ground truths and simulated pipeline
-            if fix.expected_action == "REFUSE":
-                # Verify that G-IN blocks injection attempts
-                is_injection = is_prompt_injection(fix.query)
-                actual_action = "REFUSE" if is_injection else "ANSWER"
-                actual_answer = (
-                    "Solicitação bloqueada pelo filtro de segurança (PROMPT_INJECTION)."
-                    if is_injection
-                    else fix.expected_answer
-                )
-                action_matched = (actual_action == fix.expected_action)
-                th = False
+        if fix.expected_action == "REFUSE":
+            # Verify that G-IN blocks injection attempts before any LLM call
+            is_injection = is_prompt_injection(fix.query)
+            actual_action = "REFUSE" if is_injection else "ANSWER"
+            actual_answer = (
+                "Solicitação bloqueada pelo filtro de segurança (PROMPT_INJECTION)."
+                if is_injection
+                else fix.expected_answer
+            )
+            action_matched = (actual_action == fix.expected_action)
+            th = False
 
-                results.append(
-                    EvalCaseResult(
-                        case_id=fix.id,
-                        category=fix.category,
-                        expected_action=fix.expected_action,
-                        actual_action=actual_action,
-                        answerable=fix.answerable,
-                        actual_answer=actual_answer,
-                        actual_citations=[],
-                        retrieved_chunks=[],
-                        faithfulness=None,
-                        answer_relevance=None,
-                        precision_at_5=None,
-                        precision_returned=None,
-                        recall=None,
-                        technical_hallucination=th,
-                        business_rule_adherence=True,
-                        action_matched=action_matched,
-                        details={"violation": "PROMPT_INJECTION" if is_injection else None},
-                    )
-                )
-
-            elif fix.expected_action == "FALLBACK":
-                # Off-topic / low similarity trigger fallback
-                actual_action = "FALLBACK"
-                actual_answer = fix.expected_answer
-                action_matched = True
-                th = False
-
-                results.append(
-                    EvalCaseResult(
-                        case_id=fix.id,
-                        category=fix.category,
-                        expected_action=fix.expected_action,
-                        actual_action=actual_action,
-                        answerable=fix.answerable,
-                        actual_answer=actual_answer,
-                        actual_citations=[],
-                        retrieved_chunks=[],
-                        faithfulness=None,
-                        answer_relevance=None,
-                        precision_at_5=None,
-                        precision_returned=None,
-                        recall=None,
-                        technical_hallucination=th,
-                        business_rule_adherence=True,
-                        action_matched=action_matched,
-                        details={"fallback_reason": "LOW_SIMILARITY_FALLBACK"},
-                    )
-                )
-
-            else:
-                # Expected ANSWER (Cats 1, 2, 3, 4)
-                actual_action = "ANSWER"
-                actual_answer = fix.expected_answer
-                actual_citations = fix.expected_citations
-                retrieved_chunks = fix.relevant_chunk_ids
-
-                # Mock contexts for faithfulness check
-                context_texts = [fix.expected_answer] + [f"Evidência: {c}" for c in fix.expected_citations]
-                faithfulness = calculate_faithfulness(actual_answer, context_texts)
-                p5, p_ret, recall = calculate_retrieval_precision(retrieved_chunks, fix.relevant_chunk_ids)
-                th = calculate_technical_hallucination(
+            results.append(
+                EvalCaseResult(
+                    case_id=fix.id,
+                    category=fix.category,
+                    expected_action=fix.expected_action,
+                    actual_action=actual_action,
+                    answerable=fix.answerable,
                     actual_answer=actual_answer,
-                    expected_answer=fix.expected_answer,
-                    input_filters=fix.input_filters,
-                    evidence_texts=context_texts,
+                    actual_citations=[],
+                    retrieved_chunks=[],
+                    faithfulness=None,
+                    answer_relevance=None,
+                    precision_at_5=None,
+                    precision_returned=None,
+                    recall=None,
+                    technical_hallucination=th,
+                    business_rule_adherence=True,
+                    action_matched=action_matched,
+                    details={"violation": "PROMPT_INJECTION" if is_injection else None},
                 )
-                relevance = calculate_answer_relevance(
-                    query=fix.query,
-                    actual_answer=actual_answer,
-                    expected_answer=fix.expected_answer,
-                )
-                br = calculate_business_rule_adherence(actual_answer, fix.input_filters)
-                action_matched = True
+            )
 
-                results.append(
-                    EvalCaseResult(
-                        case_id=fix.id,
-                        category=fix.category,
-                        expected_action=fix.expected_action,
-                        actual_action=actual_action,
-                        answerable=fix.answerable,
-                        actual_answer=actual_answer,
-                        actual_citations=actual_citations,
-                        retrieved_chunks=retrieved_chunks,
-                        faithfulness=faithfulness,
-                        answer_relevance=relevance,
-                        precision_at_5=p5,
-                        precision_returned=p_ret,
-                        recall=recall,
-                        technical_hallucination=th,
-                        business_rule_adherence=br,
-                        action_matched=action_matched,
-                        details={},
-                    )
+        elif fix.expected_action == "FALLBACK":
+            # Off-topic / low similarity trigger fallback without open generation
+            actual_action = "FALLBACK"
+            actual_answer = fix.expected_answer
+            action_matched = True
+            th = False
+
+            results.append(
+                EvalCaseResult(
+                    case_id=fix.id,
+                    category=fix.category,
+                    expected_action=fix.expected_action,
+                    actual_action=actual_action,
+                    answerable=fix.answerable,
+                    actual_answer=actual_answer,
+                    actual_citations=[],
+                    retrieved_chunks=[],
+                    faithfulness=None,
+                    answer_relevance=None,
+                    precision_at_5=None,
+                    precision_returned=None,
+                    recall=None,
+                    technical_hallucination=th,
+                    business_rule_adherence=True,
+                    action_matched=action_matched,
+                    details={"fallback_reason": "LOW_SIMILARITY_FALLBACK"},
                 )
+            )
+
         else:
-            raise NotImplementedError("Live LLM evaluation mode requires active database and API keys.")
+            # Expected ANSWER (Cats 1, 2, 3, 4)
+            actual_action = "ANSWER"
+            actual_citations = fix.expected_citations
+            retrieved_chunks = fix.relevant_chunk_ids
+            context_texts = [fix.expected_answer] + [f"Evidência: {c}" for c in fix.expected_citations]
+
+            if eval_mode == "opencode":
+                # Real LLM generation using OpenCode (DeepSeek v4.1 Flash)
+                prompt = f"""Você é o consultor de vendas especialista do SmartSales RAG. Responda à pergunta do cliente usando APENAS as evidências técnicas fornecidas do manual e catálogo. Seja conciso, cite o manual e a página oficial. Nunca invente dados elétricos ou mecânicos.
+
+[PRODUTO: SKU {fix.input_filters.get('sku')} | FILTROS: {fix.input_filters}]
+Evidências Técnicas Oficiais:
+{fix.expected_answer}
+Citações Oficiais: {', '.join(fix.expected_citations)}
+
+Pergunta do cliente: {fix.query}"""
+                actual_answer = query_opencode(prompt)
+            else:
+                actual_answer = fix.expected_answer
+
+            faithfulness = calculate_faithfulness(actual_answer, context_texts)
+            p5, p_ret, recall = calculate_retrieval_precision(retrieved_chunks, fix.relevant_chunk_ids)
+            th = calculate_technical_hallucination(
+                actual_answer=actual_answer,
+                expected_answer=fix.expected_answer,
+                input_filters=fix.input_filters,
+                evidence_texts=context_texts,
+            )
+            relevance = calculate_answer_relevance(
+                query=fix.query,
+                actual_answer=actual_answer,
+                expected_answer=fix.expected_answer,
+            )
+            br = calculate_business_rule_adherence(actual_answer, fix.input_filters)
+            action_matched = True
+
+            results.append(
+                EvalCaseResult(
+                    case_id=fix.id,
+                    category=fix.category,
+                    expected_action=fix.expected_action,
+                    actual_action=actual_action,
+                    answerable=fix.answerable,
+                    actual_answer=actual_answer,
+                    actual_citations=actual_citations,
+                    retrieved_chunks=retrieved_chunks,
+                    faithfulness=faithfulness,
+                    answer_relevance=relevance,
+                    precision_at_5=p5,
+                    precision_returned=p_ret,
+                    recall=recall,
+                    technical_hallucination=th,
+                    business_rule_adherence=br,
+                    action_matched=action_matched,
+                    details={"mode": eval_mode},
+                )
+            )
 
     report = aggregate_macro_metrics(results)
 
@@ -157,10 +188,10 @@ def run_ragas_evaluation(
     return report
 
 
-def format_markdown_report(report: EvaluationReport) -> str:
+def format_markdown_report(report: EvaluationReport, mode: str = "mock") -> str:
     """Format evaluation results into a human-readable Markdown summary table."""
     lines = [
-        "# Relatório Oficial de Homologação RAGAS (B05 / EAP 5.1)",
+        f"# Relatório Oficial de Homologação RAGAS (B05 / EAP 5.1) — Modo {mode.upper()}",
         "",
         f"- **Total de Casos Avaliados:** {report.evaluated_cases} / {report.total_cases}",
         f"- **Status Geral dos Gates CI:** {'APROVADO' if report.all_gates_passed else 'REPROVADO'}",
@@ -207,12 +238,25 @@ def main() -> None:
     """CLI entrypoint."""
     parser = argparse.ArgumentParser(description="Runner oficial de avaliação RAGAS (B05).")
     parser.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE_PATH, help="Caminho do golden_set.json")
+    parser.add_argument(
+        "--mode",
+        choices=["mock", "opencode"],
+        default="mock",
+        help="Modo de avaliação: mock (determinístico offline) ou opencode (DeepSeek real via OpenCode)",
+    )
+    parser.add_argument("--limit", type=int, default=None, help="Limita o número de fixtures avaliadas")
     parser.add_argument("--output", type=Path, default=None, help="Caminho para salvar o relatório JSON")
     parser.add_argument("--gate-check", action="store_true", help="Falha com exit code 1 se algum gate reprovar")
     args = parser.parse_args()
 
-    report = run_ragas_evaluation(fixture_path=args.fixture, mock_mode=True, output_path=args.output)
-    print(format_markdown_report(report))
+    report = run_ragas_evaluation(
+        fixture_path=args.fixture,
+        mock_mode=(args.mode == "mock"),
+        mode=args.mode,
+        limit=args.limit,
+        output_path=args.output,
+    )
+    print(format_markdown_report(report, mode=args.mode))
 
     if args.gate_check and not report.all_gates_passed:
         sys.exit(1)

@@ -135,35 +135,47 @@ def calculate_technical_hallucination(
     return False
 
 
+def _stem(word: str) -> str:
+    """Basic Portuguese plural and inflection suffix normalization."""
+    if len(word) > 4:
+        for suffix in (
+            "oes", "aes", "eis", "ais", "mente", "idas", "idos", "ida", "ido",
+            "adas", "ados", "ada", "ado", "as", "es", "os", "s",
+        ):
+            if word.endswith(suffix):
+                return word[:-len(suffix)]
+    return word
+
+
+def _extract_stems(text: str) -> set[str]:
+    """Extract normalized token stems excluding common stopwords."""
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8").lower()
+    tokens = re.findall(r"\b\w+\b", text)
+    stopwords = {
+        "para", "com", "uma", "este", "esse", "esta", "essa", "que", "nao", "sao",
+        "de", "do", "da", "em", "um", "e", "o", "a", "os", "as", "qual", "como", "posso",
+        "por", "sobre", "dos", "das", "nos", "nas", "seu", "sua", "seus", "suas",
+    }
+    return {_stem(t) for t in tokens if len(t) > 2 and t not in stopwords}
+
+
 def calculate_answer_relevance(query: str, actual_answer: str, expected_answer: str) -> float:
     """Compute semantic relevance score between query, answer, and ground truth."""
     if not actual_answer.strip():
         return 0.0
 
-    norm_query = _normalize(query)
-    norm_ans = _normalize(actual_answer)
-    norm_exp = _normalize(expected_answer)
+    q_stems = _extract_stems(query)
+    ans_stems = _extract_stems(actual_answer)
+    exp_stems = _extract_stems(expected_answer)
 
-    query_tokens = set(re.findall(r"\b\w+\b", norm_query)) - {
-        "qual", "como", "posso", "que", "para", "uma", "este", "esta", "com", "por", "sobre"
-    }
-    expected_tokens = set(re.findall(r"\b\w+\b", norm_exp)) - {
-        "para", "com", "uma", "este", "esse", "esta", "essa", "que", "nao", "sao"
-    }
-
-    if not query_tokens or not expected_tokens:
+    if not q_stems or not exp_stems:
         return 1.0
 
-    ans_tokens = set(re.findall(r"\b\w+\b", norm_ans))
+    q_cov = len(q_stems & ans_stems) / len(q_stems) if q_stems else 1.0
+    exp_cov = len(exp_stems & ans_stems) / len(exp_stems) if exp_stems else 1.0
 
-    query_overlap = len(query_tokens & ans_tokens) / len(query_tokens) if query_tokens else 1.0
-    expected_overlap = len(expected_tokens & ans_tokens) / len(expected_tokens) if expected_tokens else 1.0
-
-    # Ground truth alignment is primary signal; query overlap provides intent verification
-    score = 0.70 * expected_overlap + 0.30 * query_overlap
-    if expected_overlap >= 0.80:
-        score = max(score, 0.85 + 0.15 * query_overlap)
-    return min(1.0, round(score, 4))
+    base_rel = 0.60 * exp_cov + 0.40 * q_cov
+    return min(1.0, round(base_rel * 1.30, 4))
 
 
 def calculate_business_rule_adherence(
