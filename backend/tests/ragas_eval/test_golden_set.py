@@ -122,3 +122,112 @@ def test_models_parsing_and_validation() -> None:
         case_results=[case_res]
     )
     assert report.all_gates_passed is True
+
+
+def test_metrics_calculations_and_gates() -> None:
+    """Task 3: Test deterministic metrics calculation and quality gates."""
+    from .metrics import (
+        calculate_faithfulness,
+        calculate_retrieval_precision,
+        calculate_technical_hallucination,
+        calculate_answer_relevance,
+        calculate_business_rule_adherence,
+        aggregate_macro_metrics,
+    )
+    from .models import EvalCaseResult
+    
+    # 1. Faithfulness
+    context = ["A Airfryer SmartChef 4L opera em 220V com potencia de 1500W.", "Manual Airfryer SmartChef 4L, p. 5"]
+    faithful_ans = "A Airfryer 4L possui potencia de 1500W e voltagem de 220V."
+    hallucinated_ans = "A Airfryer opera em 127V com 3000W e fritura a laser."
+    
+    f_score_high = calculate_faithfulness(faithful_ans, context)
+    f_score_low = calculate_faithfulness(hallucinated_ans, context)
+    assert f_score_high >= 0.85
+    assert f_score_low < 0.50
+    
+    # 2. Retrieval Precision & Recall
+    rel_ids = ["chunk_1", "chunk_2"]
+    ret_ids = ["chunk_1", "chunk_2", "chunk_3"]
+    p5, p_ret, rec = calculate_retrieval_precision(ret_ids, rel_ids)
+    assert p5 is None  # < 5 relevant chunks in fixture
+    assert p_ret == pytest.approx(2 / 3, abs=1e-3)
+    assert rec == pytest.approx(1.0)
+    
+    rel_5 = [f"c_{i}" for i in range(5)]
+    ret_5 = ["c_0", "c_1", "c_2", "c_3", "other"]
+    p5_val, _, _ = calculate_retrieval_precision(ret_5, rel_5)
+    assert p5_val == 0.80
+    
+    # 3. Technical Hallucination
+    # Critical inversion: 220V product claimed as 127V
+    has_hallucination = calculate_technical_hallucination(
+        actual_answer="Este aparelho funciona perfeitamente em 127V.",
+        expected_answer="O modelo opera exclusivamente em 220V.",
+        input_filters={"sku": "AF-400-220V", "voltage": "220V"},
+        evidence_texts=["Tensao: 220V exclusivo."]
+    )
+    assert has_hallucination is True
+    
+    no_hallucination = calculate_technical_hallucination(
+        actual_answer="O modelo AF-400-220V opera em 220V e 1500W.",
+        expected_answer="O modelo opera exclusivamente em 220V.",
+        input_filters={"sku": "AF-400-220V", "voltage": "220V"},
+        evidence_texts=["Tensao: 220V exclusivo. Potencia: 1500W."]
+    )
+    assert no_hallucination is False
+    
+    # 4. Answer Relevance
+    rel = calculate_answer_relevance(
+        query="Qual a voltagem?",
+        actual_answer="A voltagem do aparelho e 220V, opera em 220V.",
+        expected_answer="Opera em 220V."
+    )
+    assert rel >= 0.85
+    
+    # 5. Business Rule Adherence
+    adherent = calculate_business_rule_adherence(
+        actual_answer="Sugerimos a Airfryer 5.5L por R$ 629,90.",
+        input_filters={"sku": "AF-400-220V"},
+        stock_quantity=8
+    )
+    assert adherent is True
+    
+    # 6. Macro aggregation and Gates
+    res1 = EvalCaseResult(
+        case_id="RAGAS-GS-01",
+        category="Técnica Exata",
+        expected_action="ANSWER",
+        actual_action="ANSWER",
+        answerable=True,
+        faithfulness=0.95,
+        answer_relevance=0.92,
+        precision_at_5=0.85,
+        precision_returned=0.85,
+        recall=1.0,
+        technical_hallucination=False,
+        business_rule_adherence=True,
+        action_matched=True
+    )
+    res2 = EvalCaseResult(
+        case_id="RAGAS-GS-43",
+        category="Adversarial / Sem Evidência",
+        expected_action="REFUSE",
+        actual_action="REFUSE",
+        answerable=False,
+        faithfulness=None,
+        answer_relevance=None,
+        precision_at_5=None,
+        precision_returned=None,
+        recall=None,
+        technical_hallucination=False,
+        business_rule_adherence=True,
+        action_matched=True
+    )
+    
+    report = aggregate_macro_metrics([res1, res2])
+    assert report.total_cases == 2
+    assert report.faithfulness_macro == 0.95
+    assert report.technical_hallucination_rate == 0.0
+    assert report.action_accuracy == 1.0
+    assert report.all_gates_passed is True
