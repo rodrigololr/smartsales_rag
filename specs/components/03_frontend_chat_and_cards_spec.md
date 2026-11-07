@@ -2,7 +2,7 @@
 
 - **Pacotes da EAP / Rede CPM**: `EAP 3.4`, `4.8`, `4.9`, `4.10`, `4.11`, `5.2` (`F01`, `F02`, `F03`, `F04`, `F05`)
 - **Responsáveis Técnicos**: **Eduardo** (Desenvolvedor Front-end & UI) e **Victor Hugo** (Designer UX/UI, Desenvolvedor Front-end & Analista de QA)
-- **Stack**: Next.js 14+ (App Router), React 18, TypeScript 5 (`strict: true`), Tailwind CSS, Lucide React, Vitest + React Testing Library, Playwright (E2E).
+- **Stack**: Next.js 16 (App Router), React 19, TypeScript 6 (`strict: true`), Tailwind CSS 4 (CSS-first), shadcn/ui (Base UI + preset `base-nova`), Lucide React, Vitest + React Testing Library, Playwright (E2E).
 
 ---
 

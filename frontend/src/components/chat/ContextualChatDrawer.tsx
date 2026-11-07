@@ -1,38 +1,62 @@
 "use client";
 
-import React, { useState } from "react";
-import { Product } from "@/types/catalog";
-import { useSSEChatStream } from "@/hooks/useSSEChatStream";
-import { MessageList } from "./MessageList";
-import { ResetSessionButton } from "./ResetSessionButton";
-import { X, Send, Bot, Sparkles, BookOpen, AlertCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  AlertCircle,
+  BookOpen,
+  Bot,
+  RotateCcw,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
+import type { Product } from "@/types/catalog";
+import { useChatSession } from "@/hooks/use-chat-session";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { AssistantMessage } from "@/components/chat/AssistantMessage";
 
 export interface ContextualChatDrawerProps {
   product: Product | null;
   isOpen: boolean;
   onClose: () => void;
-  voltagePreference?: string;
 }
 
 export const ContextualChatDrawer: React.FC<ContextualChatDrawerProps> = ({
   product,
   isOpen,
   onClose,
-  voltagePreference = "ALL",
 }) => {
   const [prompt, setPrompt] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
   const {
+    sessionId,
     messages,
     isStreaming,
-    errorMessage,
-    sendMessage,
-    resetSession,
-    retryLastMessage,
-  } = useSSEChatStream();
+    send,
+    retry,
+    reset,
+    submitFeedback,
+  } = useChatSession(product);
 
-  if (!isOpen || !product) {
-    return null;
-  }
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    if (typeof element.scrollTo === "function") {
+      element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+    } else {
+      element.scrollTop = element.scrollHeight;
+    }
+  }, [messages, isOpen]);
+
+  if (!product) return null;
 
   const quickSuggestions = [
     `Qual é a voltagem oficial deste modelo (${product.voltage})?`,
@@ -42,161 +66,185 @@ export const ContextualChatDrawer: React.FC<ContextualChatDrawerProps> = ({
     "Quais materiais de forma e assadeira posso utilizar?",
   ];
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt.trim() || isStreaming) return;
-    const currentPrompt = prompt;
+  const handleSend = (text: string) => {
+    if (!text.trim() || isStreaming) return;
+    send(text);
     setPrompt("");
-    await sendMessage(currentPrompt, {
-      skuContext: product.sku,
-      voltagePreference: voltagePreference !== "ALL" ? voltagePreference : product.voltage,
-    });
   };
 
-  const handleSuggestionClick = async (suggestion: string) => {
-    if (isStreaming) return;
-    await sendMessage(suggestion, {
-      skuContext: product.sku,
-      voltagePreference: voltagePreference !== "ALL" ? voltagePreference : product.voltage,
-    });
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    handleSend(prompt);
+  };
+
+  const handleReset = () => {
+    reset();
+    setPrompt("");
   };
 
   return (
-    <aside
-      data-testid="contextual-chat-drawer"
-      data-sku={product.sku}
-      className="fixed inset-y-0 right-0 w-full sm:w-[500px] bg-white border-l border-slate-200 shadow-2xl flex flex-col z-50 transition-all duration-300"
-      aria-label="Painel do Consultor IA"
+    <Sheet
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      {/* Cabeçalho do Drawer */}
-      <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs">
-            <Bot className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h3 className="font-semibold text-slate-900 text-sm">Consultor Especialista</h3>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
-                IA RAG
-              </span>
+      <SheetContent
+        data-testid="contextual-chat-drawer"
+        data-sku={product.sku}
+        side="right"
+        showCloseButton={false}
+        className="w-full gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:w-[480px]"
+        aria-label="Painel do Consultor IA"
+      >
+        {/* Cabeçalho do Drawer */}
+        <div className="flex items-center justify-between border-b border-border bg-muted/50 p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+              <Bot className="size-5" />
             </div>
-            <p className="text-xs text-slate-500 truncate max-w-[240px]">
-              {product.name}
-            </p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <SheetTitle className="text-sm font-semibold">Consultor Especialista</SheetTitle>
+                <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider">
+                  IA RAG
+                </Badge>
+              </div>
+              <SheetDescription className="max-w-[240px] truncate text-xs">
+                Ancorado no manual de: {product.name}
+              </SheetDescription>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleReset}
+              data-testid="reset-chat-btn"
+              aria-label="Reiniciar conversa"
+              className="text-muted-foreground"
+            >
+              <RotateCcw className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              data-testid="close-drawer-btn"
+              onClick={onClose}
+              aria-label="Fechar painel"
+              className="text-muted-foreground"
+            >
+              <X className="size-5" />
+            </Button>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
-          <ResetSessionButton onReset={resetSession} disabled={isStreaming} />
-          <button
-            type="button"
-            data-testid="close-drawer-btn"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
-            aria-label="Fechar painel"
-          >
-            <X className="w-5 h-5" />
-          </button>
+        {/* Cartão de Contexto do Produto Ativo */}
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-primary/5 px-4 py-3 text-xs">
+          <div className="flex items-center gap-2 text-foreground">
+            <BookOpen className="size-4 shrink-0 text-primary" />
+            <span className="truncate">
+              Manual técnico de <strong>{product.sku}</strong> ativo
+            </span>
+          </div>
+          <Badge variant="secondary" className="font-bold text-primary">
+            {product.voltage}
+          </Badge>
         </div>
-      </div>
 
-      {/* Cartão de Ancoragem de Contexto */}
-      <div className="px-4 py-2.5 bg-blue-50/70 border-b border-blue-100 flex items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2 text-slate-700">
-          <BookOpen className="w-4 h-4 text-blue-600 flex-shrink-0" />
-          <span className="truncate">
-            Manual de <strong>{product.sku}</strong> ({product.name}) ativo
-          </span>
-        </div>
-        <span className="font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded text-[11px]">
-          {product.voltage}
-        </span>
-      </div>
+        {/* Corpo da Conversa */}
+        <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
+          {messages.length === 0 ? (
+            <>
+              <div className="flex items-start gap-2.5 rounded-xl bg-muted p-3.5 text-xs leading-relaxed text-muted-foreground">
+                <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
+                <div>
+                  <p className="mb-1 font-medium text-foreground">
+                    Olá! Sou o consultor técnico de vendas.
+                  </p>
+                  <p>
+                    Posso esclarecer especificações exatas deste produto, validar
+                    voltagem, medidas e sugerir upgrades compatíveis com base nos
+                    manuais de fábrica.
+                  </p>
+                </div>
+              </div>
 
-      {/* Área de Conteúdo da Conversa */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {messages.length === 0 ? (
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div className="bg-slate-100 rounded-xl p-3.5 text-xs text-slate-700 leading-relaxed flex items-start gap-2.5">
-              <Sparkles className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-slate-900 mb-1">Olá! Sou o consultor técnico de vendas.</p>
-                <p>
-                  Posso esclarecer especificações exatas deste produto, validar voltagem, medidas e sugerir upgrades compatíveis com base nos manuais de fábrica.
-                </p>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Perguntas frequentes deste produto
+                </h4>
+                <div className="flex flex-col gap-2">
+                  {quickSuggestions.map((suggestion, index) => (
+                    <Button
+                      key={suggestion}
+                      type="button"
+                      variant="outline"
+                      disabled={isStreaming}
+                      onClick={() => handleSend(suggestion)}
+                      data-testid={`quick-suggestion-${index}`}
+                      className="group h-auto w-full justify-between gap-2 whitespace-normal px-2.5 py-2 text-left text-xs font-normal text-muted-foreground hover:text-foreground"
+                    >
+                      <span>{suggestion}</span>
+                      <Sparkles className="shrink-0 text-muted-foreground/60 group-hover:text-primary" />
+                    </Button>
+                  ))}
+                </div>
               </div>
-            </div>
+            </>
+          ) : (
+            messages.map((message) =>
+              message.role === "user" ? (
+                <div key={message.id} className="flex justify-end">
+                  <div className="max-w-[85%] rounded-xl rounded-tr-sm bg-primary px-3 py-2 text-sm leading-relaxed text-primary-foreground">
+                    {message.content}
+                  </div>
+                </div>
+              ) : (
+                <AssistantMessage
+                  key={message.id}
+                  message={message}
+                  sessionId={sessionId}
+                  onRetry={retry}
+                  onFeedback={submitFeedback}
+                />
+              )
+            )
+          )}
+        </div>
 
-            <div>
-              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                Perguntas frequentes deste produto
-              </h4>
-              <div className="flex flex-col gap-2">
-                {quickSuggestions.map((suggestion, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    disabled={isStreaming}
-                    className="text-left text-xs p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 hover:border-blue-300 text-slate-700 transition-colors flex items-center justify-between group disabled:opacity-50"
-                  >
-                    <span>{suggestion}</span>
-                    <Sparkles className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-500 flex-shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* Área de Input */}
+        <form onSubmit={handleSubmit} className="border-t border-border bg-card p-4">
+          <div className="relative flex items-center">
+            <Input
+              type="text"
+              data-testid="chat-prompt-input"
+              aria-label="Pergunta para o consultor"
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              disabled={isStreaming}
+              placeholder={`Tire uma dúvida sobre ${product.name}...`}
+              className="pr-12"
+            />
+            <Button
+              type="submit"
+              size="icon-sm"
+              disabled={!prompt.trim() || isStreaming}
+              className="absolute right-1.5"
+              aria-label="Enviar pergunta"
+            >
+              <Send className="size-4" />
+            </Button>
           </div>
-        ) : (
-          <MessageList messages={messages} isStreaming={isStreaming} />
-        )}
-      </div>
-
-      {/* Banner de Erro com Botão de Tentar Novamente */}
-      {errorMessage && (
-        <div className="px-4 py-2 bg-rose-50 border-t border-rose-200 flex items-center justify-between text-xs text-rose-700">
-          <span>{errorMessage}</span>
-          <button
-            type="button"
-            onClick={retryLastMessage}
-            className="font-semibold underline hover:text-rose-900"
-          >
-            Tentar novamente
-          </button>
-        </div>
-      )}
-
-      {/* Formulário de Envio do Prompt */}
-      <form onSubmit={handleSend} className="p-4 border-t border-slate-200 bg-white">
-        <div className="relative flex items-center">
-          <input
-            type="text"
-            data-testid="chat-prompt-input"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            disabled={isStreaming}
-            placeholder={
-              isStreaming
-                ? "Aguarde a resposta do assistente..."
-                : `Tire uma dúvida sobre ${product.name}...`
-            }
-            className="w-full text-sm pl-3.5 pr-12 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400 disabled:bg-slate-100 disabled:cursor-not-allowed"
-          />
-          <button
-            type="submit"
-            data-testid="send-prompt-btn"
-            disabled={!prompt.trim() || isStreaming}
-            className="absolute right-1.5 p-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors"
-            aria-label="Enviar pergunta"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-        <p className="text-[10px] text-slate-400 text-center mt-2 flex items-center justify-center gap-1">
-          <AlertCircle className="w-3 h-3" /> Respostas ancoradas estritamente em manuais de fábrica.
-        </p>
-      </form>
-    </aside>
+          <p className="mt-2 flex items-center justify-center gap-1 text-center text-[10px] text-muted-foreground">
+            <AlertCircle className="size-3" /> Respostas ancoradas estritamente em
+            manuais de fábrica.
+          </p>
+        </form>
+      </SheetContent>
+    </Sheet>
   );
 };

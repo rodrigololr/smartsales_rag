@@ -1,51 +1,27 @@
 # SmartSales RAG — Camada Frontend (`frontend/`)
 
-Este diretório contém o módulo de interface conversacional e vitrine de catálogo do **SmartSales RAG**, implementado em **Next.js 14+ (App Router)**, **React 18**, **TypeScript 5 (strict)** e **Tailwind CSS**.
+Este diretório contém o módulo de interface conversacional e vitrine de catálogo do **SmartSales RAG**, implementado em **Next.js 16 (App Router)**, **React 19**, **TypeScript 6 (strict)**, **Tailwind CSS 4** e **shadcn/ui** (preset `base-nova`).
 
 ---
 
-## 1. Contexto e Protótipos Figma (EAP 3.4 / 4.9)
+## 1. Contexto e Protótipos Figma (EAP 3.4)
 
 A interface foi projetada para vendas consultivas B2B/B2B2C de produtos técnicos (eletroportáteis, eletrônicos, cosméticos), baseada no conceito de **Vitrine Split-View com Painel Lateral Contextual (*Contextual Side-Drawer*, inspirado no Amazon Rufus)**:
 
-### 1.1. Componentes Principais
-- **Barra Superior (`StoreHeader`)**:
-  - Busca de catálogo em tempo real por nome, SKU ou marca.
-  - Seletor de voltagem preferida (`127V`, `220V` ou `Todas`).
-  - Acesso rápido ao chat contextual com o produto atualmente selecionado.
+### 1.1. Diretrizes de UI/UX e Componentes do Figma
 - **Vitrine e Busca (`CatalogAndProductView`)**:
   - Grid responsivo (mobile `375px`, tablet `768px`, desktop `1440px`).
   - Cards de produto com indicação visual estrita de voltagem (`127V`, `220V`, `Bivolt`), preço formatado em BRL (`Intl.NumberFormat`) e estoque em tempo real.
   - Botão de ação primária *"Consultar IA sobre este item"* (`data-testid="consult-ai-btn-{sku}"`) que ancora a sessão do chat no SKU ativo.
 - **Painel Lateral do Consultor IA (`ContextualChatDrawer`)**:
-  - Drawer deslizante no lado direito (`sm:w-[500px]`, mobile tela cheia).
+  - Drawer deslizante no lado direito (`sm:w-[480px]`, mobile tela cheia).
   - Ancoragem automática no manual do produto selecionado (`current_product_sku`).
   - Sugestões rápidas inteligentes (pílulas de perguntas frequentes do item ativo).
-  - Botão de reiniciar conversa (`ResetSessionButton`) vinculado a `DELETE /api/v1/sessions/{id}` (`UC07`).
   - Acessibilidade: sem overflow horizontal, `role="dialog"`, suporte a teclado e leitores de tela.
 
 ---
 
-## 2. Streaming em Tempo Real com Server-Sent Events (`useSSEChatStream` — F02)
-
-O hook `useSSEChatStream` gerencia o ciclo completo de comunicação com o endpoint `POST /api/v1/chat/stream`:
-
-1. **Ciclo de Eventos SSE**:
-   - `metadata`: captura latência `TTFT`, `message_id` e status de `cache_hit`.
-   - `token`: streaming progressivo token a token renderizado na bolha do assistente.
-   - `correction`: substituição atômica pelo texto seguro validado em caso de interceptação de saída (`wasCorrected: true`).
-   - `citations`: anexação de metadados das fontes oficiais (manuais em PDF).
-   - `recommendations`: exibição dos cards consultivos (`PRIMARY`, `UPSELL`, `CROSS_SELL`).
-   - `error`: descarte do conteúdo parcial instável e exibição de mensagem de fallback segura (`LOW_SIMILARITY_FALLBACK`).
-   - `done`: encerramento do stream com liberação dos inputs.
-2. **Resiliência e Idempotência (R07)**:
-   - Geração de `client_request_id` (UUID v4) antes de enviar a pergunta.
-   - Reconexão automática única em caso de queda de rede antes do evento `done`, reutilizando exatamente o mesmo `client_request_id`.
-   - Tratamento de `HTTP 409` (`TURN_IN_PROGRESS`) e botão de `"Tentar novamente"`.
-
----
-
-## 3. Estrutura de Diretórios
+## 2. Estrutura de Diretórios
 
 ```text
 frontend/
@@ -53,51 +29,89 @@ frontend/
 │   ├── app/
 │   │   ├── globals.css              # Diretivas Tailwind e variáveis de tema
 │   │   ├── layout.tsx               # Root Layout com metadados e lang="pt-BR"
-│   │   └── page.tsx                 # SmartSalesPage: orquestrador da vitrine e drawer
+│   │   ├── page.tsx                 # SmartSalesPage: vitrine, busca, detalhe e drawer
+│   │   └── admin/metricas/page.tsx  # Painel do operador (UC09)
 │   ├── components/
+│   │   ├── admin/
+│   │   │   └── AdminMetricsDashboard.tsx   # Token gate, KPIs e dúvidas frequentes
 │   │   ├── catalog/
 │   │   │   └── CatalogAndProductView.tsx   # Grid de produtos e seletores
 │   │   ├── chat/
-│   │   │   ├── AssistantMessageBubble.tsx  # Bolha de resposta com skeleton e correction
-│   │   │   ├── ContextualChatDrawer.tsx    # Drawer lateral do Consultor IA
-│   │   │   ├── MessageList.tsx             # Lista de mensagens com auto-scroll
-│   │   │   └── ResetSessionButton.tsx      # Botão de reiniciar sessão (DELETE /sessions/{id})
-│   │   └── layout/
-│   │       └── StoreHeader.tsx             # Cabeçalho com busca e seletor de voltagem
+│   │   │   ├── ContextualChatDrawer.tsx    # Drawer lateral do Consultor IA (Sheet)
+│   │   │   ├── AssistantMessage.tsx        # Bolha, citações, cards e feedback
+│   │   │   ├── CitationList.tsx            # Badges + trecho literal do manual
+│   │   │   └── MessageFeedbackBar.tsx      # Like/Dislike com motivo
+│   │   ├── checkout/
+│   │   │   └── CheckoutDialog.tsx          # Mock checkout e redirect ao marketplace
+│   │   ├── shop/
+│   │   │   ├── ProductDetailPanel.tsx      # Página de detalhe do produto selecionado
+│   │   │   └── ProductRecommendationCarousel.tsx
+│   │   ├── shared/
+│   │   │   └── ProductThumb.tsx            # Thumbnail ilustrado por categoria
+│   │   └── ui/                      # Componentes shadcn/ui (Button, Card, Badge, Sheet...)
 │   ├── hooks/
-│   │   └── useSSEChatStream.ts      # Hook resiliente de streaming SSE (POST /chat/stream)
+│   │   └── use-chat-session.ts      # Estado da conversa + streaming mockado
+│   ├── lib/
+│   │   ├── format.ts                # BRL, percentuais, marketplace e datas
+│   │   ├── mock-api.ts              # SSE, checkout, feedback e métricas simulados
+│   │   ├── mock-data.ts             # Catálogo, recomendações, citações e KPIs
+│   │   └── utils.ts                 # Helper cn() para composição de classes
 │   ├── test/
-│   │   └── setup.ts                 # Configuração de jest-dom e polyfills JSDOM
-│   ├── types/
-│   │   ├── catalog.ts               # Contratos de catálogo de produtos
-│   │   └── chat.ts                  # Schemas OpenAPI 3.1 (SSE, citações, cards, métricas)
-│   └── utils/
-│       └── sseParser.ts             # Parser determinístico de blocos SSE
+│   │   └── setup.ts                 # Configuração de jest-dom para testes
+│   └── types/
+│       ├── catalog.ts               # Contratos de catálogo de produtos
+│       └── chat.ts                  # Schemas OpenAPI 3.1 (SSE, citações, cards, métricas)
 ├── tests/
-│   └── unit/
-│       ├── ContextualChatDrawer.test.tsx # Teste de integração do drawer
-│       ├── SmartSalesPage.test.tsx       # Teste TDD UT-F01-01
-│       └── useSSEChatStream.test.tsx     # Testes TDD UT-F02-01 e UT-F02-02
+│   └── unit/                        # UT-F01-01, UT-F02-01, UT-F03-01/02, UT-F04-01, UT-F05-01
+├── components.json                  # Configuração do shadcn/ui
+├── eslint.config.mjs                # ESLint flat config (Next.js 16)
 ├── next.config.js                   # Configurações do Next.js
-├── tailwind.config.ts               # Paleta e extensões do Tailwind CSS
+├── postcss.config.mjs               # Plugin @tailwindcss/postcss (Tailwind v4)
 ├── tsconfig.json                    # TypeScript com strict: true e paths "@/..."
-└── vitest.config.ts                 # Runner de testes Vitest com ambiente JSDOM
+└── vitest.config.mts                # Runner de testes Vitest com ambiente JSDOM
+```
+
+> **Tailwind CSS 4**: a configuração é *CSS-first*. Tokens de tema (cores, raios, fontes) ficam em `src/app/globals.css` via `@theme inline`; não existe mais `tailwind.config.ts`.
+
+---
+
+## 3. Scripts e Comandos de Desenvolvimento
+
+Este projeto usa **pnpm** (o `pnpm-lock.yaml` é o lockfile oficial).
+
+```bash
+# Instalar dependências
+pnpm install
+
+# Executar servidor de desenvolvimento
+pnpm dev
+
+# Executar testes unitários (Vitest)
+pnpm test:unit
+
+# Executar linter (ESLint)
+pnpm lint
+
+# Executar build de produção
+pnpm build
 ```
 
 ---
 
-## 4. Scripts e Comandos de Desenvolvimento
+## 4. Contratos e Tipagem Estrita
 
-```bash
-# Executar servidor de desenvolvimento
-npm run dev
+Todos os contratos de eventos SSE, citações (`ManualCitation`), cards de recomendação (`ProductCardData`), feedbacks (`FeedbackRating`), checkout (`Checkout`/`CheckoutConflict`) e métricas (`MetricsSummary`) estão estritamente tipados em `src/types/chat.ts`, em total conformidade com a especificação OpenAPI 3.1 do gateway (`specs/architecture/03_openapi_and_sse_contracts.md`).
 
-# Executar testes unitários (Vitest)
-npm run test:unit
+---
 
-# Executar linter (ESLint)
-npm run lint
+## 5. MVP de Interface (dados mockados)
 
-# Executar build de produção
-npm run build
-```
+Enquanto o backend/middle-end não expõem os endpoints, a camada de UI roda com uma API simulada em `src/lib/mock-api.ts` (mesmos tipos do OpenAPI). Telas e fluxos disponíveis:
+
+- **Vitrine responsiva (mobile first)**: busca por nome/SKU/marca, filtro por voltagem, grid `1 → 2 → 3` colunas e página de detalhe do produto selecionado.
+- **Detalhe do produto**: especificações, estoque, preço, CTA de compra e abertura do consultor.
+- **Consultor IA (Side-Drawer)**: streaming token a token simulado, *skeleton* de consulta, respostas contextuais por produto, citações clicáveis com trecho literal do manual, carrossel `PRIMARY`/`UPSELL`/`CROSS_SELL`, feedback Like/Dislike com motivo, reinício de sessão e *fallback* seguro com retry.
+- **Mock Checkout**: validação simulada de estoque/preço, confirmação e link de redirect para o marketplace; estados de `OUT_OF_STOCK`/`PRICE_CHANGED` já tratados.
+- **Painel `/admin/metricas`**: token gate em `sessionStorage`, KPIs comparados às metas (TTFT, p95, cache, 5xx, likes, CTR, checkouts) e ranking de dúvidas frequentes. Token de demonstração: `admin-demo`.
+
+Para integrar a API real, basta substituir as funções de `mock-api.ts` pelos `fetch` dos contratos (a interface dos componentes e do hook `useChatSession` permanece a mesma).

@@ -2,29 +2,65 @@
 
 import React from "react";
 import { Product } from "@/types/catalog";
-import { MessageSquare, Sparkles, CheckCircle, ShieldAlert } from "lucide-react";
+import { SearchX, Sparkles, CheckCircle, ShieldAlert } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export interface CatalogAndProductViewProps {
   products: Product[];
   selectedProduct: Product | null;
   onSelectProduct: (product: Product) => void;
+  onViewProduct: (product: Product) => void;
 }
 
 export const CatalogAndProductView: React.FC<CatalogAndProductViewProps> = ({
   products,
   selectedProduct,
   onSelectProduct,
+  onViewProduct,
 }) => {
+  if (!products.length) {
+    return (
+      <Card className="items-center justify-center py-12 text-center">
+        <CardContent className="flex flex-col items-center gap-3">
+          <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <SearchX className="size-6" />
+          </div>
+          <div>
+            <p className="font-semibold text-foreground">Nenhum produto encontrado</p>
+            <p className="text-sm text-muted-foreground">
+              Ajuste a busca ou o filtro de voltagem para ver outros itens.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <section className="w-full">
-      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Catálogo de Eletroportáteis Técnicos</h2>
-          <p className="text-sm text-slate-500">Selecione um produto para tirar dúvidas com o Consultor IA ancorado no manual oficial.</p>
+          <h2 className="text-xl font-bold text-foreground">Catálogo de Eletroportáteis Técnicos</h2>
+          <p className="text-sm text-muted-foreground">
+            Selecione um produto para tirar dúvidas com o Consultor IA ancorado no manual oficial.
+          </p>
         </div>
+        <Badge variant="secondary" className="w-fit">
+          {products.length} {products.length === 1 ? "produto" : "produtos"}
+        </Badge>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
         {products.map((product) => {
           const isSelected = selectedProduct?.sku === product.sku;
           const formattedPrice = new Intl.NumberFormat("pt-BR", {
@@ -33,64 +69,80 @@ export const CatalogAndProductView: React.FC<CatalogAndProductViewProps> = ({
           }).format(product.price);
 
           return (
-            <div
+            <Card
               key={product.sku}
               data-testid={`product-card-${product.sku}`}
-              className={`rounded-xl border bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md flex flex-col justify-between ${
-                isSelected ? "border-blue-500 ring-2 ring-blue-100" : "border-slate-200"
-              }`}
+              className={cn(
+                "flex flex-col transition-all duration-200 hover:shadow-md",
+                isSelected && "ring-2 ring-primary"
+              )}
             >
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                  <Badge variant="secondary" className="font-mono font-semibold">
                     {product.sku}
-                  </span>
-                  <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded ${
-                      product.voltage === "220V"
-                        ? "bg-amber-100 text-amber-800"
-                        : product.voltage === "127V"
-                        ? "bg-sky-100 text-sky-800"
-                        : "bg-emerald-100 text-emerald-800"
-                    }`}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      product.voltage === "220V" &&
+                        "border-amber-200 bg-amber-100 text-amber-800",
+                      product.voltage === "127V" &&
+                        "border-sky-200 bg-sky-100 text-sky-800",
+                      product.voltage !== "220V" &&
+                        product.voltage !== "127V" &&
+                        "border-emerald-200 bg-emerald-100 text-emerald-800"
+                    )}
                   >
                     {product.voltage}
-                  </span>
+                  </Badge>
                 </div>
+                <CardTitle className="text-base font-semibold">{product.name}</CardTitle>
+                <CardDescription className="text-xs">
+                  {product.brand} · {product.category}
+                </CardDescription>
+              </CardHeader>
 
-                <h3 className="font-semibold text-slate-900 text-base mb-1">
-                  {product.name}
-                </h3>
-                <p className="text-xs text-slate-500 mb-3">{product.brand} · {product.category}</p>
-
-                <p className="text-sm text-slate-600 line-clamp-2 mb-4">
+              <CardContent className="flex flex-1 flex-col gap-4">
+                <p className="line-clamp-2 text-sm text-muted-foreground">
                   {product.description}
                 </p>
 
-                <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-xl font-bold text-slate-900">{formattedPrice}</span>
+                <div className="mt-auto flex flex-wrap items-baseline gap-2">
+                  <span className="text-xl font-bold text-foreground">{formattedPrice}</span>
                   {product.stock_quantity > 0 ? (
-                    <span className="text-xs text-emerald-600 flex items-center gap-1">
-                      <CheckCircle className="w-3.5 h-3.5" /> Em estoque ({product.stock_quantity} un.)
+                    <span className="flex items-center gap-1 text-xs text-emerald-600">
+                      <CheckCircle className="size-3.5" /> Em estoque ({product.stock_quantity} un.)
                     </span>
                   ) : (
-                    <span className="text-xs text-rose-600 flex items-center gap-1">
-                      <ShieldAlert className="w-3.5 h-3.5" /> Esgotado
+                    <span className="flex items-center gap-1 text-xs text-rose-600">
+                      <ShieldAlert className="size-3.5" /> Esgotado
                     </span>
                   )}
                 </div>
-              </div>
+              </CardContent>
 
-              <button
-                type="button"
-                data-testid={`consult-ai-btn-${product.sku}`}
-                onClick={() => onSelectProduct(product)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transition-colors"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Consultar IA sobre este item</span>
-              </button>
-            </div>
+              <CardFooter className="gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  data-testid={`view-product-btn-${product.sku}`}
+                  onClick={() => onViewProduct(product)}
+                  className="flex-1"
+                >
+                  Detalhes
+                </Button>
+                <Button
+                  type="button"
+                  data-testid={`consult-ai-btn-${product.sku}`}
+                  onClick={() => onSelectProduct(product)}
+                  className="flex-[1.5] gap-1.5 text-xs"
+                >
+                  <Sparkles />
+                  <span className="truncate">Consultar IA sobre este item</span>
+                </Button>
+              </CardFooter>
+            </Card>
           );
         })}
       </div>

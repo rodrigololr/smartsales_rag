@@ -16,7 +16,7 @@ O **SmartSales RAG** é um assistente especialista de vendas consultivas B2B/B2B
    - Streaming em tempo real via Server-Sent Events (`SSE`) no endpoint `POST /api/v1/chat/stream`.
    - Endpoint de rastreamento de conversão e revalidação determinística `/api/v1/checkout/mock`.
 3. **Frontend Conversacional (`frontend/`)**:
-   - Next.js 14+ (App Router), TypeScript estrito, Tailwind CSS.
+   - Next.js 16 (App Router), React 19, TypeScript estrito, Tailwind CSS 4 e shadcn/ui.
    - Drawer lateral contextual do consultor IA, renderização token a token via SSE, badges clicáveis de citação, vitrine de Product Cards com checkout afiliado direto e feedback Like/Dislike.
 
 ---
@@ -202,7 +202,7 @@ cd middleend && pytest tests -v --cov=app --cov-fail-under=70
 
 ### Frontend (`frontend/`)
 ```bash
-npm --prefix frontend run test:unit
-npm --prefix frontend run test:e2e
-npm --prefix frontend run lint
+pnpm -C frontend run test:unit
+pnpm -C frontend run test:e2e
+pnpm -C frontend run lint
 ```

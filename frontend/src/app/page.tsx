@@ -1,110 +1,204 @@
 "use client";
 
-import React, { useState } from "react";
-import { Product } from "@/types/catalog";
-import { StoreHeader } from "@/components/layout/StoreHeader";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  BarChart3,
+  Bot,
+  Filter,
+  Search,
+  ShoppingBag,
+  X,
+} from "lucide-react";
+import type { Product } from "@/types/catalog";
+import { CATALOG_PRODUCTS } from "@/lib/mock-data";
 import { CatalogAndProductView } from "@/components/catalog/CatalogAndProductView";
 import { ContextualChatDrawer } from "@/components/chat/ContextualChatDrawer";
+import { ProductDetailPanel } from "@/components/shop/ProductDetailPanel";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
-// Mock representativo alinhado ao seed data de UC08 e aos casos de teste TDD
-const INITIAL_PRODUCTS: Product[] = [
-  {
-    sku: "AF-400-220V",
-    name: "Airfryer SmartChef 4L",
-    brand: "SmartChef",
-    category: "Eletroportáteis",
-    subcategory: "Fritadeiras Elétricas",
-    price: 499.90,
-    stock_quantity: 15,
-    voltage: "220V",
-    capacity_liters: 4.0,
-    power_watts: 1500,
-    image_url: "/images/airfryer-4l.jpg",
-    description: "Fritadeira sem óleo com controle digital de temperatura e cesto antiaderente removível de 4 Litros.",
-  },
-  {
-    sku: "AF-550-220V",
-    name: "Airfryer SmartChef 5.5L Family",
-    brand: "SmartChef",
-    category: "Eletroportáteis",
-    subcategory: "Fritadeiras Elétricas",
-    price: 629.90,
-    stock_quantity: 8,
-    voltage: "220V",
-    capacity_liters: 5.5,
-    power_watts: 1800,
-    image_url: "/images/airfryer-55l.jpg",
-    description: "Capacidade expandida para famílias de até 6 pessoas, timer de 60 minutos e cesto quadrado.",
-  },
-  {
-    sku: "CF-15B-127V",
-    name: "Cafeteira Expresso Aroma Pro",
-    brand: "AromaTech",
-    category: "Eletroportáteis",
-    subcategory: "Cafeteiras",
-    price: 389.00,
-    stock_quantity: 22,
-    voltage: "127V",
-    capacity_liters: 1.5,
-    power_watts: 1050,
-    image_url: "/images/cafeteira.jpg",
-    description: "Bomba de 15 bar, bico vaporizador para leite e reservatório removível de 1.5 Litros.",
-  },
-];
+const VOLTAGE_FILTERS = ["ALL", "127V", "220V"] as const;
+type VoltageFilter = (typeof VOLTAGE_FILTERS)[number];
+
+const filterLabel: Record<VoltageFilter, string> = {
+  ALL: "Todas",
+  "127V": "127V",
+  "220V": "220V",
+};
 
 export default function SmartSalesPage() {
-  const [products] = useState<Product[]>(INITIAL_PRODUCTS);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [voltageFilter, setVoltageFilter] = useState<string>("ALL");
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [voltageFilter, setVoltageFilter] = useState<VoltageFilter>("ALL");
+  const [query, setQuery] = useState("");
 
-  const filteredProducts = products.filter((p) => {
-    const matchesVoltage = voltageFilter === "ALL" || p.voltage === voltageFilter;
-    const matchesQuery =
-      !searchQuery.trim() ||
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.brand.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesVoltage && matchesQuery;
-  });
+  const filteredProducts = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return CATALOG_PRODUCTS.filter((product) => {
+      const matchesVoltage =
+        voltageFilter === "ALL" || product.voltage === voltageFilter;
+      const matchesQuery =
+        !normalizedQuery ||
+        [product.name, product.sku, product.brand, product.category, product.subcategory]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery);
+      return matchesVoltage && matchesQuery;
+    });
+  }, [query, voltageFilter]);
 
   const handleSelectProduct = (product: Product) => {
     setSelectedProduct(product);
     setIsDrawerOpen(true);
   };
 
+  const handleViewProduct = (product: Product) => {
+    setSelectedProduct(product);
+  };
+
   const handleCloseDrawer = () => {
     setIsDrawerOpen(false);
   };
 
+  const clearFilters = () => {
+    setQuery("");
+    setVoltageFilter("ALL");
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      {/* Store Header isolado (EAP 4.9) */}
-      <StoreHeader
-        voltageFilter={voltageFilter}
-        onVoltageChange={setVoltageFilter}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        selectedProduct={selectedProduct}
-        onOpenDrawer={() => setIsDrawerOpen(true)}
-      />
+    <div className="flex min-h-screen flex-col bg-background">
+      {/* Top Header */}
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <ShoppingBag className="size-5" />
+            </div>
+            <span className="truncate text-base font-extrabold tracking-tight text-foreground sm:text-lg">
+              SmartSales<span className="hidden sm:inline"> RAG</span>
+            </span>
+            <Badge variant="secondary" className="hidden md:inline-flex">
+              Assistente Especialista B2B
+            </Badge>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            <Link
+              href="/admin/metricas"
+              className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-1.5")}
+              aria-label="Abrir painel de métricas"
+            >
+              <BarChart3 />
+              <span className="hidden sm:inline">Métricas</span>
+            </Link>
+
+            {selectedProduct ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsDrawerOpen(true)}
+                className="gap-1.5"
+                aria-label="Abrir chat do consultor"
+              >
+                <Bot />
+                <span className="hidden sm:inline">Abrir Chat IA</span>
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar por nome, SKU ou marca..."
+              aria-label="Buscar produtos no catálogo"
+              className="bg-card pl-9 pr-9"
+            />
+            {query ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => setQuery("")}
+                aria-label="Limpar busca"
+                className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground"
+              >
+                <X />
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="flex w-fit items-center gap-1 rounded-lg bg-muted p-1 text-xs text-muted-foreground">
+            <Filter className="ml-1 size-3.5" />
+            {VOLTAGE_FILTERS.map((filter) => (
+              <Button
+                key={filter}
+                type="button"
+                variant="ghost"
+                size="xs"
+                aria-pressed={voltageFilter === filter}
+                onClick={() => setVoltageFilter(filter)}
+                className={cn(
+                  "px-2 font-medium",
+                  voltageFilter === filter
+                    ? "bg-background text-foreground shadow-xs hover:bg-background"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {filterLabel[filter]}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {selectedProduct ? (
+          <ProductDetailPanel
+            key={selectedProduct.sku}
+            product={selectedProduct}
+            onConsult={() => setIsDrawerOpen(true)}
+            onClear={() => setSelectedProduct(null)}
+          />
+        ) : null}
+
         <CatalogAndProductView
           products={filteredProducts}
           selectedProduct={selectedProduct}
           onSelectProduct={handleSelectProduct}
+          onViewProduct={handleViewProduct}
         />
+
+        {filteredProducts.length === 0 ? (
+          <div className="mt-4 flex justify-center">
+            <Button type="button" variant="outline" onClick={clearFilters}>
+              Limpar busca e filtros
+            </Button>
+          </div>
+        ) : null}
       </main>
 
-      {/* Contextual Side-Drawer com SSE integrado */}
+      <footer className="border-t border-border bg-muted/30 py-4">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6 lg:px-8">
+          <span>SmartSales RAG · MVP demonstrativo com dados mockados</span>
+          <span>Manuais oficiais · Citações verificáveis · Checkout simulado</span>
+        </div>
+      </footer>
+
       <ContextualChatDrawer
+        key={selectedProduct?.sku ?? "empty"}
         product={selectedProduct}
         isOpen={isDrawerOpen}
         onClose={handleCloseDrawer}
-        voltagePreference={voltageFilter}
       />
     </div>
   );
