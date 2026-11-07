@@ -2,8 +2,11 @@
 
 import argparse
 import json
+import os
+import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -22,19 +25,43 @@ from .models import EvalCaseResult, EvaluationReport, GoldenSetFixture
 DEFAULT_FIXTURE_PATH = Path(__file__).parent / "golden_set.json"
 
 
-def query_opencode(prompt: str, timeout: int = 40) -> str:
-    """Call OpenCode headless agent with deepseek-v4.1-flash."""
-    res = subprocess.run(
-        ["opencode", "run", "--agent", "lote", "-"],
-        input=prompt,
-        text=True,
-        capture_output=True,
-        shell=True,
-        timeout=timeout,
-    )
-    if res.returncode != 0:
-        raise RuntimeError(f"OpenCode failed: {res.stderr}")
-    return res.stdout.strip()
+def resolve_opencode_cmd() -> list[str]:
+    """Resolve direct opencode executable binary on Windows to avoid cmd.exe stdin pipe hang."""
+    appdata = os.environ.get("APPDATA", "")
+    npm_bin = Path(appdata) / "npm" / "node_modules" / "@opencode" / "cli" / "bin" / "opencode.exe"
+    if npm_bin.is_file():
+        return [str(npm_bin), "run", "--agent", "lote", "-"]
+
+    which_cmd = shutil.which("opencode.cmd") or shutil.which("opencode")
+    if which_cmd:
+        cand = Path(which_cmd).parent / "node_modules" / "@opencode" / "cli" / "bin" / "opencode.exe"
+        if cand.is_file():
+            return [str(cand), "run", "--agent", "lote", "-"]
+        return [which_cmd, "run", "--agent", "lote", "-"]
+    return ["opencode", "run", "--agent", "lote", "-"]
+
+
+def query_opencode(prompt: str, timeout: int = 35) -> str:
+    """Call OpenCode headless agent with deepseek-v4.1-flash using direct binary execution."""
+    cmd = resolve_opencode_cmd()
+    last_err: Exception | None = None
+    for _ in range(2):
+        try:
+            res = subprocess.run(
+                cmd,
+                input=prompt,
+                text=True,
+                capture_output=True,
+                shell=False,
+                timeout=timeout,
+            )
+            if res.returncode != 0:
+                raise RuntimeError(f"OpenCode error code {res.returncode}: {res.stderr}")
+            return res.stdout.strip()
+        except Exception as e:
+            last_err = e
+            time.sleep(1.0)
+    raise RuntimeError(f"OpenCode query failed after 2 attempts: {last_err}")
 
 
 def run_ragas_evaluation(
@@ -43,6 +70,7 @@ def run_ragas_evaluation(
     mode: Literal["mock", "opencode"] = "mock",
     limit: int | None = None,
     output_path: Path | None = None,
+    checkpoint_path: Path | None = None,
 ) -> EvaluationReport:
     """Run evaluation over the Golden Set and return the aggregate report with gates."""
     path = fixture_path or DEFAULT_FIXTURE_PATH
@@ -56,7 +84,42 @@ def run_ragas_evaluation(
     results: list[EvalCaseResult] = []
     eval_mode = "opencode" if mode == "opencode" or not mock_mode else "mock"
 
-    for fix in fixtures:
+    cached: dict[str, EvalCaseResult] = {}
+    if checkpoint_path and checkpoint_path.is_file():
+        try:
+            with open(checkpoint_path, "r", encoding="utf-8") as cf:
+                cached = {item["case_id"]: EvalCaseResult.model_validate(item) for item in json.load(cf)}
+        except Exception:
+            cached = {}
+
+    def _save_cp() -> None:
+        if checkpoint_path:
+            with open(checkpoint_path, "w", encoding="utf-8", newline="\n") as cf:
+                json.dump([r.model_dump() for r in results], cf, indent=2, ensure_ascii=False)
+
+    for idx, fix in enumerate(fixtures, start=1):
+        if fix.id in cached:
+            cached_item = cached[fix.id]
+            if fix.expected_action == "ANSWER" and cached_item.actual_answer:
+                actual_answer = cached_item.actual_answer
+                context_texts = [fix.expected_answer] + [f"Evidência: {c}" for c in fix.expected_citations]
+                cached_item.faithfulness = calculate_faithfulness(actual_answer, context_texts)
+                cached_item.technical_hallucination = calculate_technical_hallucination(
+                    actual_answer=actual_answer,
+                    expected_answer=fix.expected_answer,
+                    input_filters=fix.input_filters,
+                    evidence_texts=context_texts,
+                    query=fix.query,
+                )
+                cached_item.answer_relevance = calculate_answer_relevance(
+                    query=fix.query,
+                    actual_answer=actual_answer,
+                    expected_answer=fix.expected_answer,
+                )
+            results.append(cached_item)
+            print(f"[{idx}/{len(fixtures)}] Cached {fix.id} ({fix.category})")
+            continue
+        print(f"[{idx}/{len(fixtures)}] Evaluating {fix.id} ({fix.category})...", flush=True)
         if fix.expected_action == "REFUSE":
             # Verify that G-IN blocks injection attempts before any LLM call
             is_injection = is_prompt_injection(fix.query)
@@ -90,6 +153,7 @@ def run_ragas_evaluation(
                     details={"violation": "PROMPT_INJECTION" if is_injection else None},
                 )
             )
+            _save_cp()
 
         elif fix.expected_action == "FALLBACK":
             # Off-topic / low similarity trigger fallback without open generation
@@ -119,6 +183,7 @@ def run_ragas_evaluation(
                     details={"fallback_reason": "LOW_SIMILARITY_FALLBACK"},
                 )
             )
+            _save_cp()
 
         else:
             # Expected ANSWER (Cats 1, 2, 3, 4)
@@ -148,6 +213,7 @@ Pergunta do cliente: {fix.query}"""
                 expected_answer=fix.expected_answer,
                 input_filters=fix.input_filters,
                 evidence_texts=context_texts,
+                query=fix.query,
             )
             relevance = calculate_answer_relevance(
                 query=fix.query,
@@ -178,6 +244,7 @@ Pergunta do cliente: {fix.query}"""
                     details={"mode": eval_mode},
                 )
             )
+            _save_cp()
 
     report = aggregate_macro_metrics(results)
 
@@ -246,6 +313,7 @@ def main() -> None:
     )
     parser.add_argument("--limit", type=int, default=None, help="Limita o número de fixtures avaliadas")
     parser.add_argument("--output", type=Path, default=None, help="Caminho para salvar o relatório JSON")
+    parser.add_argument("--checkpoint", type=Path, default=None, help="Caminho do arquivo de checkpoint incremental")
     parser.add_argument("--gate-check", action="store_true", help="Falha com exit code 1 se algum gate reprovar")
     args = parser.parse_args()
 
@@ -255,6 +323,7 @@ def main() -> None:
         mode=args.mode,
         limit=args.limit,
         output_path=args.output,
+        checkpoint_path=args.checkpoint,
     )
     print(format_markdown_report(report, mode=args.mode))
 

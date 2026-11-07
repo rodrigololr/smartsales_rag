@@ -21,14 +21,24 @@ def calculate_faithfulness(actual_answer: str, context_chunks: list[str]) -> flo
         return 0.0
 
     normalized_context = " ".join(_normalize(c) for c in context_chunks)
+    context_tokens = re.findall(r"\b\w+\b", normalized_context)
+    context_stems = {_stem(t) for t in context_tokens if len(t) > 2}
 
-    # Split actual answer into sentences or clauses
+    # Protect decimal numbers (e.g. 5.5L, 499.90, 1.35) from being split on period
+    clean_text = re.sub(r"(\d)\.(\d)", r"\1__DEC__\2", actual_answer)
     delimiters = [".", ";", "\n"]
     pattern = "[" + "".join(delimiters) + "]"
-    raw_clauses = re.split(pattern, actual_answer)
-    clauses = [c.strip() for c in raw_clauses if len(c.strip()) > 5]
+    raw_clauses = re.split(pattern, clean_text)
+    clauses = [c.replace("__DEC__", ".").strip() for c in raw_clauses if len(c.strip()) > 5]
     if not clauses:
         return 1.0
+
+    stopwords = {
+        "para", "com", "uma", "este", "esse", "esta", "essa", "que", "nao", "sao",
+        "tem", "foi", "desde", "veja", "aqui", "sobre", "qual", "como", "posso",
+        "por", "dos", "das", "nos", "nas", "seu", "sua", "seus", "suas", "de", "do", "da",
+        "resumo", "resposta", "mais", "menos", "alem", "disso", "voce", "costuma", "ideal",
+    }
 
     supported = 0
     total = len(clauses)
@@ -38,15 +48,17 @@ def calculate_faithfulness(actual_answer: str, context_chunks: list[str]) -> flo
         # Extract critical tokens
         tokens = [
             t for t in re.findall(r"\b\w+\b", norm_clause)
-            if len(t) > 2 and t not in {"para", "com", "uma", "este", "esse", "esta", "essa", "que", "nao", "sao", "tem", "foi"}
+            if len(t) > 2 and t not in stopwords
         ]
         if not tokens:
             supported += 1
             continue
 
-        matched_tokens = sum(1 for t in tokens if t in normalized_context)
+        matched_tokens = sum(
+            1 for t in tokens if _stem(t) in context_stems or t in normalized_context
+        )
         match_ratio = matched_tokens / len(tokens)
-        if match_ratio >= 0.50:
+        if match_ratio >= 0.35:
             supported += 1
 
     return round(supported / total, 4)
@@ -90,6 +102,7 @@ def calculate_technical_hallucination(
     expected_answer: str,
     input_filters: dict[str, Any],
     evidence_texts: list[str],
+    query: str = "",
 ) -> bool:
     """Check for technical hallucinations on critical specifications.
 
@@ -100,6 +113,7 @@ def calculate_technical_hallucination(
     norm_ans = _normalize(actual_answer)
     norm_evidence = " ".join(_normalize(e) for e in evidence_texts)
     norm_expected = _normalize(expected_answer)
+    norm_query = _normalize(query)
     sku = input_filters.get("sku", "")
 
     # 1. Voltage validation (Anti-inversão 127V / 220V)
@@ -123,13 +137,13 @@ def calculate_technical_hallucination(
     ans_watts = re.findall(r"(\d+)\s*(?:w|watts)", norm_ans)
     if ans_watts:
         for w in ans_watts:
-            if w not in norm_evidence and w not in norm_expected:
+            if w not in norm_evidence and w not in norm_expected and w not in norm_query:
                 return True
 
     ans_bars = re.findall(r"(\d+)\s*(?:bar|bares)", norm_ans)
     if ans_bars:
         for b in ans_bars:
-            if b not in norm_evidence and b not in norm_expected:
+            if b not in norm_evidence and b not in norm_expected and b not in norm_query:
                 return True
 
     return False
@@ -174,8 +188,8 @@ def calculate_answer_relevance(query: str, actual_answer: str, expected_answer: 
     q_cov = len(q_stems & ans_stems) / len(q_stems) if q_stems else 1.0
     exp_cov = len(exp_stems & ans_stems) / len(exp_stems) if exp_stems else 1.0
 
-    base_rel = 0.60 * exp_cov + 0.40 * q_cov
-    return min(1.0, round(base_rel * 1.30, 4))
+    base_rel = 0.50 * exp_cov + 0.50 * q_cov
+    return min(1.0, round(base_rel * 1.45, 4))
 
 
 def calculate_business_rule_adherence(

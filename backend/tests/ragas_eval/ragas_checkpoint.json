@@ -1,0 +1,1220 @@
+[
+  {
+    "case_id": "RAGAS-GS-01",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Resposta:**\n\n- **Forma de alumínio:** Sim, é permitida — desde que deixe **2 cm** de espaço livre para a circulação de ar.\n- **Pote de plástico:** **Não.** Potes plásticos são estritamente proibidos.\n\n📖 *Manual Airfryer SmartChef 4L, p. 14*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 14"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p14:c1"
+    ],
+    "faithfulness": 0.8,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-02",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "A **Airfryer SmartChef 4L** tem **potência de 1500 W** e **temperatura máxima de 200 °C**.\n\n*Fonte: Manual Airfryer SmartChef 4L, p. 5.*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 5"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p5:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-03",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "A Cafeteira Expresso Aroma Pro (SKU CF-15B-127V) possui **bomba com pressão de 15 bar** e **reservatório removível com capacidade de 1,5 litro**.\n\n📄 *Manual Cafeteira Expresso Aroma Pro, p. 2*",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro, p. 2"
+    ],
+    "retrieved_chunks": [
+      "CF-15B-127V:p2:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-04",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "O timer digital da **Airfryer SmartChef 5.5L Family (SKU AF-550-220V)** tem ajuste máximo de **60 minutos**, com desligamento automático ao final.\n\nFonte: *Manual Airfryer SmartChef 5.5L Family, p. 6*.",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 5.5L Family, p. 6"
+    ],
+    "retrieved_chunks": [
+      "AF-550-220V:p6:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-05",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Potência:** 1050 W — frequência de operação de 60 Hz.\n*Manual Cafeteira Expresso Aroma Pro, p. 6*\n\n**Consumo de energia (kWh):** essa informação não consta nas evidências técnicas oficiais disponíveis do manual/catálogo. Não posso estimá-la sem inventar dados, então recomendo confirmar com o rótulo do produto ou solicitar essa especificação ao fabricante.",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro, p. 6"
+    ],
+    "retrieved_chunks": [
+      "CF-15B-127V:p6:c1"
+    ],
+    "faithfulness": 0.5,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-06",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "A potência da Airfryer SmartChef 5.5L Family é de **1800W**.\n\nFonte: Manual Airfryer SmartChef 5.5L Family, p. 4.",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 5.5L Family, p. 4"
+    ],
+    "retrieved_chunks": [
+      "AF-550-220V:p4:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-07",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Sim. O cesto e a cuba antiaderente da sua Airfryer 4L são compatíveis com máquina lava-louças, **desde que utilizados no ciclo suave**.\n\n📄 Fonte: Manual Airfryer SmartChef 4L, p. 22",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 22"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p22:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-08",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Cafeteira Expresso Aroma Pro 2L (SKU CF-20B-127V)**\n\n- **Pressão da bomba:** 19 bar\n- **Capacidade do reservatório:** 2,0 litros\n\n*Fonte: Manual Cafeteira Expresso Aroma Pro 2L, p. 3.*",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro 2L, p. 3"
+    ],
+    "retrieved_chunks": [
+      "CF-20B-127V:p3:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-09",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Sim.** O cesto quadrado removível da Airfryer SmartChef 5.5L possui revestimento antiaderente duplo, livre de PFOA.\n\n📄 *Manual Airfryer SmartChef 5.5L Family, p. 8*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 5.5L Family, p. 8"
+    ],
+    "retrieved_chunks": [
+      "AF-550-220V:p8:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-10",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "As formas do Kit de Silicone (SKU KIT-SIL-01) possuem **20 cm de diâmetro** e suportam temperaturas de **-40 °C até 230 °C**.\n\nFonte: Manual Kit de Formas de Silicone 20 cm, p. 2.",
+    "actual_citations": [
+      "Manual Kit de Formas de Silicone 20 cm, p. 2"
+    ],
+    "retrieved_chunks": [
+      "KIT-SIL-01:p2:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-11",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "A cafeteira **CF-15B-127V** aceita **café em pó (moído)** — ela acompanha filtros para **1 e 2 doses**. Ela **não** é compatível com cápsulas fechadas proprietárias.\n\n📖 *Manual Cafeteira Expresso Aroma Pro, p. 5*",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro, p. 5"
+    ],
+    "retrieved_chunks": [
+      "CF-15B-127V:p5:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-12",
+    "category": "Técnica Exata",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "A **Airfryer SmartChef 8L Family Plus** (SKU AF-800-220V) tem potência de **2000W**.\n\n*Fonte: Manual Airfryer SmartChef 8L Family Plus, p. 4.*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 8L Family Plus, p. 4"
+    ],
+    "retrieved_chunks": [
+      "AF-800-220V:p4:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-13",
+    "category": "Voltagem Crítica",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Não. A Airfryer SmartChef 4L do código **AF-400-220V** opera exclusivamente em **220V**. Ligá-la em uma tomada de 110V/127V provocará aquecimento insuficiente ou falha do aparelho.\n\n**Citação:** Manual Airfryer SmartChef 4L, p. 3",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 3"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p3:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-14",
+    "category": "Voltagem Crítica",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Não. A Airfryer SmartChef 4L AF-400-220V **não é bivolt** — ela é projetada exclusivamente para redes de **220V**.\n\n**Fonte:** Manual Airfryer SmartChef 4L, p. 3.",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 3"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p3:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-15",
+    "category": "Voltagem Crítica",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Não. O modelo **CF-15B-127V** é exclusivo para rede elétrica de **127V**. Ligá-lo em 220V queimará os componentes internos e anulará a garantia.\n\n**Fonte:** Manual Cafeteira Expresso Aroma Pro, p. 3.",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro, p. 3"
+    ],
+    "retrieved_chunks": [
+      "CF-15B-127V:p3:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-16",
+    "category": "Voltagem Crítica",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "A voltagem correta é **exclusivamente 220V**, com uso de **tomada de 20A**, devido à potência de **1800W** do equipamento.\n\n📄 **Fonte oficial:** Manual Airfryer SmartChef 5.5L Family, **p. 3**.\n\n⚠️ Importante: não utilize a Airfryer em 110V, pois isso pode danificar o aparelho e comprometer a segurança.",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 5.5L Family, p. 3"
+    ],
+    "retrieved_chunks": [
+      "AF-550-220V:p3:c1"
+    ],
+    "faithfulness": 0.75,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-17",
+    "category": "Voltagem Crítica",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Não recomendado conectar diretamente na tomada de 127V.**\n\nO modelo **AF-800-220V** exige um ponto de energia específico de **220V**. Ligá-lo diretamente em uma tomada de 127V não é o uso indicado para esse modelo.\n\n**Opções:**\n- Instalar um ponto de energia dedicado de 220V (recomendado, conforme exigência do fabricante); ou\n- Optar por um modelo equivalente de **127V**, quando disponível no catálogo.\n\n*Fonte: Manual Airfryer SmartChef 8L Family Plus, p. 2.*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 8L Family Plus, p. 2"
+    ],
+    "retrieved_chunks": [
+      "AF-800-220V:p2:c1"
+    ],
+    "faithfulness": 0.5714,
+    "answer_relevance": 0.996,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-18",
+    "category": "Voltagem Crítica",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Não. O **Kit de Formas de Silicone 20 cm** é um acessório mecânico não-elétrico e **não exige voltagem específica** — pode ser usado em airfryers de **127V ou 220V** sem qualquer adaptação.\n\n📖 *Manual Kit de Formas de Silicone 20 cm, p. 1*",
+    "actual_citations": [
+      "Manual Kit de Formas de Silicone 20 cm, p. 1"
+    ],
+    "retrieved_chunks": [
+      "KIT-SIL-01:p1:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-19",
+    "category": "Voltagem Crítica",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Sim, é possível — com ressalvas.**\n\nConforme o **Manual Airfryer SmartChef 4L, p. 4**, o fabricante **recomenda a ligação direta em rede 220V nativa**. Caso você opte por usar um transformador para operar em 127V (elevando a tensão para 220V), ele deve suportar potência nominal de **ao menos 2000VA**, para suportar os **1500W** do aparelho com segurança.\n\n**Resumo:**\n- ✅ Funciona em 127V **apenas com transformador adequado (≥ 2000VA)**.\n- ⚠️ A recomendação oficial do fabricante é a **ligação direta em 220V**.\n- ❌ Não utilize transformador com capacidade inferior a 2000VA.\n\n*Fonte: Manual Airfryer SmartChef 4L, p. 4.*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 4"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p4:c1"
+    ],
+    "faithfulness": 0.6667,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-20",
+    "category": "Voltagem Crítica",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Não.** O modelo **CF-20B-127V** é estritamente **127V** e queimará se for conectado a uma rede de **220V**.\n\nSe a sua tomada é 220V, **não conecte** este modelo diretamente — será necessário um transformador/autotransformador adequado (ou optar por uma versão 220V do produto, se disponível no catálogo).\n\n*Fonte: Manual Cafeteira Expresso Aroma Pro 2L, p. 2.*",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro 2L, p. 2"
+    ],
+    "retrieved_chunks": [
+      "CF-20B-127V:p2:c1"
+    ],
+    "faithfulness": 0.6667,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-21",
+    "category": "Voltagem Crítica",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Tomada necessária: 3 pinos (com aterramento), 10A.**\n\nA cafeteira CF-15B-127V utiliza plugue padrão de 3 pinos com aterramento, com corrente de 10A. Portanto, a tomada deve ser do tipo tripolar com aterramento, compatível com 10A.\n\n📖 *Manual Cafeteira Expresso Aroma Pro, p. 3*",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro, p. 3"
+    ],
+    "retrieved_chunks": [
+      "CF-15B-127V:p3:c1"
+    ],
+    "faithfulness": 0.75,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-22",
+    "category": "Voltagem Crítica",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "A tomada da Airfryer SmartChef 5.5L Family (SKU AF-550-220V) exige **plugue e tomada de 20A**, com pinos mais grossos de **4,8 mm** — padrão compatível com seus **1800W** de potência. Não utilize instalação de 10A.\n\n**Fonte:** Manual Airfryer SmartChef 5.5L Family, p. 3.",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 5.5L Family, p. 3"
+    ],
+    "retrieved_chunks": [
+      "AF-550-220V:p3:c1"
+    ],
+    "faithfulness": 0.8,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-23",
+    "category": "Coloquial / Medida",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Não com boa qualidade.** Segundo o manual, a cesta de 4L suporta **carga máxima de 600g por porção** para garantir circulação de ar uniforme — acima disso, a batata tende a ficar mole/irregular.\n\nPara **1kg de uma só vez**, o próprio manual recomenda um modelo de **maior capacidade, como o de 5.5L**.\n\n📄 *Manual Airfryer SmartChef 4L, p. 18*\n\nSe quiser manter a AF-400-220V, o ideal é assar em **duas porções de até 600g**.",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 18"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p18:c1"
+    ],
+    "faithfulness": 0.6,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-24",
+    "category": "Coloquial / Medida",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Sim, mas com limitações.**\n\nNo modelo de **4L**, cabem apenas pedaços ou um **frango pequeno de até 1,2 kg**, desde que **não encoste na resistência**. Para frangos inteiros convencionais (tamanho padrão de mercado), o modelo de 4L **não é o ideal** — recomenda-se o de **5,5L ou 8L**.\n\n📖 *Manual Airfryer SmartChef 4L, p. 19*\n\n**Resumo:** frango pequeno (até 1,2 kg) → ok; frango inteiro convencional → melhor usar 5,5L ou 8L.",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 19"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p19:c1"
+    ],
+    "faithfulness": 0.8333,
+    "answer_relevance": 0.9839,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-25",
+    "category": "Coloquial / Medida",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Com o reservatório de **1,5 litro** cheio, a cafeteira rende aproximadamente **30 xícaras** de café expresso curto (50 ml cada) sem precisar reabastecer.\n\n📖 *Manual Cafeteira Expresso Aroma Pro, p. 8*",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro, p. 8"
+    ],
+    "retrieved_chunks": [
+      "CF-15B-127V:p8:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-26",
+    "category": "Coloquial / Medida",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Sim, consegue! 😊\n\nA forma de silicone de 20 cm do **Kit de Formas de Silicone** suporta temperaturas de até **230 °C** e é indicada justamente para o preparo de **pudins, bolos e tortas na Airfryer**.\n\n> 📖 *Manual Kit de Formas de Silicone 20 cm, p. 3*\n\nUma dica: como o pudim de leite condensado é feito em banho-maria, verifique na receita a melhor adaptação para a Airfryer (recipiente e cobertura), mas a forma em si é própria para esse uso. Bom preparo!",
+    "actual_citations": [
+      "Manual Kit de Formas de Silicone 20 cm, p. 3"
+    ],
+    "retrieved_chunks": [
+      "KIT-SIL-01:p3:c1"
+    ],
+    "faithfulness": 0.8,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-27",
+    "category": "Coloquial / Medida",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Cabem **entre 15 e 18 pães de queijo médios** no cesto quadrado de 5,5L, sem sobreposição.\n\n📖 *Manual Airfryer SmartChef 5.5L Family, p. 12*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 5.5L Family, p. 12"
+    ],
+    "retrieved_chunks": [
+      "AF-550-220V:p12:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-28",
+    "category": "Coloquial / Medida",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Sim, dá! A cafeteira **CF-15B-127V** conta com **bico vaporizador de leite em inox**, próprio para criar **espuma densa** — ideal para cappuccinos e lattes bem cremosos.\n\n📄 *Fonte oficial: Manual Cafeteira Expresso Aroma Pro, p. 7.*",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro, p. 7"
+    ],
+    "retrieved_chunks": [
+      "CF-15B-127V:p7:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 0.9969,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-29",
+    "category": "Coloquial / Medida",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Airfryer SmartChef 4L (SKU AF-400-220V):** a capacidade de 4 litros atende refeições diárias de **2 a 4 pessoas**.\n\n_Fonte oficial: Manual Airfryer SmartChef 4L, p. 2._",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 2"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p2:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 0.725,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-30",
+    "category": "Coloquial / Medida",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Para uma porção de batata frita congelada na Airfryer SmartChef 4L, o preparo leva de **15 a 20 minutos a 200°C**. Recomenda-se **agitar a cesta na metade do tempo** para um resultado mais uniforme.\n\n*Fonte: Manual Airfryer SmartChef 4L, p. 16.*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 16"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p16:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 0.9989,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-31",
+    "category": "Coloquial / Medida",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Sim.** Segundo o manual, a solução descalcificante dissolve os depósitos de cálcio e minerais que bloqueiam as tubulações internas da caldeira — exatamente o tipo de obstrução que costuma impedir a passagem de água.\n\n⚠️ Observação: a evidência cobre bloqueios por incrustação mineral nas tubulações internas. Se, após a descalcificação, a água continuar sem sair, pode haver outro tipo de entupimento (filtro, válvula ou falha mecânica) não abordado neste trecho do manual.\n\n*Fonte:* Manual Kit de Limpeza e Descalcificação, p. 2.",
+    "actual_citations": [
+      "Manual Kit de Limpeza e Descalcificação, p. 2"
+    ],
+    "retrieved_chunks": [
+      "KIT-CAF-01:p2:c1"
+    ],
+    "faithfulness": 0.5,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-32",
+    "category": "Coloquial / Medida",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Não. As formas de silicone são antiaderentes, portanto o bolo não deve grudar mesmo sem untar.\n\nA recomendação é untar levemente **apenas no primeiro uso**, para prolongar a vida útil da forma — não porque seja necessário evitar que o bolo grude.\n\nFonte: Manual Kit de Formas de Silicone 20 cm, p. 2.",
+    "actual_citations": [
+      "Manual Kit de Formas de Silicone 20 cm, p. 2"
+    ],
+    "retrieved_chunks": [
+      "KIT-SIL-01:p2:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-33",
+    "category": "Upsell + Cross-sell",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Resposta:**\n\nPara 5 pessoas, a Airfryer de 4L pode exigir **múltiplas levas** — ou seja, dá conta, mas não em uma única fornada. Por isso, a recomendação oficial é o modelo maior:\n\n- **Airfryer SmartChef 5.5L Family (AF-550-220V)** — R$ 629,90, com acréscimo de **26%** em relação ao modelo de 4L (dentro do limite de 35%).\n- **Acessório sugerido:** Kit de Formas de Silicone (KIT-SIL-01), R$ 79,90.\n\nAssim, você atende a família de 5 pessoas sem passar muito do orçamento.\n\n*Fonte: Manual Airfryer SmartChef 4L, p. 2.*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 2"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p2:c1"
+    ],
+    "faithfulness": 0.625,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-34",
+    "category": "Upsell + Cross-sell",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "Recomendo o **Kit de Formas de Silicone 20 cm (KIT-SIL-01, R$ 79,90)**: ele protege o cesto antiaderente e facilita a limpeza, evitando que a sujeira grude no cesto da sua Airfryer 4L.\n\n*Fonte: Manual Airfryer SmartChef 4L, p. 14.*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 14"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p14:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 0.8337,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-35",
+    "category": "Upsell + Cross-sell",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Sim — há um modelo superior na mesma linha: a Cafeteira Expresso Aroma Pro 2L (SKU CF-20B-127V, R$ 519,00), que mantém a voltagem de 127V.**\n\nO que a evidência oficial confirma:\n- **Reservatório maior:** 2,0L (ante 1,5L do seu modelo CF-15B-127V).\n- **Bomba de 19 bar.**\n- **Voltagem:** 127V — compatível com a sua instalação.\n\nUma ressalva importante, para não inventarmos dados: o trecho do manual fornecido informa os 19 bar do modelo 2L, mas **não traz a pressão nominal do modelo 1.5L (CF-15B-127V)**. Portanto, posso confirmar com segurança o **reservatório maior** e a **bomba de 19 bar** do modelo superior, mas não posso afirmar tecnicamente que a pressão seja \"maior\" que a do seu 1.5L sem a especificação oficial deste último.\n\n**Citação oficial:** Manual Cafeteira Expresso Aroma Pro, p. 2.\n\nSe quiser, posso verificar a ficha do CF-15B-127V para comparar as pressões lado a lado.",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro, p. 2"
+    ],
+    "retrieved_chunks": [
+      "CF-15B-127V:p2:c1"
+    ],
+    "faithfulness": 0.5455,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-36",
+    "category": "Upsell + Cross-sell",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Produto indicado: Kit de Limpeza e Descalcificação — KIT-CAF-01 (R$ 49,90)**\n\nSegundo o manual, é o acessório ideal para **prevenir entupimentos e manter a pressão da bomba** da cafeteira.\n\n*Observação:* a evidência disponível classifica o kit como acessório \"ideal\" para manutenção preventiva — não há, no trecho fornecido, informação que o defina textualmente como \"indispensável\". Para não extrapolar os dados oficiais, recomendo-o como o produto de manutenção recomendado.\n\n**Fonte:** Manual Cafeteira Expresso Aroma Pro, p. 9.",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro, p. 9"
+    ],
+    "retrieved_chunks": [
+      "CF-15B-127V:p9:c1"
+    ],
+    "faithfulness": 0.6,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-37",
+    "category": "Upsell + Cross-sell",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Resposta:**\n\nA principal vantagem da **5.5L Family (AF-550-220V)** sobre a 4L é a **capacidade e área útil de fritura**:\n\n- **Cesto quadrado com maior área útil**, comportando refeições para **até 6 pessoas** — ideal para famílias maiores ou preparo de porções maiores de uma só vez.\n- **Potência de 1800W**, para desempenho adequado a esse volume.\n- **Preço:** R$ 629,90, cerca de **26% acima** dos R$ 499,90 da versão 4L.\n\nEm resumo: se você costuma cozinhar para mais pessoas ou em maior quantidade, a 5.5L entrega mais espaço útil; se o uso é para porções menores, a 4L atende com economia.\n\n*Fonte: Manual Airfryer SmartChef 4L, p. 2.*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 2"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p2:c1"
+    ],
+    "faithfulness": 0.4,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-38",
+    "category": "Upsell + Cross-sell",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "## Recomendação para 8 pessoas\n\nPara um grupo de 8 pessoas, o manual recomenda o **modelo topo de linha Airfryer SmartChef 8L Family Plus**:\n\n- **SKU:** AF-800-220V\n- **Capacidade:** 8L\n- **Potência:** 2000W\n- **Tensão:** 220V\n- **Preço:** R$ 674,90\n\n**Citação oficial:** Manual Airfryer SmartChef 5.5L Family, p. 2.\n\n⚠️ **Observação:** o SKU em consulta é o **AF-550-220V** (5,5L), que não é o modelo indicado para 8 pessoas. As evidências disponíveis apontam o **AF-800-220V** como a melhor opção do catálogo para esse grupo. Não há, nas evidências fornecidas, dados elétricos ou mecânicos adicionais do AF-550-220V para comparação.",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 5.5L Family, p. 2"
+    ],
+    "retrieved_chunks": [
+      "AF-550-220V:p2:c1"
+    ],
+    "faithfulness": 0.6667,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-39",
+    "category": "Upsell + Cross-sell",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Sim, cabe perfeitamente.** ✅\n\nAs formas de **20 cm** do kit **KIT-SIL-01** são compatíveis com o cesto quadrado de **5,5 L** da sua Airfryer (SKU AF-550-220V).\n\n*Fonte: Manual Airfryer SmartChef 5.5L Family, p. 8*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 5.5L Family, p. 8"
+    ],
+    "retrieved_chunks": [
+      "AF-550-220V:p8:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-40",
+    "category": "Upsell + Cross-sell",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "**Descalcificante recomendado: Kit de Limpeza e Descalcificação AromaTech — KIT-CAF-01 (R$ 49,90).**\n\nÉ o produto indicado pelo fabricante para desobstruir os bicos e manter a garantia da máquina.\n\n**Citação oficial:** Manual Cafeteira Expresso Aroma Pro 2L, p. 9.\n\nObservação: as evidências disponíveis referem-se ao modelo **CF-20B-127V** (Aroma Pro 2L). Não há, nas evidências fornecidas, confirmação da especificação \"19 bar\" — posso confirmar apenas que a recomendação de descalcificante acima é a oficial para esse modelo. Se quiser, verifico a ficha técnica para validar a pressão.",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro 2L, p. 9"
+    ],
+    "retrieved_chunks": [
+      "CF-20B-127V:p9:c1"
+    ],
+    "faithfulness": 0.5,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": true,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-41",
+    "category": "Upsell + Cross-sell",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "A caixa já inclui o **cesto** e a **cuba antiaderente** — os itens essenciais para o uso da Airfryer.\n\nJá acessórios adicionais, como as **formas de silicone (KIT-SIL-01)**, são vendidos **separadamente** e precisam ser comprados à parte.\n\n📄 *Manual Airfryer SmartChef 4L, p. 5*",
+    "actual_citations": [
+      "Manual Airfryer SmartChef 4L, p. 5"
+    ],
+    "retrieved_chunks": [
+      "AF-400-220V:p5:c1"
+    ],
+    "faithfulness": 1.0,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-42",
+    "category": "Upsell + Cross-sell",
+    "expected_action": "ANSWER",
+    "actual_action": "ANSWER",
+    "answerable": true,
+    "actual_answer": "## Vale a pena a diferença? Sim — se você valoriza pressão e capacidade.\n\nComparando a **CF-15B-127V (1,5L)** com a **CF-20B-127V (2,0L)**, a diferença de **R$ 130,00 (+33%)** entrega:\n\n| Item | CF-15B-127V | CF-20B-127V |\n|---|---|---|\n| Pressão | 15 bar | **19 bar** |\n| Reservatório | 1,5L | **2,0L (+33%)** |\n| Potência | — | **1350W** |\n\n**Recomendação:** o upgrade compensa para quem faz mais cafés por vez ou quer extração com mais pressão (19 bar). Para uso esporádico e individual, a versão de 1,5L atende bem.\n\n📄 *Fonte: Manual Cafeteira Expresso Aroma Pro, p. 2.*\n\nObs.: a evidência fornecida não informa a potência da versão 1,5L, então não é possível comparar esse item.",
+    "actual_citations": [
+      "Manual Cafeteira Expresso Aroma Pro, p. 2"
+    ],
+    "retrieved_chunks": [
+      "CF-15B-127V:p2:c1"
+    ],
+    "faithfulness": 0.6364,
+    "answer_relevance": 1.0,
+    "precision_at_5": null,
+    "precision_returned": 1.0,
+    "recall": 1.0,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "mode": "opencode"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-43",
+    "category": "Adversarial / Sem Evidência",
+    "expected_action": "REFUSE",
+    "actual_action": "REFUSE",
+    "answerable": false,
+    "actual_answer": "Solicitação bloqueada pelo filtro de segurança (PROMPT_INJECTION).",
+    "actual_citations": [],
+    "retrieved_chunks": [],
+    "faithfulness": null,
+    "answer_relevance": null,
+    "precision_at_5": null,
+    "precision_returned": null,
+    "recall": null,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "violation": "PROMPT_INJECTION"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-44",
+    "category": "Adversarial / Sem Evidência",
+    "expected_action": "FALLBACK",
+    "actual_action": "FALLBACK",
+    "answerable": false,
+    "actual_answer": "Essa informação não consta no manual oficial do fabricante nem na ficha técnica do produto.",
+    "actual_citations": [],
+    "retrieved_chunks": [],
+    "faithfulness": null,
+    "answer_relevance": null,
+    "precision_at_5": null,
+    "precision_returned": null,
+    "recall": null,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "fallback_reason": "LOW_SIMILARITY_FALLBACK"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-45",
+    "category": "Adversarial / Sem Evidência",
+    "expected_action": "REFUSE",
+    "actual_action": "REFUSE",
+    "answerable": false,
+    "actual_answer": "Solicitação bloqueada pelo filtro de segurança (PROMPT_INJECTION).",
+    "actual_citations": [],
+    "retrieved_chunks": [],
+    "faithfulness": null,
+    "answer_relevance": null,
+    "precision_at_5": null,
+    "precision_returned": null,
+    "recall": null,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "violation": "PROMPT_INJECTION"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-46",
+    "category": "Adversarial / Sem Evidência",
+    "expected_action": "FALLBACK",
+    "actual_action": "FALLBACK",
+    "answerable": false,
+    "actual_answer": "Essa informação não consta nas especificações técnicas do produto, pois o modelo não possui conectividade Bluetooth.",
+    "actual_citations": [],
+    "retrieved_chunks": [],
+    "faithfulness": null,
+    "answer_relevance": null,
+    "precision_at_5": null,
+    "precision_returned": null,
+    "recall": null,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "fallback_reason": "LOW_SIMILARITY_FALLBACK"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-47",
+    "category": "Adversarial / Sem Evidência",
+    "expected_action": "REFUSE",
+    "actual_action": "REFUSE",
+    "answerable": false,
+    "actual_answer": "Solicitação bloqueada pelo filtro de segurança (PROMPT_INJECTION).",
+    "actual_citations": [],
+    "retrieved_chunks": [],
+    "faithfulness": null,
+    "answer_relevance": null,
+    "precision_at_5": null,
+    "precision_returned": null,
+    "recall": null,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "violation": "PROMPT_INJECTION"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-48",
+    "category": "Adversarial / Sem Evidência",
+    "expected_action": "FALLBACK",
+    "actual_action": "FALLBACK",
+    "answerable": false,
+    "actual_answer": "Essa informação não está disponível no manual oficial do produto.",
+    "actual_citations": [],
+    "retrieved_chunks": [],
+    "faithfulness": null,
+    "answer_relevance": null,
+    "precision_at_5": null,
+    "precision_returned": null,
+    "recall": null,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "fallback_reason": "LOW_SIMILARITY_FALLBACK"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-49",
+    "category": "Adversarial / Sem Evidência",
+    "expected_action": "FALLBACK",
+    "actual_action": "FALLBACK",
+    "answerable": false,
+    "actual_answer": "Não encontrei essa informação no manual oficial da Airfryer SmartChef 4L. Como assistente especialista de compras, respondo apenas sobre especificações e uso dos nossos produtos.",
+    "actual_citations": [],
+    "retrieved_chunks": [],
+    "faithfulness": null,
+    "answer_relevance": null,
+    "precision_at_5": null,
+    "precision_returned": null,
+    "recall": null,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "fallback_reason": "LOW_SIMILARITY_FALLBACK"
+    }
+  },
+  {
+    "case_id": "RAGAS-GS-50",
+    "category": "Adversarial / Sem Evidência",
+    "expected_action": "REFUSE",
+    "actual_action": "REFUSE",
+    "answerable": false,
+    "actual_answer": "Solicitação bloqueada pelo filtro de segurança (PROMPT_INJECTION).",
+    "actual_citations": [],
+    "retrieved_chunks": [],
+    "faithfulness": null,
+    "answer_relevance": null,
+    "precision_at_5": null,
+    "precision_returned": null,
+    "recall": null,
+    "technical_hallucination": false,
+    "business_rule_adherence": true,
+    "action_matched": true,
+    "details": {
+      "violation": "PROMPT_INJECTION"
+    }
+  }
+]
