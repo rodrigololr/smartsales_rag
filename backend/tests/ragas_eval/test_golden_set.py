@@ -60,3 +60,65 @@ def test_golden_set_file_and_schema() -> None:
     assert cat_counts["Coloquial / Medida"] == 10
     assert cat_counts["Upsell + Cross-sell"] == 10
     assert cat_counts["Adversarial / Sem Evidência"] == 8
+
+
+def test_models_parsing_and_validation() -> None:
+    """Task 2: Verify Pydantic models parse golden_set.json and validate constraints."""
+    from .models import GoldenSetFixture, EvalCaseResult, EvaluationReport, GateResult
+    
+    with open(FIXTURE_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    
+    fixtures = [GoldenSetFixture.model_validate(item) for item in data]
+    assert len(fixtures) == 50
+    assert fixtures[0].id == "RAGAS-GS-01"
+    assert fixtures[0].category == "Técnica Exata"
+    assert fixtures[0].expected_action == "ANSWER"
+    assert fixtures[0].answerable is True
+    
+    # Test EvalCaseResult instantiation
+    case_res = EvalCaseResult(
+        case_id="RAGAS-GS-01",
+        category="Técnica Exata",
+        expected_action="ANSWER",
+        actual_action="ANSWER",
+        answerable=True,
+        actual_answer="Resposta válida",
+        actual_citations=["Manual Airfryer SmartChef 4L, p. 14"],
+        retrieved_chunks=["AF-400-220V:p14:c1"],
+        faithfulness=1.0,
+        answer_relevance=0.95,
+        precision_at_5=1.0,
+        precision_returned=1.0,
+        recall=1.0,
+        technical_hallucination=False,
+        business_rule_adherence=True,
+        action_matched=True,
+    )
+    assert case_res.action_matched is True
+    
+    # Test GateResult and EvaluationReport
+    gate = GateResult(
+        metric_name="Faithfulness",
+        value=0.92,
+        threshold=0.85,
+        comparator=">=",
+        passed=True,
+        description="Fidelidade macro"
+    )
+    assert gate.passed is True
+    
+    report = EvaluationReport(
+        total_cases=50,
+        evaluated_cases=50,
+        faithfulness_macro=0.92,
+        precision_at_5_macro=0.88,
+        technical_hallucination_rate=0.0,
+        answer_relevance_macro=0.91,
+        business_rule_adherence_rate=1.0,
+        action_accuracy=1.0,
+        gates=[gate],
+        all_gates_passed=True,
+        case_results=[case_res]
+    )
+    assert report.all_gates_passed is True
