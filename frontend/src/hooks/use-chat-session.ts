@@ -270,3 +270,5 @@ export function useChatSession(product: Product | null) {
     submitFeedback,
   };
 }
+
+export type ChatSession = ReturnType<typeof useChatSession>;

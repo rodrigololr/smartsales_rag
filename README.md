@@ -9,7 +9,7 @@
 
 ## MVP: como rodar (apresentação de 10/11)
 
-Escopo do MVP: catálogo com poucos itens e, em cada produto, um Consultor IA no painel lateral (estilo Rufus/Alexa da Amazon) que responde **somente sobre aquele produto**, com RAG sobre a ficha técnica do catálogo e o manual do fabricante, citando a página da fonte. Upsell/cross-sell, cache Redis, checkout e feedback reais ficam para as próximas entregas.
+Escopo do MVP: catálogo comum com poucos itens (com fotos); ao abrir um produto, a página do item mostra galeria, ficha técnica e compra, com um Consultor IA fixo ao lado (estilo Rufus/Alexa da Amazon) que responde **somente sobre aquele produto**, com RAG sobre a ficha técnica do catálogo e o manual do fabricante, citando a página da fonte. Upsell/cross-sell, cache Redis, checkout e feedback reais ficam para as próximas entregas.
 
 ```bash
 cp .env.example .env          # preencha OPENAI_API_KEY
