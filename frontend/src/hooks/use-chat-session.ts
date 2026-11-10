@@ -6,9 +6,22 @@ import type {
   ChatMessage,
   FeedbackRating,
   FeedbackReasonCategory,
+  StreamEvent,
 } from "@/types/chat";
 import { createId } from "@/lib/format";
 import { mockFeedback, streamMockChat } from "@/lib/mock-api";
+import {
+  API_BASE_URL,
+  StreamInterruptedError,
+  createSession,
+  deleteSession,
+  streamChat,
+} from "@/lib/chat-api";
+
+const USE_REAL_API = API_BASE_URL !== "";
+const MAX_AUTOMATIC_RECONNECTS = 1;
+const FAILURE_MESSAGE =
+  "Não foi possível concluir a consulta agora. Tente novamente em instantes.";
 
 const emptyAssistantMessage = (id: string): ChatMessage => ({
   id,
@@ -22,15 +35,27 @@ const emptyAssistantMessage = (id: string): ChatMessage => ({
   errorCode: null,
 });
 
+const isAbort = (error: unknown): boolean =>
+  error instanceof Error && error.name === "AbortError";
+
 export function useChatSession(product: Product | null) {
   const [sessionId, setSessionId] = useState<string>(() => createId());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
+  // Server session (real API only); created lazily on the first question.
+  const serverSessionRef = useRef<string | null>(null);
 
   const reset = useCallback(() => {
     controllerRef.current?.abort();
     controllerRef.current = null;
+    const serverSession = serverSessionRef.current;
+    serverSessionRef.current = null;
+    if (serverSession) {
+      deleteSession(serverSession).catch((error: unknown) =>
+        console.warn("chat_session_delete_failed", error)
+      );
+    }
     setMessages([]);
     setIsStreaming(false);
     setSessionId(createId());
@@ -53,15 +78,90 @@ export function useChatSession(product: Product | null) {
     []
   );
 
+  const applyEvent = useCallback(
+    (assistantId: string, event: StreamEvent) => {
+      switch (event.event) {
+        case "metadata":
+          patchAssistant(assistantId, {
+            ttftMs: event.data.ttft_ms,
+            cacheHit: event.data.cache_hit,
+          });
+          break;
+        case "token":
+          setMessages((previous) =>
+            previous.map((message) =>
+              message.id === assistantId
+                ? { ...message, content: message.content + event.data.delta }
+                : message
+            )
+          );
+          break;
+        case "correction":
+          patchAssistant(assistantId, { content: event.data.content, wasCorrected: true });
+          break;
+        case "citations":
+          patchAssistant(assistantId, { citations: event.data.citations });
+          break;
+        case "recommendations":
+          patchAssistant(assistantId, { recommendations: event.data.products });
+          break;
+        case "error":
+          // Contract: discard every partial text/citation/card; later cards are new ones.
+          patchAssistant(assistantId, {
+            content: "",
+            citations: [],
+            recommendations: [],
+            wasCorrected: false,
+            errorFallback: event.data.fallback_message,
+            errorCode: event.data.code,
+          });
+          break;
+        case "done":
+          patchAssistant(assistantId, { isStreaming: false });
+          break;
+      }
+    },
+    [patchAssistant]
+  );
+
+  const openStream = useCallback(
+    async function* (
+      activeProduct: Product,
+      prompt: string,
+      clientRequestId: string,
+      signal: AbortSignal
+    ): AsyncGenerator<StreamEvent> {
+      if (!USE_REAL_API) {
+        yield* streamMockChat({ sessionId, message: prompt, product: activeProduct }, signal);
+        return;
+      }
+      if (!serverSessionRef.current) {
+        serverSessionRef.current = await createSession(activeProduct.sku, signal);
+        setSessionId(serverSessionRef.current);
+      }
+      yield* streamChat(
+        {
+          sessionId: serverSessionRef.current,
+          clientRequestId,
+          message: prompt,
+          currentProductSku: activeProduct.sku,
+        },
+        signal
+      );
+    },
+    [sessionId]
+  );
+
   const run = useCallback(
     async (prompt: string, replaceAssistantId?: string) => {
-      if (!product || !prompt.trim() || isStreaming) return;
+      if (!product || !prompt.trim() || controllerRef.current) return;
+      const question = prompt.trim();
 
       const assistantId = replaceAssistantId ?? createId();
       const userMessage: ChatMessage = {
         id: createId(),
         role: "user",
-        content: prompt.trim(),
+        content: question,
         isStreaming: false,
         citations: [],
         recommendations: [],
@@ -80,71 +180,44 @@ export function useChatSession(product: Product | null) {
 
       const controller = new AbortController();
       controllerRef.current = controller;
+      // One ID per explicit question, kept on the automatic reconnect.
+      const clientRequestId = createId();
 
       try {
-        for await (const event of streamMockChat(
-          { sessionId, message: prompt.trim(), product },
-          controller.signal
-        )) {
-          switch (event.event) {
-            case "metadata":
-              patchAssistant(assistantId, {
-                ttftMs: event.data.ttft_ms,
-                cacheHit: event.data.cache_hit,
-              });
-              break;
-            case "token":
-              setMessages((previous) =>
-                previous.map((message) =>
-                  message.id === assistantId
-                    ? { ...message, content: message.content + event.data.delta }
-                    : message
-                )
-              );
-              break;
-            case "correction":
-              patchAssistant(assistantId, {
-                content: event.data.content,
-                wasCorrected: true,
-              });
-              break;
-            case "citations":
-              patchAssistant(assistantId, { citations: event.data.citations });
-              break;
-            case "recommendations":
-              patchAssistant(assistantId, {
-                recommendations: event.data.products,
-              });
-              break;
-            case "error":
-              patchAssistant(assistantId, {
-                content: "",
-                errorFallback: event.data.fallback_message,
-                errorCode: event.data.code,
-                isStreaming: false,
-              });
-              break;
-            case "done":
-              patchAssistant(assistantId, { isStreaming: false });
-              break;
+        for (let reconnects = 0; ; reconnects++) {
+          try {
+            for await (const event of openStream(product, question, clientRequestId, controller.signal)) {
+              applyEvent(assistantId, event);
+            }
+            break;
+          } catch (error) {
+            if (!(error instanceof StreamInterruptedError) || reconnects >= MAX_AUTOMATIC_RECONNECTS) {
+              throw error;
+            }
+            patchAssistant(assistantId, emptyAssistantMessage(assistantId));
           }
         }
       } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") return;
+        if (isAbort(error)) return;
+        console.warn("chat_stream_failed", error);
         patchAssistant(assistantId, {
           content: "",
+          citations: [],
+          recommendations: [],
           isStreaming: false,
-          errorCode: "LLM_UNAVAILABLE",
-          errorFallback:
-            "Não foi possível concluir a consulta agora. Tente novamente em instantes.",
+          errorCode: error instanceof StreamInterruptedError ? "LLM_UNAVAILABLE" : "INTERNAL_ERROR",
+          errorFallback: FAILURE_MESSAGE,
         });
       } finally {
-        controllerRef.current = null;
-        setIsStreaming(false);
-        patchAssistant(assistantId, { isStreaming: false });
+        // A reset may already have started another turn; only clear our own.
+        if (controllerRef.current === controller) {
+          controllerRef.current = null;
+          setIsStreaming(false);
+          patchAssistant(assistantId, { isStreaming: false });
+        }
       }
     },
-    [isStreaming, patchAssistant, product, sessionId]
+    [applyEvent, openStream, patchAssistant, product]
   );
 
   const send = useCallback(
@@ -197,3 +270,5 @@ export function useChatSession(product: Product | null) {
     submitFeedback,
   };
 }
+
+export type ChatSession = ReturnType<typeof useChatSession>;

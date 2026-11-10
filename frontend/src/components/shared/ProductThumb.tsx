@@ -1,8 +1,9 @@
+import Image from "next/image";
 import { Coffee, Flame, Package, ShoppingBag } from "lucide-react";
 import type { Product } from "@/types/catalog";
 import { cn } from "@/lib/utils";
 
-type ThumbProduct = Pick<Product, "name" | "subcategory">;
+type ThumbProduct = Pick<Product, "name" | "subcategory"> & { image_url?: string };
 
 const renderIcon = (product: ThumbProduct) => {
   if (product.subcategory === "Cafeteiras") {
@@ -20,6 +21,7 @@ const renderIcon = (product: ThumbProduct) => {
   return <ShoppingBag className="size-8" strokeWidth={1.5} />;
 };
 
+/** Product photo, or a category icon while the catalog has no image for it. */
 export function ProductThumb({
   product,
   className,
@@ -27,6 +29,20 @@ export function ProductThumb({
   product: ThumbProduct;
   className?: string;
 }) {
+  if (product.image_url) {
+    return (
+      <div className={cn("relative overflow-hidden rounded-xl bg-white ring-1 ring-border", className)}>
+        <Image
+          src={product.image_url}
+          alt={product.name}
+          fill
+          unoptimized
+          sizes="(max-width: 640px) 50vw, 25vw"
+          className="object-contain"
+        />
+      </div>
+    );
+  }
   return (
     <div
       aria-hidden="true"
