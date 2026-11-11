@@ -1,5 +1,6 @@
--- MVP subset of specs/architecture/02_database_pgvector_and_redis_schema.md
--- (products + manual_chunks). Idempotent: applied by every ingestion run.
+-- Backend-owned tables of specs/architecture/02_database_pgvector_and_redis_schema.md
+-- (ADR-06: products, manual_chunks, product_relations, ingestion_jobs).
+-- Idempotent: applied by every ingestion run.
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "vector";
 
@@ -50,3 +51,27 @@ CREATE INDEX IF NOT EXISTS idx_manual_chunks_embedding_hnsw
     WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS idx_manual_chunks_product_id ON manual_chunks (product_id);
 CREATE INDEX IF NOT EXISTS idx_manual_chunks_sku ON manual_chunks (sku);
+
+CREATE TABLE IF NOT EXISTS product_relations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    base_product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    related_product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    relation_type VARCHAR(20) NOT NULL CHECK (relation_type IN ('UPSELL', 'CROSS_SELL')),
+    affinity_weight NUMERIC(4, 3) NOT NULL DEFAULT 0.800 CHECK (affinity_weight BETWEEN 0 AND 1),
+    justification_template TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (base_product_id, related_product_id, relation_type)
+);
+
+CREATE TABLE IF NOT EXISTS ingestion_jobs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    source_file TEXT NOT NULL,
+    content_hash VARCHAR(64) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'RUNNING', 'INDEXED', 'FAILED', 'NEEDS_INTERVENTION')),
+    attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    last_error TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (source_file, content_hash)
+);

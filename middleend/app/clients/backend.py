@@ -61,13 +61,21 @@ class BackendClient:
         self._url = base_url.rstrip("/") + "/internal/rag/stream"
 
     def open_stream(
-        self, sku: str, question: str, history: Sequence[HistoryItem]
+        self,
+        sku: str,
+        question: str,
+        history: Sequence[HistoryItem],
+        *,
+        preferred_voltage: str | None = None,
     ) -> NdjsonBackendStream:
-        payload = {
+        payload: dict[str, object] = {
             "sku": sku,
             "question": question,
             "history": [{"role": item.role, "content": item.content} for item in history],
         }
+        if preferred_voltage is not None:
+            # Restricts which cards are eligible (B04); the evidence search ignores it.
+            payload["preferred_voltage"] = preferred_voltage
         return NdjsonBackendStream(self._client, self._url, payload)
 
 
