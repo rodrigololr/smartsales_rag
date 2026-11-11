@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     cors_allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
     # Unset = sessions in process memory (single replica, lost on restart).
     redis_url: str | None = None
+    # Read-only access to `products` (ADR-06). The semantic cache needs both Redis and
+    # this URL: without the stock/price revalidation it stays off.
+    database_url: str | None = None
+    cache_ttl_seconds: int = 3600
+    cache_policy_version: str = "p1"  # bump when prompts, guardrails, ranking or model change
     session_ttl_seconds: int = 1800
     session_history_max_messages: int = 10  # sliding window kept per session
     session_lock_ttl_seconds: int = 60  # SET NX EX: one turn at a time per session

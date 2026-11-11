@@ -65,8 +65,17 @@ class FakeBackend:
     def __init__(self, events: list[Mapping[str, object]]) -> None:
         self.events = events
         self.calls: list[tuple[str, str, list[HistoryItem]]] = []
+        self.voltages: list[str | None] = []
 
-    def open_stream(self, sku: str, question: str, history: list[HistoryItem]) -> FakeStream:
+    def open_stream(
+        self,
+        sku: str,
+        question: str,
+        history: list[HistoryItem],
+        *,
+        preferred_voltage: str | None = None,
+    ) -> FakeStream:
+        self.voltages.append(preferred_voltage)
         self.calls.append((sku, question, history))
         return FakeStream(self.events)
 

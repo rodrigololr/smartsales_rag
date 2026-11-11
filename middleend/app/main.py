@@ -9,8 +9,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 
+from app.cache.redis_storage import RedisCacheStorage
+from app.cache.service import SemanticCacheService
 from app.clients.backend import BackendClient
 from app.config import Settings, get_settings
+from app.repositories.products import PostgresProductSnapshots
 from app.routes.chat import RagBackend, router
 from app.sessions.redis_store import RedisSessionStore
 from app.sessions.store import InMemorySessionStore, SessionStore
@@ -32,10 +35,23 @@ def build_session_store(settings: Settings, redis: Redis | None) -> SessionStore
     )
 
 
+def build_cache(settings: Settings, redis: Redis | None) -> SemanticCacheService | None:
+    """The cache serves only what it can revalidate: it needs Redis and PostgreSQL."""
+    if redis is None or not settings.database_url:
+        return None
+    return SemanticCacheService(
+        RedisCacheStorage(redis),
+        PostgresProductSnapshots(settings.database_url),
+        ttl_seconds=settings.cache_ttl_seconds,
+        policy_version=settings.cache_policy_version,
+    )
+
+
 def create_app(
     settings: Settings | None = None,
     backend: RagBackend | None = None,
     store: SessionStore | None = None,
+    cache: SemanticCacheService | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
 
@@ -43,10 +59,11 @@ def create_app(
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         redis: Redis | None = (
             Redis.from_url(settings.redis_url, decode_responses=True)
-            if settings.redis_url and store is None
+            if settings.redis_url
             else None
         )
         app.state.store = store or build_session_store(settings, redis)
+        app.state.cache = cache or build_cache(settings, redis)
         app.state.redis_enabled = redis is not None
         async with httpx.AsyncClient(timeout=settings.backend_timeout_seconds) as http:
             app.state.http = http

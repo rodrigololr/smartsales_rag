@@ -3,12 +3,14 @@
 import hashlib
 import time
 import uuid
+from dataclasses import dataclass
 from typing import Protocol
 
 import httpx
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from app.cache.service import CachedAnswer, SemanticCacheService
 from app.clients.backend import ReplayStream
 from app.config import Settings
 from app.schemas import ChatStreamRequest, SessionCreate
@@ -24,7 +26,12 @@ HEALTH_TIMEOUT_SECONDS = 2.0
 
 class RagBackend(Protocol):
     def open_stream(
-        self, sku: str, question: str, history: list[HistoryItem]
+        self,
+        sku: str,
+        question: str,
+        history: list[HistoryItem],
+        *,
+        preferred_voltage: str | None = None,
     ) -> BackendStream: ...
 
 
@@ -40,8 +47,65 @@ def _payload_hash(body: ChatStreamRequest) -> str:
 
 
 async def _no_recommendations() -> list[ProductCard]:
-    # shortcut: the MVP chat has no upsell/cross-sell cards; plug B04 here later.
+    # Cards come from the backend (B04). When the backend itself is unreachable the
+    # gateway has no SQL-validated card to offer, so the contingency publishes none.
     return []
+
+
+@dataclass(frozen=True)
+class _Answer:
+    """Where this turn's events come from; cache_key is set only for a fresh generation."""
+
+    stream: BackendStream
+    cache_key: str | None = None
+    cache_hit: bool = False
+
+
+def _resolved_filters(body: ChatStreamRequest, sku: str) -> dict[str, object]:
+    filters = body.context_filters.model_dump() if body.context_filters else {}
+    return {**filters, "current_product_sku": sku}
+
+
+def _cached_turn(cached: CachedAnswer, session_id: str, message_id: str) -> CompletedTurn:
+    return CompletedTurn(
+        session_id=session_id,
+        message_id=message_id,
+        content=cached.answer_text,
+        citations=cached.citations,
+        products=cached.recommendations,
+        finish_reason="stop",
+        tokens_used=cached.tokens_used,
+        intent=cached.intent,
+        cache_hit=True,
+        ttft_ms=0,
+        total_latency_ms=0,
+    )
+
+
+async def _open_answer(
+    cache: SemanticCacheService | None,
+    backend: RagBackend,
+    body: ChatStreamRequest,
+    sku: str,
+    session: SessionSnapshot,
+    message_id: str,
+) -> _Answer:
+    """Serve a revalidated cache hit, or open the backend stream for a new generation."""
+    history = [{"role": item.role, "content": item.content} for item in session.history]
+    cache_key = (
+        await cache.key_for(body.message, _resolved_filters(body, sku), history)
+        if cache is not None
+        else None
+    )
+    cached = await cache.lookup(cache_key) if cache is not None and cache_key else None
+    if cached is not None:
+        turn = _cached_turn(cached, session.session_id, message_id)
+        return _Answer(ReplayStream(turn), cache_hit=True)
+    voltage = body.context_filters.preferred_voltage if body.context_filters else None
+    stream = backend.open_stream(
+        sku, body.message, list(session.history), preferred_voltage=voltage
+    )
+    return _Answer(stream, cache_key=cache_key)
 
 
 def _session_body(session: SessionSnapshot, settings: Settings, *, restored: bool) -> dict[str, object]:
@@ -106,24 +170,26 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
             headers={"Retry-After": str(settings.turn_retry_after_seconds)},
         )
 
-    stream: BackendStream
+    cache: SemanticCacheService | None = request.app.state.cache
     if turn.kind == TurnDecision.REPLAY and turn.completed is not None:
-        stream = ReplayStream(turn.completed)
+        answer = _Answer(ReplayStream(turn.completed))
     else:
-        stream = backend.open_stream(sku, body.message, list(session.history))
+        answer = await _open_answer(cache, backend, body, sku, session, turn.message_id)
 
     async def release_turn() -> None:
         await store.release(session.session_id, request_id)
 
     async def complete_turn(completed: CompletedTurn) -> None:
         await store.complete(session.session_id, request_id, body.message, completed)
+        if cache is not None and answer.cache_key is not None:
+            await cache.store(answer.cache_key, completed)
 
     frames = sse_chat_generator(
         request,
         session.session_id,
         turn.message_id,
-        stream,
-        False,
+        answer.stream,
+        answer.cache_hit,
         release_turn,
         _no_recommendations,
         complete_turn,
