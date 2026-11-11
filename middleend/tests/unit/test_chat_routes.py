@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 import uuid
 from collections.abc import AsyncIterator, Iterator, Mapping
 
@@ -13,6 +14,7 @@ from app.main import create_app
 from app.sessions.store import HistoryItem
 from fastapi.testclient import TestClient
 
+REDIS_URL = os.environ.get("TEST_REDIS_URL", "")
 TOKEN = {"event": "token", "data": {"delta": "Opera em 220V. "}}
 CITATIONS = {
     "event": "citations",
@@ -63,8 +65,17 @@ class FakeBackend:
     def __init__(self, events: list[Mapping[str, object]]) -> None:
         self.events = events
         self.calls: list[tuple[str, str, list[HistoryItem]]] = []
+        self.voltages: list[str | None] = []
 
-    def open_stream(self, sku: str, question: str, history: list[HistoryItem]) -> FakeStream:
+    def open_stream(
+        self,
+        sku: str,
+        question: str,
+        history: list[HistoryItem],
+        *,
+        preferred_voltage: str | None = None,
+    ) -> FakeStream:
+        self.voltages.append(preferred_voltage)
         self.calls.append((sku, question, history))
         return FakeStream(self.events)
 
@@ -156,7 +167,7 @@ def test_reused_request_id_with_other_payload_is_a_conflict(client: TestClient) 
 def test_turn_in_progress_returns_409_with_retry_after(client: TestClient) -> None:
     session_id = new_session(client)
     store = client.app.state.store  # type: ignore[attr-defined]
-    store.begin_turn(store.get(session_id), "other-request", "hash")
+    asyncio.run(store.begin_turn(session_id, "other-request", "hash"))
     response = ask(client, session_id, str(uuid.uuid4()))
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "TURN_IN_PROGRESS"
@@ -199,6 +210,55 @@ def test_delete_session(client: TestClient) -> None:
     session_id = new_session(client)
     assert client.delete(f"/api/v1/sessions/{session_id}").status_code == 204
     assert client.delete(f"/api/v1/sessions/{session_id}").status_code == 404
+
+
+def test_post_with_an_active_session_id_restores_its_history(client: TestClient) -> None:
+    session_id = new_session(client)
+    first = sse_events(ask(client, session_id, str(uuid.uuid4())).text)
+
+    restored = client.post("/api/v1/sessions", json={"session_id": session_id})
+    assert restored.status_code == 200
+    body = restored.json()
+    assert body["session_id"] == session_id and body["restored"] is True
+    assert [(m["role"], m["content"]) for m in body["history"]] == [
+        ("user", "Qual a voltagem?"),
+        ("assistant", "Opera em 220V. "),
+    ]
+    assert body["history"][1]["id"] == first[0][1]["message_id"]
+    assert uuid.UUID(body["history"][0]["id"])
+
+
+def test_post_with_an_unknown_session_id_opens_a_new_session(client: TestClient) -> None:
+    unknown = str(uuid.uuid4())
+    response = client.post("/api/v1/sessions", json={"session_id": unknown})
+    assert response.status_code == 201
+    assert response.json()["session_id"] != unknown and response.json()["restored"] is False
+
+
+def test_health_reports_memory_sessions_as_redis_disabled(client: TestClient) -> None:
+    assert client.get("/api/v1/health").json()["components"]["redis"] == "disabled"
+
+
+@pytest.mark.skipif(not REDIS_URL, reason="TEST_REDIS_URL not set")
+def test_gateway_on_redis_keeps_sessions_across_app_instances(backend: FakeBackend) -> None:
+    settings = Settings(backend_internal_url="http://127.0.0.1:9", redis_url=REDIS_URL)
+    with TestClient(create_app(settings, backend)) as first_instance:
+        session_id = new_session(first_instance)
+        assert [n for n, _ in sse_events(ask(first_instance, session_id, str(uuid.uuid4())).text)] == [
+            "metadata",
+            "token",
+            "citations",
+            "done",
+        ]
+        assert first_instance.get("/api/v1/health").json()["components"]["redis"] == "ok"
+
+    with TestClient(create_app(settings, backend)) as second_instance:
+        restored = second_instance.post("/api/v1/sessions", json={"session_id": session_id}).json()
+        assert restored["restored"] is True and len(restored["history"]) == 2
+        ask(second_instance, session_id, str(uuid.uuid4()), "E a potência?")
+        assert [item.content for item in backend.calls[-1][2]] == ["Qual a voltagem?", "Opera em 220V. "]
+        assert second_instance.delete(f"/api/v1/sessions/{session_id}").status_code == 204
+        assert ask(second_instance, session_id, str(uuid.uuid4())).status_code == 404
 
 
 def test_cors_allows_the_frontend_origin(client: TestClient) -> None:
