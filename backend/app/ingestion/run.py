@@ -13,22 +13,28 @@ import asyncio
 import hashlib
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from uuid import UUID
 
 import psycopg
 import tiktoken
 from pydantic import TypeAdapter
 
-from app.clients.openai_client import OpenAIEmbedder, make_client
+from app.clients.catalog_version import CatalogVersionBumper, RedisCatalogVersion
+from app.clients.openai_client import LLMUnavailableError, OpenAIEmbedder, make_client
 from app.config import Settings, get_settings
 from app.db.repository import (
     ChunkRow,
+    IngestionJobStatus,
     apply_schema,
     current_version,
     deactivate_missing,
+    finish_ingestion_job,
     replace_manual_chunks,
     replace_product_relations,
+    start_ingestion_job,
     upsert_product,
 )
 from app.ingestion.chunking import chunk_page, context_header, spec_sheet
@@ -40,6 +46,8 @@ from app.rag.orchestrator import Embedder
 logger = logging.getLogger(__name__)
 CHUNK_ENCODING = "cl100k_base"
 SPEC_SHEET_SOURCE = "catalog:spec_sheet"
+# Provider outage or database error: retried with backoff, never swallowed.
+RETRYABLE_INGESTION_ERRORS = (LLMUnavailableError, psycopg.Error)
 
 
 @dataclass(frozen=True)
@@ -58,6 +66,8 @@ class IngestionReport:
     products_without_manual: list[str] = field(default_factory=list)
     deactivated: int = 0
     relations: int = 0
+    needs_intervention: list[str] = field(default_factory=list)
+    catalog_version: int | None = None
 
 
 def load_catalog(path: Path) -> list[CatalogProduct]:
@@ -98,8 +108,10 @@ async def ingest(
     embedder: Embedder,
     settings: Settings,
     relations_path: Path | None = None,
+    *,
+    catalog_version: CatalogVersionBumper | None = None,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> IngestionReport:
-    encoding = tiktoken.get_encoding(CHUNK_ENCODING)
     products = load_catalog(catalog_path)
     relations = (
         load_relations(relations_path, {product.sku for product in products})
@@ -109,31 +121,104 @@ async def ingest(
     report = IngestionReport(products=len(products))
     async with await psycopg.AsyncConnection.connect(conninfo, autocommit=True) as conn:
         await apply_schema(conn)
+        indexer = _SourceIndexer(conn, embedder, settings, report, sleep)
         for product in products:
             product_id = await upsert_product(conn, product)
             sources = sources_for(product, manuals_dir)
             if len(sources) == 1:
                 report.products_without_manual.append(product.sku)
             for source in sources:
-                label = f"{product.sku}/{source.source}"
-                if await current_version(conn, product_id, source.source) == source.version:
-                    report.skipped_sources.append(label)
-                    continue
-                rows = _chunk_rows(product, source, encoding, settings)
-                embeddings = await embedder.embed([row.content for row in rows])
-                rows = [replace(row, embedding=vector) for row, vector in zip(rows, embeddings, strict=True)]
-                await replace_manual_chunks(
-                    conn,
-                    product_id=product_id,
-                    sku=product.sku,
-                    manual_source=source.source,
-                    manual_version=source.version,
-                    rows=rows,
-                )
-                report.indexed_sources.append(label)
+                await indexer.index(product, product_id, source)
         report.relations = await replace_product_relations(conn, relations)
         report.deactivated = await deactivate_missing(conn, [p.sku for p in products])
+    if catalog_version is not None:
+        # After the commits above (spec 01, section 6): caches built on the old catalog die.
+        report.catalog_version = await catalog_version.bump()
     return report
+
+
+class _SourceIndexer:
+    """Indexes one manual source under its ingestion_jobs record, retrying with backoff."""
+
+    def __init__(
+        self,
+        conn: psycopg.AsyncConnection[object],
+        embedder: Embedder,
+        settings: Settings,
+        report: IngestionReport,
+        sleep: Callable[[float], Awaitable[None]],
+    ) -> None:
+        self._conn = conn
+        self._embedder = embedder
+        self._settings = settings
+        self._report = report
+        self._sleep = sleep
+        self._encoding = tiktoken.get_encoding(CHUNK_ENCODING)
+
+    async def index(self, product: CatalogProduct, product_id: UUID, source: ManualSource) -> None:
+        label = f"{product.sku}/{source.source}"
+        if await current_version(self._conn, product_id, source.source) == source.version:
+            self._report.skipped_sources.append(label)
+            return
+        for attempt in range(1, self._settings.ingestion_max_attempts + 1):
+            await start_ingestion_job(
+                self._conn, product_id=product_id, source_file=label, content_hash=source.version
+            )
+            try:
+                await self._replace_chunks(product, product_id, source)
+            except RETRYABLE_INGESTION_ERRORS as error:
+                if not await self._retry_after(error, label, source, attempt):
+                    return
+                continue
+            await self._finish(label, source, "INDEXED")
+            self._report.indexed_sources.append(label)
+            return
+
+    async def _replace_chunks(
+        self, product: CatalogProduct, product_id: UUID, source: ManualSource
+    ) -> None:
+        rows = _chunk_rows(product, source, self._encoding, self._settings)
+        embeddings = await self._embedder.embed([row.content for row in rows])
+        await replace_manual_chunks(
+            self._conn,
+            product_id=product_id,
+            sku=product.sku,
+            manual_source=source.source,
+            manual_version=source.version,
+            rows=[replace(row, embedding=v) for row, v in zip(rows, embeddings, strict=True)],
+        )
+
+    async def _retry_after(
+        self, error: Exception, label: str, source: ManualSource, attempt: int
+    ) -> bool:
+        """Record the failure; False when the attempts are exhausted (NEEDS_INTERVENTION)."""
+        exhausted = attempt >= self._settings.ingestion_max_attempts
+        logger.warning(
+            "ingestion_attempt_failed",
+            extra={"source": label, "attempt": attempt, "error": str(error)},
+        )
+        status: IngestionJobStatus = "NEEDS_INTERVENTION" if exhausted else "FAILED"
+        await self._finish(label, source, status, last_error=str(error))
+        if exhausted:
+            self._report.needs_intervention.append(label)
+            return False
+        await self._sleep(self._settings.ingestion_backoff_seconds * 2 ** (attempt - 1))
+        return True
+
+    async def _finish(
+        self,
+        label: str,
+        source: ManualSource,
+        status: IngestionJobStatus,
+        last_error: str | None = None,
+    ) -> None:
+        await finish_ingestion_job(
+            self._conn,
+            source_file=label,
+            content_hash=source.version,
+            status=status,
+            last_error=last_error,
+        )
 
 
 def _chunk_rows(
@@ -177,6 +262,8 @@ def main(argv: list[str] | None = None) -> int:
         dimensions=settings.embedding_dimensions,
         batch_size=settings.embedding_batch_size,
     )
+    if settings.redis_url is None:
+        logger.warning("REDIS_URL não definido: catalog:version não será incrementada")
     report = asyncio.run(
         ingest(
             settings.database_url,
@@ -185,10 +272,14 @@ def main(argv: list[str] | None = None) -> int:
             embedder,
             settings,
             relations_path=args.relations,
+            catalog_version=(
+                RedisCatalogVersion(settings.redis_url) if settings.redis_url else None
+            ),
         )
     )
     print(json.dumps(report.__dict__, ensure_ascii=False, indent=2))
-    return 0
+    # Sources that exhausted their retries need the operator: fail the seed job.
+    return 1 if report.needs_intervention else 0
 
 
 if __name__ == "__main__":
