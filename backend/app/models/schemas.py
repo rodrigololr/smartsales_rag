@@ -72,3 +72,5 @@ class RagRequest(BaseModel):
     sku: str = Field(min_length=1, max_length=64)
     question: str = Field(min_length=1, max_length=1000)
     history: list[ChatTurn] = Field(default_factory=list)
+    # Outlet of the customer: restricts which cards are eligible, never the evidence.
+    preferred_voltage: Literal["127V", "220V"] | None = None
