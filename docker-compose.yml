@@ -15,12 +15,22 @@ services:
       timeout: 5s
       retries: 10
 
+  # Sessões, cache semântico e catalog:version (specs/architecture/02, seção 4).
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   # Indexa data/catalog.json + data/manuals/ (UC08). Fontes inalteradas são puladas.
   ingest:
     build: ./backend
-    command: ["python", "-m", "app.ingestion.run", "--catalog", "/data/catalog.json", "--manuals", "/data/manuals"]
+    command: ["python", "-m", "app.ingestion.run", "--catalog", "/data/catalog.json", "--manuals", "/data/manuals", "--relations", "/data/product_relations.json"]
     environment: &backend-env
       DATABASE_URL: postgresql://smartsales:smartsales@db:5432/smartsales
+      REDIS_URL: redis://redis:6379/0
       LLM_API_KEY: ${LLM_API_KEY:?defina LLM_API_KEY no .env da raiz}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
@@ -30,6 +40,8 @@ services:
       - ./data:/data:ro
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   backend:
@@ -44,10 +56,16 @@ services:
     environment:
       BACKEND_INTERNAL_URL: http://backend:8001
       CORS_ALLOWED_ORIGINS: http://localhost:3000
+      REDIS_URL: redis://redis:6379/0
+      # Leitura de products para revalidar estoque e preço no cache hit (RN01).
+      DATABASE_URL: postgresql://smartsales:smartsales@db:5432/smartsales
     ports:
       - "8000:8000"
     depends_on:
-      - backend
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
 
   frontend:
     image: node:22-alpine

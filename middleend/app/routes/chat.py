@@ -3,16 +3,18 @@
 import hashlib
 import time
 import uuid
+from dataclasses import dataclass
 from typing import Protocol
 
 import httpx
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from app.cache.service import CachedAnswer, SemanticCacheService
 from app.clients.backend import ReplayStream
 from app.config import Settings
 from app.schemas import ChatStreamRequest, SessionCreate
-from app.sessions.store import HistoryItem, SessionStore, TurnDecision
+from app.sessions.store import HistoryItem, SessionSnapshot, SessionStore, TurnDecision
 from app.sse import sse_chat_generator
 from app.sse.models import BackendStream, CompletedTurn, ProductCard
 
@@ -24,7 +26,12 @@ HEALTH_TIMEOUT_SECONDS = 2.0
 
 class RagBackend(Protocol):
     def open_stream(
-        self, sku: str, question: str, history: list[HistoryItem]
+        self,
+        sku: str,
+        question: str,
+        history: list[HistoryItem],
+        *,
+        preferred_voltage: str | None = None,
     ) -> BackendStream: ...
 
 
@@ -40,31 +47,96 @@ def _payload_hash(body: ChatStreamRequest) -> str:
 
 
 async def _no_recommendations() -> list[ProductCard]:
-    # shortcut: the MVP chat has no upsell/cross-sell cards; plug B04 here later.
+    # Cards come from the backend (B04). When the backend itself is unreachable the
+    # gateway has no SQL-validated card to offer, so the contingency publishes none.
     return []
+
+
+@dataclass(frozen=True)
+class _Answer:
+    """Where this turn's events come from; cache_key is set only for a fresh generation."""
+
+    stream: BackendStream
+    cache_key: str | None = None
+    cache_hit: bool = False
+
+
+def _resolved_filters(body: ChatStreamRequest, sku: str) -> dict[str, object]:
+    filters = body.context_filters.model_dump() if body.context_filters else {}
+    return {**filters, "current_product_sku": sku}
+
+
+def _cached_turn(cached: CachedAnswer, session_id: str, message_id: str) -> CompletedTurn:
+    return CompletedTurn(
+        session_id=session_id,
+        message_id=message_id,
+        content=cached.answer_text,
+        citations=cached.citations,
+        products=cached.recommendations,
+        finish_reason="stop",
+        tokens_used=cached.tokens_used,
+        intent=cached.intent,
+        cache_hit=True,
+        ttft_ms=0,
+        total_latency_ms=0,
+    )
+
+
+async def _open_answer(
+    cache: SemanticCacheService | None,
+    backend: RagBackend,
+    body: ChatStreamRequest,
+    sku: str,
+    session: SessionSnapshot,
+    message_id: str,
+) -> _Answer:
+    """Serve a revalidated cache hit, or open the backend stream for a new generation."""
+    history = [{"role": item.role, "content": item.content} for item in session.history]
+    cache_key = (
+        await cache.key_for(body.message, _resolved_filters(body, sku), history)
+        if cache is not None
+        else None
+    )
+    cached = await cache.lookup(cache_key) if cache is not None and cache_key else None
+    if cached is not None:
+        turn = _cached_turn(cached, session.session_id, message_id)
+        return _Answer(ReplayStream(turn), cache_hit=True)
+    voltage = body.context_filters.preferred_voltage if body.context_filters else None
+    stream = backend.open_stream(
+        sku, body.message, list(session.history), preferred_voltage=voltage
+    )
+    return _Answer(stream, cache_key=cache_key)
+
+
+def _session_body(session: SessionSnapshot, settings: Settings, *, restored: bool) -> dict[str, object]:
+    return {
+        "session_id": session.session_id,
+        "restored": restored,
+        "history": [
+            {"id": item.message_id, "role": item.role, "content": item.content}
+            for item in session.history
+        ],
+        "expires_in_seconds": settings.session_ttl_seconds,
+    }
 
 
 @router.post("/sessions", status_code=201)
 async def create_session(body: SessionCreate, request: Request) -> JSONResponse:
+    """201 for a new session; 200 with the history window when `session_id` is still active."""
     store: SessionStore = request.app.state.store
     settings: Settings = request.app.state.settings
-    # shortcut: no restore of previous sessions yet; every call opens a new one.
-    session = store.create(body.current_product_sku)
-    return JSONResponse(
-        {
-            "session_id": session.session_id,
-            "restored": False,
-            "history": [],
-            "expires_in_seconds": settings.session_ttl_seconds,
-        },
-        status_code=201,
-    )
+    if body.session_id is not None:
+        active = await store.get(str(body.session_id))
+        if active is not None:
+            return JSONResponse(_session_body(active, settings, restored=True), status_code=200)
+    session = await store.create(body.current_product_sku)
+    return JSONResponse(_session_body(session, settings, restored=False), status_code=201)
 
 
 @router.delete("/sessions/{session_id}", status_code=204, response_model=None)
 async def end_session(session_id: uuid.UUID, request: Request) -> Response:
     store: SessionStore = request.app.state.store
-    if not store.delete(str(session_id)):
+    if not await store.delete(str(session_id)):
         return error_response(404, "SESSION_NOT_FOUND", "Sessão não encontrada ou expirada.")
     return Response(status_code=204)
 
@@ -76,7 +148,7 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
     backend: RagBackend = request.app.state.backend
     settings: Settings = request.app.state.settings
 
-    session = store.get(str(body.session_id))
+    session = await store.get(str(body.session_id))
     if session is None:
         return error_response(404, "SESSION_NOT_FOUND", "Sessão não encontrada ou expirada.")
     filters = body.context_filters
@@ -85,7 +157,7 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
         return error_response(422, "PRODUCT_CONTEXT_REQUIRED", "Informe o produto consultado.")
 
     request_id = str(body.client_request_id)
-    turn = store.begin_turn(session, request_id, _payload_hash(body))
+    turn = await store.begin_turn(session.session_id, request_id, _payload_hash(body))
     if turn.kind == TurnDecision.CONFLICT:
         return error_response(
             409, "IDEMPOTENCY_CONFLICT", "client_request_id reutilizado com outro conteúdo."
@@ -98,24 +170,26 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
             headers={"Retry-After": str(settings.turn_retry_after_seconds)},
         )
 
-    stream: BackendStream
+    cache: SemanticCacheService | None = request.app.state.cache
     if turn.kind == TurnDecision.REPLAY and turn.completed is not None:
-        stream = ReplayStream(turn.completed)
+        answer = _Answer(ReplayStream(turn.completed))
     else:
-        stream = backend.open_stream(sku, body.message, list(session.history))
+        answer = await _open_answer(cache, backend, body, sku, session, turn.message_id)
 
     async def release_turn() -> None:
-        store.release(session, request_id)
+        await store.release(session.session_id, request_id)
 
     async def complete_turn(completed: CompletedTurn) -> None:
-        store.complete(session, request_id, body.message, completed)
+        await store.complete(session.session_id, request_id, body.message, completed)
+        if cache is not None and answer.cache_key is not None:
+            await cache.store(answer.cache_key, completed)
 
     frames = sse_chat_generator(
         request,
         session.session_id,
         turn.message_id,
-        stream,
-        False,
+        answer.stream,
+        answer.cache_hit,
         release_turn,
         _no_recommendations,
         complete_turn,
@@ -128,6 +202,7 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
 async def health(request: Request) -> JSONResponse:
     settings: Settings = request.app.state.settings
     http: httpx.AsyncClient = request.app.state.http
+    store: SessionStore = request.app.state.store
     try:
         response = await http.get(
             settings.backend_internal_url.rstrip("/") + "/health", timeout=HEALTH_TIMEOUT_SECONDS
@@ -135,10 +210,19 @@ async def health(request: Request) -> JSONResponse:
         backend_status = "ok" if response.is_success else "error"
     except httpx.HTTPError:
         backend_status = "unreachable"
+    if not request.app.state.redis_enabled:
+        redis_status = "disabled"  # sessions in process memory
+    else:
+        redis_status = "ok" if await store.ping() else "error"
+    healthy = backend_status == "ok" and redis_status != "error"
     return JSONResponse(
         {
-            "status": "ok" if backend_status == "ok" else "degraded",
-            "components": {"redis": "disabled", "postgres": "via-backend", "backend": backend_status},
+            "status": "ok" if healthy else "degraded",
+            "components": {
+                "redis": redis_status,
+                "postgres": "via-backend",
+                "backend": backend_status,
+            },
             "version": settings.app_version,
         }
     )
