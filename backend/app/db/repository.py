@@ -4,15 +4,16 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID
 
 import psycopg
 from psycopg.rows import dict_row
 
-from app.models.schemas import CatalogProduct, RetrievedChunk
+from app.models.schemas import CatalogProduct, ProductRelation, RetrievedChunk
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
+IngestionJobStatus = Literal["INDEXED", "FAILED", "NEEDS_INTERVENTION"]
 
 _PRODUCT_COLUMNS = (
     "sku, name, category, subcategory, brand, price, stock_quantity, voltage, "
@@ -150,6 +151,70 @@ async def replace_manual_chunks(
                     for row in rows
                 ],
             )
+
+
+async def start_ingestion_job(
+    conn: psycopg.AsyncConnection[object],
+    *,
+    product_id: UUID,
+    source_file: str,
+    content_hash: str,
+) -> None:
+    """Open (or reopen) the job of this source version as RUNNING and count the attempt."""
+    await conn.execute(
+        """
+        INSERT INTO ingestion_jobs (product_id, source_file, content_hash, status, attempts)
+        VALUES (%s, %s, %s, 'RUNNING', 1)
+        ON CONFLICT (source_file, content_hash) DO UPDATE SET
+            product_id = EXCLUDED.product_id, status = 'RUNNING',
+            attempts = ingestion_jobs.attempts + 1, last_error = NULL, updated_at = NOW()
+        """,
+        (product_id, source_file, content_hash),
+    )
+
+
+async def finish_ingestion_job(
+    conn: psycopg.AsyncConnection[object],
+    *,
+    source_file: str,
+    content_hash: str,
+    status: IngestionJobStatus,
+    last_error: str | None = None,
+) -> None:
+    await conn.execute(
+        "UPDATE ingestion_jobs SET status = %s, last_error = %s, updated_at = NOW() "
+        "WHERE source_file = %s AND content_hash = %s",
+        (status, last_error, source_file, content_hash),
+    )
+
+
+async def replace_product_relations(
+    conn: psycopg.AsyncConnection[object], relations: Sequence[ProductRelation]
+) -> int:
+    """The seed is the source of truth: relations absent from it stop being offered."""
+    async with conn.transaction():
+        await conn.execute("DELETE FROM product_relations")
+        async with conn.cursor() as cursor:
+            await cursor.executemany(
+                """
+                INSERT INTO product_relations (base_product_id, related_product_id,
+                    relation_type, affinity_weight, justification_template)
+                SELECT base.id, related.id, %s, %s, %s
+                FROM products base, products related
+                WHERE base.sku = %s AND related.sku = %s
+                """,
+                [
+                    (
+                        relation.relation_type,
+                        relation.affinity_weight,
+                        relation.justification_template,
+                        relation.base_sku,
+                        relation.related_sku,
+                    )
+                    for relation in relations
+                ],
+            )
+    return len(relations)
 
 
 async def deactivate_missing(conn: psycopg.AsyncConnection[object], skus: Sequence[str]) -> int:
