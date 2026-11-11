@@ -4,15 +4,17 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, Literal, cast
 from uuid import UUID
 
 import psycopg
 from psycopg.rows import dict_row
 
-from app.models.schemas import CatalogProduct, RetrievedChunk
+from app.models.schemas import CatalogProduct, ProductRelation, RetrievedChunk
+from app.recommendation.service import CrossSellRelation, RecommendationLookupError
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
+IngestionJobStatus = Literal["INDEXED", "FAILED", "NEEDS_INTERVENTION"]
 
 _PRODUCT_COLUMNS = (
     "sku, name, category, subcategory, brand, price, stock_quantity, voltage, "
@@ -68,6 +70,67 @@ class PostgresCatalog:
             )
             rows = await cursor.fetchall()
         return [RetrievedChunk.model_validate(row) for row in rows]
+
+    async def upsell_candidates(self, base: CatalogProduct) -> list[CatalogProduct]:
+        """In-stock products of the base's subcategory; RN04 price/tier rules stay in the engine."""
+        rows = await self._recommendation_rows(
+            f"""
+            SELECT {_PRODUCT_COLUMNS} FROM products
+            WHERE is_active AND stock_quantity > 0 AND category = %s AND subcategory = %s
+              AND sku <> %s
+            ORDER BY sku
+            """,
+            (base.category, base.subcategory, base.sku),
+        )
+        return [CatalogProduct.model_validate(row) for row in rows]
+
+    async def cross_sell_relations(self, sku: str) -> list[CrossSellRelation]:
+        """CROSS_SELL rows of product_relations whose related product is in stock (RN01, RN05)."""
+        columns = ", ".join(f"related.{column.strip()}" for column in _PRODUCT_COLUMNS.split(","))
+        rows = await self._recommendation_rows(
+            f"""
+            SELECT {columns}, relation.affinity_weight, relation.justification_template
+            FROM product_relations relation
+            JOIN products base ON base.id = relation.base_product_id
+            JOIN products related ON related.id = relation.related_product_id
+            WHERE base.sku = %s AND relation.relation_type = 'CROSS_SELL'
+              AND related.is_active AND related.stock_quantity > 0
+            ORDER BY related.sku
+            """,
+            (sku,),
+        )
+        return [
+            CrossSellRelation(
+                affinity_weight=row.pop("affinity_weight"),
+                justification_template=row.pop("justification_template"),
+                product=CatalogProduct.model_validate(row),
+            )
+            for row in rows
+        ]
+
+    async def max_similarities(
+        self, skus: Sequence[str], embedding: Sequence[float]
+    ) -> dict[str, float]:
+        """Best cosine similarity between the query and each product's chunks (sim(q, u))."""
+        rows = await self._recommendation_rows(
+            """
+            SELECT sku, MAX(GREATEST(0, 1 - (embedding <=> %s::vector))) AS similarity
+            FROM manual_chunks WHERE sku = ANY(%s) GROUP BY sku
+            """,
+            (vector_literal(embedding), list(skus)),
+        )
+        return {row["sku"]: float(row["similarity"]) for row in rows}
+
+    async def _recommendation_rows(
+        self, query: str, parameters: Sequence[object]
+    ) -> list[dict[str, Any]]:
+        try:
+            async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
+                cursor = conn.cursor(row_factory=dict_row)
+                await cursor.execute(query.encode(), parameters)
+                return await cursor.fetchall()
+        except psycopg.Error as error:
+            raise RecommendationLookupError("recommendation lookup failed") from error
 
 
 async def apply_schema(conn: psycopg.AsyncConnection[object]) -> None:
@@ -150,6 +213,70 @@ async def replace_manual_chunks(
                     for row in rows
                 ],
             )
+
+
+async def start_ingestion_job(
+    conn: psycopg.AsyncConnection[object],
+    *,
+    product_id: UUID,
+    source_file: str,
+    content_hash: str,
+) -> None:
+    """Open (or reopen) the job of this source version as RUNNING and count the attempt."""
+    await conn.execute(
+        """
+        INSERT INTO ingestion_jobs (product_id, source_file, content_hash, status, attempts)
+        VALUES (%s, %s, %s, 'RUNNING', 1)
+        ON CONFLICT (source_file, content_hash) DO UPDATE SET
+            product_id = EXCLUDED.product_id, status = 'RUNNING',
+            attempts = ingestion_jobs.attempts + 1, last_error = NULL, updated_at = NOW()
+        """,
+        (product_id, source_file, content_hash),
+    )
+
+
+async def finish_ingestion_job(
+    conn: psycopg.AsyncConnection[object],
+    *,
+    source_file: str,
+    content_hash: str,
+    status: IngestionJobStatus,
+    last_error: str | None = None,
+) -> None:
+    await conn.execute(
+        "UPDATE ingestion_jobs SET status = %s, last_error = %s, updated_at = NOW() "
+        "WHERE source_file = %s AND content_hash = %s",
+        (status, last_error, source_file, content_hash),
+    )
+
+
+async def replace_product_relations(
+    conn: psycopg.AsyncConnection[object], relations: Sequence[ProductRelation]
+) -> int:
+    """The seed is the source of truth: relations absent from it stop being offered."""
+    async with conn.transaction():
+        await conn.execute("DELETE FROM product_relations")
+        async with conn.cursor() as cursor:
+            await cursor.executemany(
+                """
+                INSERT INTO product_relations (base_product_id, related_product_id,
+                    relation_type, affinity_weight, justification_template)
+                SELECT base.id, related.id, %s, %s, %s
+                FROM products base, products related
+                WHERE base.sku = %s AND related.sku = %s
+                """,
+                [
+                    (
+                        relation.relation_type,
+                        relation.affinity_weight,
+                        relation.justification_template,
+                        relation.base_sku,
+                        relation.related_sku,
+                    )
+                    for relation in relations
+                ],
+            )
+    return len(relations)
 
 
 async def deactivate_missing(conn: psycopg.AsyncConnection[object], skus: Sequence[str]) -> int:
