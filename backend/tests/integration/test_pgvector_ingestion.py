@@ -50,7 +50,71 @@ class HashingEmbedder:
 
 async def _reset() -> None:
     async with await psycopg.AsyncConnection.connect(DATABASE_URL, autocommit=True) as conn:
-        await conn.execute("DROP TABLE IF EXISTS manual_chunks, products CASCADE")
+        await conn.execute(
+            "DROP TABLE IF EXISTS ingestion_jobs, product_relations, manual_chunks, products CASCADE"
+        )
+
+
+async def _relation_rows() -> list[tuple[str, str, str, Decimal]]:
+    async with await psycopg.AsyncConnection.connect(DATABASE_URL) as conn:
+        cursor = await conn.execute(
+            """
+            SELECT base.sku, related.sku, relation.relation_type, relation.affinity_weight
+            FROM product_relations relation
+            JOIN products base ON base.id = relation.base_product_id
+            JOIN products related ON related.id = relation.related_product_id
+            ORDER BY base.sku, related.sku
+            """
+        )
+        return [(row[0], row[1], row[2], row[3]) for row in await cursor.fetchall()]
+
+
+async def _table_exists(name: str) -> bool:
+    async with await psycopg.AsyncConnection.connect(DATABASE_URL) as conn:
+        cursor = await conn.execute("SELECT to_regclass(%s)", (name,))
+        row = await cursor.fetchone()
+    return row is not None and row[0] is not None
+
+
+def test_ingestion_creates_backend_tables_and_replaces_relations_from_the_seed(
+    tmp_path: Path,
+) -> None:
+    asyncio.run(_reset())
+    embedder = HashingEmbedder()
+    catalog_path = DATA_DIR / "catalog.json"
+    relations_path = DATA_DIR / "product_relations.json"
+
+    report = asyncio.run(
+        ingest(
+            DATABASE_URL,
+            catalog_path,
+            DATA_DIR / "manuals",
+            embedder,
+            Settings(),
+            relations_path=relations_path,
+        )
+    )
+    assert asyncio.run(_table_exists("ingestion_jobs"))
+    rows = asyncio.run(_relation_rows())
+    assert report.relations == len(rows) == 5
+    assert ("AF-400-220V", "KIT-SIL-01", "CROSS_SELL", Decimal("0.950")) in rows
+
+    only_one = tmp_path / "product_relations.json"
+    seed = json.loads(relations_path.read_text(encoding="utf-8"))
+    only_one.write_text(json.dumps(seed[:1]), encoding="utf-8")
+    asyncio.run(
+        ingest(
+            DATABASE_URL,
+            catalog_path,
+            DATA_DIR / "manuals",
+            embedder,
+            Settings(),
+            relations_path=only_one,
+        )
+    )
+    assert asyncio.run(_relation_rows()) == [
+        ("AF-400-220V", "KIT-SIL-01", "CROSS_SELL", Decimal("0.950"))
+    ]
 
 
 def test_ingestion_indexes_catalog_and_manuals_then_search_stays_on_the_product(

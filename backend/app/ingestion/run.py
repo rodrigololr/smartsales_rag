@@ -1,9 +1,11 @@
 """UC08 ingestion CLI.
 
     python -m app.ingestion.run --catalog ../data/catalog.json --manuals ../data/manuals/
+        [--relations ../data/product_relations.json]
 
-Upserts the catalog, then indexes per product its catalog spec sheet and its manual
-(data/manuals/<SKU>.pdf|.txt|.md). Unchanged sources (same SHA-256) are skipped.
+Upserts the catalog and its product_relations (RN05), then indexes per product its
+catalog spec sheet and its manual (data/manuals/<SKU>.pdf|.txt|.md). Unchanged sources
+(same SHA-256) are skipped.
 """
 
 import argparse
@@ -26,10 +28,12 @@ from app.db.repository import (
     current_version,
     deactivate_missing,
     replace_manual_chunks,
+    replace_product_relations,
     upsert_product,
 )
 from app.ingestion.chunking import chunk_page, context_header, spec_sheet
 from app.ingestion.manuals import find_manual, read_manual_pages
+from app.ingestion.relations import load_relations
 from app.models.schemas import CatalogProduct
 from app.rag.orchestrator import Embedder
 
@@ -53,6 +57,7 @@ class IngestionReport:
     skipped_sources: list[str] = field(default_factory=list)
     products_without_manual: list[str] = field(default_factory=list)
     deactivated: int = 0
+    relations: int = 0
 
 
 def load_catalog(path: Path) -> list[CatalogProduct]:
@@ -92,9 +97,15 @@ async def ingest(
     manuals_dir: Path,
     embedder: Embedder,
     settings: Settings,
+    relations_path: Path | None = None,
 ) -> IngestionReport:
     encoding = tiktoken.get_encoding(CHUNK_ENCODING)
     products = load_catalog(catalog_path)
+    relations = (
+        load_relations(relations_path, {product.sku for product in products})
+        if relations_path is not None
+        else []
+    )
     report = IngestionReport(products=len(products))
     async with await psycopg.AsyncConnection.connect(conninfo, autocommit=True) as conn:
         await apply_schema(conn)
@@ -120,6 +131,7 @@ async def ingest(
                     rows=rows,
                 )
                 report.indexed_sources.append(label)
+        report.relations = await replace_product_relations(conn, relations)
         report.deactivated = await deactivate_missing(conn, [p.sku for p in products])
     return report
 
@@ -153,6 +165,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Ingestão do catálogo e manuais (UC08)")
     parser.add_argument("--catalog", type=Path, required=True)
     parser.add_argument("--manuals", type=Path, required=True)
+    parser.add_argument("--relations", type=Path, default=None)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO)
     settings = get_settings()
@@ -165,7 +178,14 @@ def main(argv: list[str] | None = None) -> int:
         batch_size=settings.embedding_batch_size,
     )
     report = asyncio.run(
-        ingest(settings.database_url, args.catalog, args.manuals, embedder, settings)
+        ingest(
+            settings.database_url,
+            args.catalog,
+            args.manuals,
+            embedder,
+            settings,
+            relations_path=args.relations,
+        )
     )
     print(json.dumps(report.__dict__, ensure_ascii=False, indent=2))
     return 0

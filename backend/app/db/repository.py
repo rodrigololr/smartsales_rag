@@ -10,7 +10,7 @@ from uuid import UUID
 import psycopg
 from psycopg.rows import dict_row
 
-from app.models.schemas import CatalogProduct, RetrievedChunk
+from app.models.schemas import CatalogProduct, ProductRelation, RetrievedChunk
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
 
@@ -150,6 +150,35 @@ async def replace_manual_chunks(
                     for row in rows
                 ],
             )
+
+
+async def replace_product_relations(
+    conn: psycopg.AsyncConnection[object], relations: Sequence[ProductRelation]
+) -> int:
+    """The seed is the source of truth: relations absent from it stop being offered."""
+    async with conn.transaction():
+        await conn.execute("DELETE FROM product_relations")
+        async with conn.cursor() as cursor:
+            await cursor.executemany(
+                """
+                INSERT INTO product_relations (base_product_id, related_product_id,
+                    relation_type, affinity_weight, justification_template)
+                SELECT base.id, related.id, %s, %s, %s
+                FROM products base, products related
+                WHERE base.sku = %s AND related.sku = %s
+                """,
+                [
+                    (
+                        relation.relation_type,
+                        relation.affinity_weight,
+                        relation.justification_template,
+                        relation.base_sku,
+                        relation.related_sku,
+                    )
+                    for relation in relations
+                ],
+            )
+    return len(relations)
 
 
 async def deactivate_missing(conn: psycopg.AsyncConnection[object], skus: Sequence[str]) -> int:
