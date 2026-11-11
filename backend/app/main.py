@@ -17,6 +17,7 @@ from app.config import get_settings
 from app.db.repository import PostgresCatalog
 from app.models.schemas import RagRequest
 from app.rag.orchestrator import InternalEvent, RAGOrchestrator
+from app.recommendation.service import RecommendationService
 
 TOKEN_COUNT_ENCODING = "o200k_base"  # gpt-4o family tokenizer
 
@@ -49,6 +50,7 @@ def get_orchestrator() -> RAGOrchestrator:
         ),
         settings,
         count_tokens=lambda text: len(encoding.encode(text)),
+        recommender=RecommendationService(catalog),
     )
 
 
