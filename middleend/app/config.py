@@ -13,7 +13,11 @@ class Settings(BaseSettings):
     backend_internal_url: str = "http://localhost:8001"
     backend_timeout_seconds: float = 30.0
     cors_allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
+    # Unset = sessions in process memory (single replica, lost on restart).
+    redis_url: str | None = None
     session_ttl_seconds: int = 1800
+    session_history_max_messages: int = 10  # sliding window kept per session
+    session_lock_ttl_seconds: int = 60  # SET NX EX: one turn at a time per session
     turn_retry_after_seconds: int = 1
     app_version: str = "0.1.0-mvp"
 
