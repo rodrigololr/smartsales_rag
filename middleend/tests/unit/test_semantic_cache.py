@@ -15,7 +15,8 @@ from app.cache.service import (
 from app.sse.models import CompletedTurn, ProductCard
 
 QUESTION = "A airfryer 4L é 220V?"
-FILTERS = {"current_product_sku": "AF-400-220V"}
+BASE_SKU = "AF-400-220V"
+FILTERS = {"current_product_sku": BASE_SKU}
 UPSELL_CARD = cast(
     ProductCard,
     {
@@ -35,6 +36,7 @@ UPSELL_CARD = cast(
     },
 )
 IN_STOCK = ProductSnapshot(Decimal("629.90"), 3, True)
+BASE_IN_STOCK = ProductSnapshot(Decimal("499.90"), 5, True)
 
 
 class FakeStorage:
@@ -67,7 +69,11 @@ class FakeStorage:
 
 class FakeProducts:
     def __init__(self, snapshots: dict[str, ProductSnapshot] | None = None) -> None:
-        self.snapshots = snapshots if snapshots is not None else {"AF-550-220V": IN_STOCK}
+        self.snapshots = (
+            snapshots
+            if snapshots is not None
+            else {BASE_SKU: BASE_IN_STOCK, "AF-550-220V": IN_STOCK}
+        )
         self.asked: list[list[str]] = []
         self.failure: Exception | None = None
 
@@ -112,7 +118,7 @@ def key(cache: SemanticCacheService, question: str = QUESTION) -> str:
 def stored(storage: FakeStorage, products: FakeProducts, turn: CompletedTurn | None = None) -> str:
     cache = service(storage, products)
     cache_key = key(cache)
-    asyncio.run(cache.store(cache_key, turn or answered()))
+    asyncio.run(cache.store(cache_key, turn or answered(), BASE_SKU))
     return cache_key
 
 
@@ -143,7 +149,7 @@ def test_ut_m03_02_new_catalog_version_is_an_immediate_miss() -> None:
 def test_hit_serves_the_stock_of_this_instant() -> None:
     storage, products = FakeStorage(), FakeProducts()
     hit = lookup(storage, products, stored(storage, products))
-    assert hit is not None and products.asked == [["AF-550-220V"]]
+    assert hit is not None and products.asked[-1] == [BASE_SKU, "AF-550-220V"]  # one query
     assert hit.recommendations[0]["stock_quantity"] == 3  # cached card said 8
     assert hit.recommendations[0]["price"] == 629.9
 
@@ -162,17 +168,66 @@ def test_card_that_may_no_longer_be_offered_turns_the_hit_into_a_miss(
 ) -> None:
     storage = FakeStorage()
     cache_key = stored(storage, FakeProducts())
-    stale = FakeProducts({"AF-550-220V": snapshot} if snapshot else {})
+    stale = FakeProducts({BASE_SKU: BASE_IN_STOCK, **({"AF-550-220V": snapshot} if snapshot else {})})
 
     assert lookup(storage, stale, cache_key) is None
     assert cache_key not in storage.entries  # dropped: the next turn regenerates it
 
 
-def test_answer_without_cards_needs_no_sql_revalidation() -> None:
+def test_answer_without_cards_still_revalidates_the_consulted_product() -> None:
     storage, products = FakeStorage(), FakeProducts()
     cache_key = stored(storage, products, answered(products=()))
     hit = lookup(storage, products, cache_key)
-    assert hit is not None and hit.recommendations == () and products.asked == []
+    assert hit is not None and hit.recommendations == ()
+    assert products.asked == [[BASE_SKU], [BASE_SKU]]  # read when stored and on the hit
+
+
+@pytest.mark.parametrize(
+    "snapshot",
+    [
+        ProductSnapshot(Decimal("499.90"), 0, True),  # sold out: the text says "em estoque"
+        ProductSnapshot(Decimal("519.90"), 5, True),  # repriced: the text may quote the price
+        ProductSnapshot(Decimal("499.90"), 5, False),  # removed from the catalog
+        None,  # row gone
+    ],
+)
+def test_consulted_product_that_changed_turns_the_hit_into_a_miss(
+    snapshot: ProductSnapshot | None,
+) -> None:
+    storage = FakeStorage()
+    cache_key = stored(storage, FakeProducts(), answered(products=()))
+    changed = FakeProducts({BASE_SKU: snapshot} if snapshot else {})
+
+    assert lookup(storage, changed, cache_key) is None
+    assert cache_key not in storage.entries
+
+
+def test_consulted_product_restocked_after_a_sold_out_answer_is_a_miss() -> None:
+    storage = FakeStorage()
+    sold_out = FakeProducts({BASE_SKU: ProductSnapshot(Decimal("499.90"), 0, True)})
+    cache_key = stored(storage, sold_out, answered(products=()))
+
+    assert lookup(storage, sold_out, cache_key) is not None  # still sold out: still true
+    assert lookup(storage, FakeProducts(), cache_key) is None
+
+
+def test_answer_is_not_stored_when_the_consulted_product_cannot_be_read() -> None:
+    storage = FakeStorage()
+    stored(storage, FakeProducts({}), answered(products=()))
+    unreachable = FakeProducts()
+    unreachable.failure = CacheUnavailableError("postgres down")
+    stored(storage, unreachable)
+    assert storage.entries == {}
+
+
+@pytest.mark.parametrize("raw", ["not json", '{"answer_text": "entry of an older format"}', "[]"])
+def test_unreadable_entry_is_dropped_and_counts_as_a_miss(raw: str) -> None:
+    storage, products = FakeStorage(), FakeProducts()
+    cache_key = stored(storage, products)
+    storage.entries[cache_key] = raw
+
+    assert lookup(storage, products, cache_key) is None
+    assert cache_key not in storage.entries
 
 
 def test_fallbacks_and_cache_hits_are_never_stored() -> None:
@@ -190,7 +245,7 @@ def test_redis_outage_is_a_miss_and_never_an_exception() -> None:
     storage.failure = CacheUnavailableError("redis down")
     assert asyncio.run(cache.key_for(QUESTION, FILTERS, [])) is None
     assert asyncio.run(cache.lookup(cache_key)) is None
-    asyncio.run(cache.store(cache_key, answered()))
+    asyncio.run(cache.store(cache_key, answered(), BASE_SKU))
 
 
 def test_database_outage_during_revalidation_is_a_miss() -> None:

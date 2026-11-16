@@ -168,7 +168,7 @@ sequenceDiagram
 | :---: | :--- | :--- | :---: | :--- | :--- |
 | **1** | Consumidor | Frontend | Síncrona | — | O consumidor seleciona um produto na vitrine e o painel lateral do Consultor IA é aberto (`EAP 4.9`). |
 | **2** | Frontend | Gateway | Síncrona (`POST /api/v1/sessions`) | — | Envia o `session_id` armazenado localmente (se houver) para validação ou criação de sessão (`EAP 4.5`). |
-| **3** | Gateway | Redis | Síncrona | — | Lê `session:{id}:state` e `session:{id}:history` (últimos `10` turnos) em *pipeline* único (`EAP 4.5`, `4.7`). |
+| **3** | Gateway | Redis | Síncrona | — | Lê `session:{id}:state` e `session:{id}:history` (últimas `10` mensagens, 5 turnos) em *pipeline* único (`EAP 4.5`, `4.7`). |
 | **4** | Redis | Gateway | Retorno | — | Retorna o histórico recente ou nulo se a chave expirou (TTL `1800s`). |
 | **5** | Gateway | PostgreSQL | Síncrona (`INSERT`) | `alt [Sessão inexistente ou expirada]` | Cria nova linha em `chat_sessions` com `state = ACTIVE` e novo `session_id` (`UUID v4`) (`EAP 4.5`). |
 | **6** | Gateway | Frontend | Retorno (`200/201`) | — | Devolve `session_id` e histórico (vazio se nova sessão). |

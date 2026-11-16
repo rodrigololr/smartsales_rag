@@ -74,8 +74,13 @@ def test_load_relations_rejects_duplicate_pair_and_type(tmp_path: Path) -> None:
         load_relations(seed, CATALOG_SKUS)
 
 
-def test_missing_seed_file_means_no_relations(tmp_path: Path) -> None:
-    assert load_relations(tmp_path / "ausente.json", CATALOG_SKUS) == []
+def test_missing_seed_file_is_an_error_not_an_empty_seed(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        load_relations(tmp_path / "ausente.json", CATALOG_SKUS)
+
+
+def test_explicit_empty_seed_means_no_relations(tmp_path: Path) -> None:
+    assert load_relations(write_seed(tmp_path, []), CATALOG_SKUS) == []
 
 
 def test_repository_seed_references_only_catalog_skus() -> None:

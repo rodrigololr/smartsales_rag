@@ -16,13 +16,13 @@ _BADGES: dict[RecommendationType, str] = {
 _CENT = Decimal("0.01")
 _PERCENT = Decimal("100")
 UNPOWERED_VOLTAGE = "N/A"
+_BRAZILIAN_SEPARATORS = str.maketrans(",.", ".,")  # 1,300.00 -> 1.300,00
 
 ProductCard = dict[str, object]
 
 
 def _brl(amount: Decimal) -> str:
-    whole, cents = f"{amount.quantize(_CENT):.2f}".split(".")
-    return f"R$ {whole},{cents}"
+    return f"R$ {amount.quantize(_CENT):,.2f}".translate(_BRAZILIAN_SEPARATORS)
 
 
 def _liters(capacity: Decimal) -> str:
