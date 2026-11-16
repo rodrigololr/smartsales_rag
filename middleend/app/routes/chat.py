@@ -173,21 +173,26 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
             headers={"Retry-After": str(settings.turn_retry_after_seconds)},
         )
 
+    async def release_turn() -> None:
+        await store.release(session.session_id, request_id, turn.lock_token)
+
     cache: SemanticCacheService | None = request.app.state.cache
     if turn.kind == TurnDecision.REPLAY and turn.completed is not None:
         answer = _Answer(ReplayStream(turn.completed))
     else:
-        answer = await _open_answer(cache, backend, body, sku, session, turn.message_id)
-
-    async def release_turn() -> None:
-        await store.release(session.session_id, request_id, turn.lock_token)
+        try:
+            answer = await _open_answer(cache, backend, body, sku, session, turn.message_id)
+        except Exception:
+            # No stream exists yet to release the lock taken by begin_turn.
+            await release_turn()
+            raise
 
     async def complete_turn(completed: CompletedTurn) -> None:
         await store.complete(
             session.session_id, request_id, turn.lock_token, body.message, completed
         )
         if cache is not None and answer.cache_key is not None:
-            await cache.store(answer.cache_key, completed)
+            await cache.store(answer.cache_key, completed, sku)
 
     frames = sse_chat_generator(
         request,

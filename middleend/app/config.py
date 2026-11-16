@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # Read-only access to `products` (ADR-06). The semantic cache needs both Redis and
     # this URL: without the stock/price revalidation it stays off.
     database_url: str | None = None
+    # libpq floors connect_timeout at 2 s; smaller values are raised to it.
+    database_connect_timeout_seconds: int = Field(default=2, ge=2)
     cache_ttl_seconds: int = 3600
     cache_policy_version: str = "p1"  # bump when prompts, guardrails, ranking or model change
     session_ttl_seconds: int = 1800

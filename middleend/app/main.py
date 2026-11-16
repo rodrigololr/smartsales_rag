@@ -53,7 +53,10 @@ def build_cache(settings: Settings, redis: Redis | None) -> SemanticCacheService
         return None
     return SemanticCacheService(
         RedisCacheStorage(redis),
-        PostgresProductSnapshots(settings.database_url),
+        PostgresProductSnapshots(
+            settings.database_url,
+            connect_timeout_seconds=settings.database_connect_timeout_seconds,
+        ),
         ttl_seconds=settings.cache_ttl_seconds,
         policy_version=settings.cache_policy_version,
     )

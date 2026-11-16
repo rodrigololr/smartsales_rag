@@ -25,7 +25,7 @@ from test_chat_routes import (
     new_session,
     sse_events,
 )
-from test_semantic_cache import UPSELL_CARD, FakeProducts, FakeStorage
+from test_semantic_cache import BASE_SKU, UPSELL_CARD, FakeProducts, FakeStorage
 
 REDIS_URL = os.environ.get("TEST_REDIS_URL", "")
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
@@ -79,13 +79,40 @@ def test_same_question_in_a_new_session_is_a_cache_hit_without_the_backend(
     assert [m["role"] for m in restored["history"]] == ["user", "assistant"]
 
 
-def test_sold_out_card_forces_a_new_generation(
-    client: TestClient, backend: FakeBackend, products: FakeProducts
+@pytest.mark.parametrize(
+    ("sku", "snapshot"),
+    [
+        ("AF-550-220V", ProductSnapshot(Decimal("629.90"), 0, True)),  # card sold out
+        ("AF-550-220V", ProductSnapshot(Decimal("649.90"), 3, True)),  # card repriced
+        (BASE_SKU, ProductSnapshot(Decimal("519.90"), 5, True)),  # consulted product repriced
+        (BASE_SKU, ProductSnapshot(Decimal("499.90"), 0, True)),  # consulted product sold out
+    ],
+)
+def test_stock_or_price_change_forces_a_new_generation(
+    client: TestClient,
+    backend: FakeBackend,
+    products: FakeProducts,
+    sku: str,
+    snapshot: ProductSnapshot,
 ) -> None:
     ask(client, new_session(client), str(uuid.uuid4()))
-    products.snapshots["AF-550-220V"] = ProductSnapshot(Decimal("629.90"), 0, True)
+    products.snapshots[sku] = snapshot
     events = sse_events(ask(client, new_session(client), str(uuid.uuid4())).text)
     assert events[0][1]["cache_hit"] is False and len(backend.calls) == 2
+
+
+def test_failure_while_opening_the_answer_frees_the_session_lock(
+    backend: FakeBackend, storage: FakeStorage, products: FakeProducts
+) -> None:
+    cache = SemanticCacheService(storage, products, ttl_seconds=3600, policy_version="p1")
+    app = create_app(SETTINGS, backend, cache=cache)
+    with TestClient(app, raise_server_exceptions=False) as gateway:
+        session_id = new_session(gateway)
+        storage.failure = RuntimeError("unexpected")  # not a CacheUnavailableError
+        assert ask(gateway, session_id, str(uuid.uuid4())).status_code == 500
+        storage.failure = None
+        retry = ask(gateway, session_id, str(uuid.uuid4()))
+    assert retry.status_code == 200 and event_names(retry.text)[-1] == "done"
 
 
 def test_new_catalog_version_forces_a_new_generation(
@@ -207,7 +234,7 @@ def test_product_snapshots_read_price_stock_and_status_from_postgres() -> None:
                 "INSERT INTO m03_test.products VALUES ('AF-550-220V', 629.90, 8, TRUE), "
                 "('KIT-SIL-01', 79.90, 0, FALSE)"
             )
-        return await PostgresProductSnapshots(schema_url).current(
+        return await PostgresProductSnapshots(schema_url, connect_timeout_seconds=2).current(
             ["AF-550-220V", "KIT-SIL-01", "AUSENTE"]
         )
 
@@ -219,6 +246,26 @@ def test_product_snapshots_read_price_stock_and_status_from_postgres() -> None:
 
 @pytest.mark.skipif(not DATABASE_URL, reason="TEST_DATABASE_URL not set")
 def test_product_snapshots_map_database_errors_to_cache_unavailable() -> None:
-    broken = PostgresProductSnapshots(DATABASE_URL + "?options=-csearch_path%3Dschema_ausente")
+    broken = PostgresProductSnapshots(
+        DATABASE_URL + "?options=-csearch_path%3Dschema_ausente", connect_timeout_seconds=2
+    )
     with pytest.raises(CacheUnavailableError):
         asyncio.run(broken.current(["AF-550-220V"]))
+
+
+def test_product_snapshots_bound_the_connection_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, object] = {}
+
+    async def refuse(conninfo: str, **kwargs: object) -> None:
+        seen.update(kwargs)
+        raise psycopg.OperationalError("connection timeout expired")
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", refuse)
+    snapshots = PostgresProductSnapshots("postgresql://db/smartsales", connect_timeout_seconds=3)
+    with pytest.raises(CacheUnavailableError):
+        asyncio.run(snapshots.current(["AF-550-220V"]))
+    assert seen == {"connect_timeout": 3}
+
+
+def test_cache_revalidation_uses_the_connect_timeout_from_settings() -> None:
+    assert SETTINGS.database_connect_timeout_seconds == 2
