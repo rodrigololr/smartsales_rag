@@ -86,8 +86,10 @@ def run(kind: str, scenario: Callable[[SessionStore], Awaitable[None]]) -> None:
 async def finish_turn(store: SessionStore, session_id: str, request_id: str, text: str) -> str:
     turn = await store.begin_turn(session_id, request_id, f"hash-{request_id}")
     assert turn.kind == TurnDecision.NEW
-    await store.complete(session_id, request_id, f"Pergunta {text}?", completed(turn.message_id, text))
-    await store.release(session_id, request_id)
+    await store.complete(
+        session_id, request_id, turn.lock_token, f"Pergunta {text}?", completed(turn.message_id, text)
+    )
+    await store.release(session_id, request_id, turn.lock_token)
     return turn.message_id
 
 
@@ -120,8 +122,10 @@ def test_new_turn_then_in_progress_then_replay_after_completion(kind: str) -> No
         assert (await store.begin_turn(session_id, "req-1", "hash-a")).kind == TurnDecision.IN_PROGRESS
         assert (await store.begin_turn(session_id, "req-2", "hash-b")).kind == TurnDecision.IN_PROGRESS
 
-        await store.complete(session_id, "req-1", "Pergunta?", completed(first.message_id))
-        await store.release(session_id, "req-1")
+        await store.complete(
+            session_id, "req-1", first.lock_token, "Pergunta?", completed(first.message_id)
+        )
+        await store.release(session_id, "req-1", first.lock_token)
         replay = await store.begin_turn(session_id, "req-1", "hash-a")
         assert replay.kind == TurnDecision.REPLAY and replay.message_id == first.message_id
         assert replay.completed == completed(first.message_id)
@@ -136,8 +140,10 @@ def test_completion_is_idempotent_and_feeds_history_in_order(kind: str) -> None:
     async def scenario(store: SessionStore) -> None:
         session_id = (await store.create("AF-400-220V")).session_id
         turn = await store.begin_turn(session_id, "req-1", "hash-a")
-        await store.complete(session_id, "req-1", "Pergunta?", completed(turn.message_id))
-        await store.complete(session_id, "req-1", "Pergunta?", completed(turn.message_id))
+        for _ in range(2):
+            await store.complete(
+                session_id, "req-1", turn.lock_token, "Pergunta?", completed(turn.message_id)
+            )
 
         history = (await store.get(session_id)).history  # type: ignore[union-attr]
         assert [(item.role, item.content) for item in history] == [
@@ -167,21 +173,49 @@ def test_history_keeps_only_the_last_ten_messages(kind: str) -> None:
 def test_released_unfinished_turn_can_be_retried_with_the_same_id(kind: str) -> None:
     async def scenario(store: SessionStore) -> None:
         session_id = (await store.create("AF-400-220V")).session_id
-        await store.begin_turn(session_id, "req-1", "hash-a")
-        await store.release(session_id, "req-1")
+        turn = await store.begin_turn(session_id, "req-1", "hash-a")
+        await store.release(session_id, "req-1", turn.lock_token)
         assert (await store.begin_turn(session_id, "req-1", "hash-a")).kind == TurnDecision.NEW
 
     run(kind, scenario)
 
 
 @pytest.mark.parametrize("kind", STORES)
-def test_release_by_another_request_keeps_the_running_turn_locked(kind: str) -> None:
+def test_only_the_lock_owner_releases_or_completes_the_turn(kind: str) -> None:
     async def scenario(store: SessionStore) -> None:
         session_id = (await store.create("AF-400-220V")).session_id
-        await store.begin_turn(session_id, "req-1", "hash-a")
-        await store.release(session_id, "req-2")
+        turn = await store.begin_turn(session_id, "req-1", "hash-a")
+        assert turn.lock_token
+
+        # Same client_request_id, but not the token of this acquisition (a stale owner).
+        await store.release(session_id, "req-1", "stale-token")
+        await store.complete(session_id, "req-1", "stale-token", "Pergunta?", completed("stale"))
         assert (await store.begin_turn(session_id, "req-2", "hash-b")).kind == TurnDecision.IN_PROGRESS
+        assert (await store.get(session_id)).history == ()  # type: ignore[union-attr]
+
+        await store.complete(
+            session_id, "req-1", turn.lock_token, "Pergunta?", completed(turn.message_id)
+        )
+        assert len((await store.get(session_id)).history) == 2  # type: ignore[union-attr]
         assert await store.ping()
+
+    run(kind, scenario)
+
+
+@pytest.mark.parametrize("kind", STORES)
+def test_simultaneous_turns_let_exactly_one_in(kind: str) -> None:
+    async def scenario(store: SessionStore) -> None:
+        session_id = (await store.create("AF-400-220V")).session_id
+        starts = await asyncio.gather(
+            *(store.begin_turn(session_id, f"req-{number}", "hash") for number in range(20))
+        )
+        assert sorted(start.kind.value for start in starts) == ["IN_PROGRESS"] * 19 + ["NEW"]
+
+        same_id = (await store.create("AF-400-220V")).session_id
+        retries = await asyncio.gather(
+            *(store.begin_turn(same_id, "req-1", "hash") for _ in range(20))
+        )
+        assert sorted(start.kind.value for start in retries) == ["IN_PROGRESS"] * 19 + ["NEW"]
 
     run(kind, scenario)
 
@@ -213,19 +247,119 @@ def test_redis_keys_follow_the_spec_ttls_and_delete_leaves_nothing() -> None:
                 lock_ttl_seconds=LOCK_TTL_SECONDS,
             )
             session_id = (await store.create("AF-400-220V")).session_id
-            await store.begin_turn(session_id, "req-1", "hash-a")
+            turn = await store.begin_turn(session_id, "req-1", "hash-a")
 
             assert await client.hget(f"session:{session_id}:state", "active_sku") == "AF-400-220V"
             assert 0 < await client.ttl(f"session:{session_id}:state") <= TTL_SECONDS
-            assert await client.get(f"session:{session_id}:lock") == "req-1"
+            assert 0 < await client.ttl(f"session:{session_id}:turns") <= TTL_SECONDS
+            assert await client.get(f"session:{session_id}:lock") == turn.lock_token
             assert 0 < await client.ttl(f"session:{session_id}:lock") <= LOCK_TTL_SECONDS
 
-            await store.complete(session_id, "req-1", "Pergunta?", completed("m-1"))
+            await store.complete(session_id, "req-1", turn.lock_token, "Pergunta?", completed("m-1"))
             assert await client.llen(f"session:{session_id}:history") == 2
             assert 0 < await client.ttl(f"session:{session_id}:history") <= TTL_SECONDS
 
             assert await store.delete(session_id)
             assert await client.keys(f"session:{session_id}:*") == []
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.skipif(not REDIS_URL, reason="TEST_REDIS_URL not set")
+def test_redis_turn_outliving_its_lock_cannot_touch_the_retry() -> None:
+    async def scenario() -> None:
+        async with redis_client() as client:
+            store = RedisSessionStore(
+                client, ttl_seconds=TTL_SECONDS, history_max_messages=HISTORY_WINDOW, lock_ttl_seconds=1
+            )
+            session_id = (await store.create("AF-400-220V")).session_id
+            slow = await store.begin_turn(session_id, "req-1", "hash-a")
+            await asyncio.sleep(1.2)  # the lock expires while the slow turn still runs
+            retry = await store.begin_turn(session_id, "req-1", "hash-a")
+            assert retry.kind == TurnDecision.NEW and retry.lock_token != slow.lock_token
+
+            await store.complete(session_id, "req-1", slow.lock_token, "Pergunta?", completed("slow"))
+            await store.release(session_id, "req-1", slow.lock_token)
+            assert (await store.get(session_id)).history == ()  # type: ignore[union-attr]
+            assert (await store.begin_turn(session_id, "req-2", "hash-b")).kind == TurnDecision.IN_PROGRESS
+
+            await store.complete(
+                session_id, "req-1", retry.lock_token, "Pergunta?", completed(retry.message_id)
+            )
+            history = (await store.get(session_id)).history  # type: ignore[union-attr]
+            assert [item.message_id for item in history][1:] == [retry.message_id]
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.skipif(not REDIS_URL, reason="TEST_REDIS_URL not set")
+def test_redis_release_of_a_failed_turn_keeps_the_retry_that_raced_it() -> None:
+    """The retry lands right after the failed turn drops the lock (same client_request_id)."""
+
+    async def scenario() -> None:
+        async with redis_client() as client:
+            store = RedisSessionStore(
+                client,
+                ttl_seconds=TTL_SECONDS,
+                history_max_messages=HISTORY_WINDOW,
+                lock_ttl_seconds=LOCK_TTL_SECONDS,
+            )
+            session_id = (await store.create("AF-400-220V")).session_id
+            failed = await store.begin_turn(session_id, "req-1", "hash-a")
+            retries = []
+            unlock = client.eval
+
+            async def unlock_then_retry(*args: object) -> object:
+                unlocked = await unlock(*args)  # type: ignore[arg-type]
+                client.eval = unlock  # type: ignore[method-assign]
+                retries.append(await store.begin_turn(session_id, "req-1", "hash-a"))
+                return unlocked
+
+            client.eval = unlock_then_retry  # type: ignore[method-assign,assignment]
+            await store.release(session_id, "req-1", failed.lock_token)
+
+            retry = retries[0]
+            assert retry.kind == TurnDecision.NEW
+            await store.complete(
+                session_id, "req-1", retry.lock_token, "Pergunta?", completed(retry.message_id)
+            )
+            assert len((await store.get(session_id)).history) == 2  # type: ignore[union-attr]
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.skipif(not REDIS_URL, reason="TEST_REDIS_URL not set")
+def test_redis_retry_racing_the_completion_replays_instead_of_regenerating() -> None:
+    """The retry reads the unfinished record, then the running turn completes and unlocks."""
+
+    async def scenario() -> None:
+        async with redis_client() as client:
+            store = RedisSessionStore(
+                client,
+                ttl_seconds=TTL_SECONDS,
+                history_max_messages=HISTORY_WINDOW,
+                lock_ttl_seconds=LOCK_TTL_SECONDS,
+            )
+            session_id = (await store.create("AF-400-220V")).session_id
+            running = await store.begin_turn(session_id, "req-1", "hash-a")
+            read = client.get
+
+            async def read_then_finish_running_turn(key: str) -> object:
+                found = await read(key)
+                client.get = read  # type: ignore[method-assign]
+                await store.complete(
+                    session_id, "req-1", running.lock_token, "Pergunta?", completed(running.message_id)
+                )
+                await store.release(session_id, "req-1", running.lock_token)
+                return found
+
+            client.get = read_then_finish_running_turn  # type: ignore[method-assign,assignment]
+            retry = await store.begin_turn(session_id, "req-1", "hash-a")
+
+            assert retry.kind == TurnDecision.REPLAY and retry.message_id == running.message_id
+            assert len((await store.get(session_id)).history) == 2  # type: ignore[union-attr]
+            # the lock taken on the way to the replay was given back
+            assert (await store.begin_turn(session_id, "req-2", "hash-b")).kind == TurnDecision.NEW
 
     asyncio.run(scenario())
 

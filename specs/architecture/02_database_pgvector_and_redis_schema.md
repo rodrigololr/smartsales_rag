@@ -308,7 +308,7 @@ LIMIT 5;
 | Padrão da Chave (`Key Pattern`) | Tipo Redis | TTL Padrão | Conteúdo / Estrutura JSON | Responsável |
 | :--- | :---: | :---: | :--- | :---: |
 | `session:{session_id}:state` | `HASH` | `1800s` (30m) | `{ "state": "IDLE \| VALIDATING_CACHE \| STREAMING_TOKENS \| EMITTING_CARDS_AND_CITATIONS \| ERROR_CONTINGENCY", "active_sku": "AF-400-220V", "voltage_pref": "220V", "updated_at": "..." }` | `M02` |
-| `session:{session_id}:history` | `LIST` | `1800s` (30m) | Lista FIFO limitada aos últimos `10` turnos (`LPUSH` + `LTRIM 0 9`) serializados em JSON. | `M02` |
+| `session:{session_id}:history` | `LIST` | `1800s` (30m) | Lista FIFO limitada às últimas `10` mensagens (5 turnos) (`LPUSH` + `LTRIM 0 9`) serializados em JSON. | `M02` |
 | `cache:sem:{catalog_ver}:{sha256_query}` | `STRING` | `3600s` (60m) | JSON contendo `{ "answer_text": "...", "citations": [...], "recommendations": [...] }`. | `M03` |
 | `catalog:version` | `STRING` (`INCR`) | Sem expiração | Inteiro incremental (ex.: `42`, usado na chave como `v42`) incrementado pela CLI de ingestão (`B01`/`B03`) e pelo *mock checkout* quando o estoque zera ou o preço muda (`M05`), invalidando *caches* antigos (`RN09`). | `M03` / `B01` / `M05` |
 | `ratelimit:ip:{client_ip}` | `STRING` (`INCR`) | `60s` (1m) | Contador de requisições por minuto (limite padrão: `30 req/min` por IP/sessão). | `M01` |

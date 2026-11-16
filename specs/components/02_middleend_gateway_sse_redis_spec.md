@@ -11,7 +11,7 @@
 ```mermaid
 flowchart LR
     CLIENT["Frontend Next.js"] --> RL["<b>RateLimit & CORS Middleware</b><br/>30 req/min por IP/Sessão"]
-    RL --> SESS["<b>SessionManager (Redis)</b><br/>Carrega/atualiza histórico (10 turnos)<br/>e máquina de estados"]
+    RL --> SESS["<b>SessionManager (Redis)</b><br/>Carrega/atualiza histórico (10 mensagens, 5 turnos)<br/>e máquina de estados"]
     SESS --> CACHE["<b>SemanticCacheService (Redis)</b><br/>Lookup por SHA-256 normalizado<br/>+ catalog:version (TTL 3600s)"]
     CACHE -->|"CACHE HIT (≥ 30%)"| SSE_GEN["<b>SSEEventGenerator</b><br/>Emite metadata, token, correction,<br/>citations, recommendations, error, done"]
     CACHE -->|"CACHE MISS"| PROXY["<b>BackendStreamClient (httpx)</b><br/>Consome /internal/rag/stream<br/>com timeout e retry"]
@@ -33,7 +33,7 @@ Toda requisição em `POST /api/v1/chat/stream` transita a sessão `session:{id}
 
 | Estado Interno | Evento Gatilho | Ação Executada pelo Gateway | Próximo Estado |
 | :--- | :--- | :--- | :--- |
-| `IDLE` | Recebimento de `POST /api/v1/chat/stream` | Valida payload, adquire *lock* leve de geração da sessão e carrega últimos `10` turnos do Redis. | `VALIDATING_CACHE` |
+| `IDLE` | Recebimento de `POST /api/v1/chat/stream` | Valida payload, adquire *lock* leve de geração da sessão e carrega as últimas `10` mensagens (5 turnos) do Redis. | `VALIDATING_CACHE` |
 | `VALIDATING_CACHE` | Lookup em `cache:sem:{ver}:{hash}` | Se *Cache Hit*, prepara *stream* acelerado ($\text{TTFT} \le 120\text{ ms}$). Se *Cache Miss*, despacha ao Backend RAG. | `STREAMING_TOKENS` |
 | `STREAMING_TOKENS` | Recepção dos deltas do Backend / Cache | Emite `event: metadata` (registrando `ttft_ms`), seguido de múltiplos `event: token`. | `EMITTING_CARDS_AND_CITATIONS` |
 | `EMITTING_CARDS_AND_CITATIONS` | Fim dos tokens textuais | Emite `event: correction` (somente fallback de transporte), `event: citations`, `event: recommendations` e persiste resposta validada/registro idempotente. Atualiza cache e histórico; só então emite `event: done`. | `IDLE` |

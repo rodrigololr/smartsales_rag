@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://smartsales:smartsales@localhost:5432/smartsales"
     # Unset = no Redis: ingestion skips the catalog:version bump (cache not invalidated).
     redis_url: str | None = None
-    ingestion_max_attempts: int = 3
+    redis_connect_timeout_seconds: float = 5.0
+    ingestion_max_attempts: int = Field(default=3, ge=1)
     ingestion_backoff_seconds: float = 1.0  # doubled after each failed attempt
     # Any OpenAI-compatible provider. Google Gemini: LLM_BASE_URL=
     # https://generativelanguage.googleapis.com/v1beta/openai/ with a Google API key.
