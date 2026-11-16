@@ -16,7 +16,7 @@ ciclo. A coluna "Etapa PDCA" liga a lição ao ciclo de
 | # | Fato observado | Efeito | Recomendação | Etapa PDCA |
 | :-: | :--- | :--- | :--- | :---: |
 | T1 | O limiar de similaridade das specs (0,72) foi definido para o `text-embedding-3-small`. Com o `gemini-embedding-001`, respostas corretas ficaram entre 0,64 e 0,72 e perguntas fora do escopo perto de 0,47; o MVP usa 0,60. | Com 0,72, perguntas válidas cairiam no *fallback*. | Tratar o limiar como parâmetro do modelo de embedding e recalibrar a cada troca de modelo ou de manuais (`python -m app.retrieval.inspect`). | Agir |
-| T2 | Com o Gemini, o TTFT medido ficou entre 1,3 s e 6 s (issue #7), acima da meta de 2 s p95. | O SLA de latência depende do provedor, não só do código. | Medir TTFT desde a Sprint 2 com a sonda de SLA e decidir cedo entre trocar de modelo, reduzir contexto ou rever a meta. | Verificar |
+| T2 | Com o Gemini, o TTFT medido ficou entre 1,3 s e 6 s (issue #7), acima da meta de 2 s p95. Em 16/11, uma execução única da sonda (30 requisições, 23 geradas) deu p50 de 1431 ms e p95 de 4739 ms, com 5 falhas por HTTP 429 do provedor. | O SLA de latência depende do provedor, não só do código. | Medir TTFT desde a Sprint 2 com a sonda de SLA e decidir cedo entre trocar de modelo, reduzir contexto ou rever a meta. | Verificar |
 | T3 | O G-OUT valida cada sentença antes de publicar, então o primeiro token só sai depois da primeira sentença completa. | A segurança factual custa latência no primeiro token. | Declarar esse custo no orçamento de latência e medir o TTFT no navegador, sem desligar o guardrail para atingir a meta. | Planejar |
 | T4 | Issues e specs divergiram em detalhes: sobreposição de chunks de 80 na issue #10 e 50 nas specs; `GET /sessions/{id}` na issue #8 e ausente no `openapi.yaml`; temperatura 0,1 na issue #7 e 0,2 na spec. | Quem implementa precisa escolher uma fonte e justificar. | Declarar o `openapi.yaml` e `specs/` como fonte normativa e gerar o texto das issues a partir deles. | Planejar |
 | T5 | O MVP guardava sessões em memória e não tinha cache; a troca para Redis exigiu tornar o armazenamento uma interface assíncrona com dois adaptadores. | Retrabalho nas rotas e nos testes. | Definir a interface de persistência antes da primeira implementação, mesmo que o primeiro adaptador seja em memória. | Executar |
@@ -30,7 +30,7 @@ ciclo. A coluna "Etapa PDCA" liga a lição ao ciclo de
 
 | # | Fato observado | Hipótese de lição | Validada? |
 | :-: | :--- | :--- | :---: |
-| G1 | Em 11/11/2026 havia 16 issues abertas, cinco delas com prazo vencido em outubro. | Atualizar o estado das issues no mesmo dia da entrega evita que o quadro deixe de refletir o projeto. | **[ ]** |
+| G1 | Em 11/11/2026 havia 16 issues abertas, sete delas com prazo vencido em outubro. | Atualizar o estado das issues no mesmo dia da entrega evita que o quadro deixe de refletir o projeto. | **[ ]** |
 | G2 | Vários pacotes ficaram "implementados em PR" sem os itens da issue marcados. | Fechar a issue exige checklist marcado e PR mesclado; um comentário de status não substitui. | **[ ]** |
 | G3 | O caminho crítico (`B01` a `B04`, `F05`, `G02`) concentrou-se em poucas pessoas. | Parear nas atividades críticas desde o início reduz o risco de atraso em cadeia. | **[ ]** |
 | G4 | A troca de provedor de IA no MVP não aparece como mudança de escopo aprovada. | Mudanças de stack entram no controle de mudanças, com impacto em custo e qualidade. | **[ ]** |

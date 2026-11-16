@@ -24,18 +24,18 @@ de encerramento.
 | :---: | :--- | :--- | :---: |
 | `G01`, `G03` | Specs SDD/TDD e baseline de gestão | Concluído (PR #1). | **[PREENCHER]** |
 | `F01`, `F02` | Protótipos, setup e chat com SSE | Concluídos (PRs #23 e #24). | **[PREENCHER]** |
-| `B01` | Docker, pgvector, ingestão do catálogo | Em andamento: Redis no compose, `product_relations` e `ingestion_jobs` implementados em branch, sem PR. | **[PREENCHER]** |
+| `B01` | Docker, pgvector, ingestão do catálogo | Em andamento: Redis no compose, `product_relations` e `ingestion_jobs` implementados no PR #27. | **[PREENCHER]** |
 | `B02` | Busca híbrida e orquestração LLM | Implementado (PR #25). Falta comprovar o TTFT com medição. | **[PREENCHER]** |
-| `B03` | Ingestão de manuais e guardrails | Implementado (PR #25); controle por `ingestion_jobs` e `catalog:version` em branch, sem PR. | **[PREENCHER]** |
-| `B04` | Motor de recomendação | Motor mesclado (PR #22); ligação ao fluxo do RAG em branch, sem PR. | **[PREENCHER]** |
+| `B03` | Ingestão de manuais e guardrails | Implementado (PR #25); controle por `ingestion_jobs` e `catalog:version` no PR #28. | **[PREENCHER]** |
+| `B04` | Motor de recomendação | Motor mesclado (PR #22); ligação ao fluxo do RAG no PR #29. | **[PREENCHER]** |
 | `B05` | Golden Set e runner RAGAS | PR #26 aberto. | **[PREENCHER]** |
 | `M01` | Gateway, contratos e segurança base | Aberto. *Rate limiting* não implementado. | **[PREENCHER]** |
-| `M02` | SSE e sessões no Redis | SSE mesclado; sessões no Redis em branch, sem PR. | **[PREENCHER]** |
-| `M03` | Cache e invalidação | Chave canônica mesclada; cache no Redis com revalidação em branch, sem PR. | **[PREENCHER]** |
+| `M02` | SSE e sessões no Redis | SSE mesclado; sessões no Redis no PR #30. | **[PREENCHER]** |
+| `M03` | Cache e invalidação | Chave canônica mesclada; cache no Redis com revalidação no PR #31. | **[PREENCHER]** |
 | `M04`, `M05` | Catálogo, telemetria, checkout e feedback | Abertos. | **[PREENCHER]** |
 | `F03`, `F04` | Citação, feedback, cards e painel | Abertos. | **[PREENCHER]** |
-| `F05` | Testes E2E e aferição de KPIs | Suíte Playwright e sonda de SLA em branch, sem execução na pilha real. | **[PREENCHER]** |
-| `G04` | Documentação técnica | README e guia de desenvolvimento atualizados em branch, sem PR. | **[PREENCHER]** |
+| `F05` | Testes E2E e aferição de KPIs | Suíte Playwright e sonda de SLA no PR #33. Em 16/11, na pilha real: 6 testes E2E passando e 4 `fixme`; sonda com código 1 (seção 5). | **[PREENCHER]** |
+| `G04` | Documentação técnica | README e guia de desenvolvimento atualizados no PR #32. | **[PREENCHER]** |
 | `G02` | Demo, relatório e lições | Este documento. | **[PREENCHER]** |
 
 Mudanças de escopo aprovadas: **[PREENCHER: listar com data e aprovador, por
@@ -49,12 +49,12 @@ Itens não entregues e motivo: **[PREENCHER]**.
 | :---: | :---: | :---: | :---: |
 | `M1` — Fundação e contratos | 02/10/2026 | **[PREENCHER]** | **[PREENCHER]** |
 | `M2` — Streaming ponta a ponta | 16/10/2026 | **[PREENCHER]** | **[PREENCHER]** |
-| `M3` — Ingestão, guardrails e cache | 29/10/2026 | **[PREENCHER]** | **[PREENCHER]** |
-| `M4` — Recomendação e gate RAGAS | 10/11/2026 | **[PREENCHER]** | **[PREENCHER]** |
+| `M3` — RAG Fiel com Guardrails, Citação e Cache | 29/10/2026 | **[PREENCHER]** | **[PREENCHER]** |
+| `M4` — Vendas Consultivas, Cards e Checkout Integrados | 10/11/2026 | **[PREENCHER]** | **[PREENCHER]** |
 | `M5` — Entrega final e pitch | 24/11/2026 | **[PREENCHER]** | **[PREENCHER]** |
 
-Em 11/11/2026 havia 16 issues abertas, entre elas pacotes com prazo vencido em
-outubro (`B01`, `B02`, `M02`, `B03`, `M03`). Registrar aqui a causa do atraso e a
+Em 11/11/2026 havia 16 issues abertas, entre elas sete pacotes com prazo vencido em
+outubro (`B01`, `M01`, `B02`, `M02`, `F03`, `M03`, `B03`). Registrar aqui a causa do atraso e a
 ação tomada: **[PREENCHER]**.
 
 Índice de desempenho de prazo no encerramento: `SPI = EV / PV` =
@@ -95,9 +95,9 @@ Metas de `specs/diagrams_and_pm/10_qualidade_arvore_metricas.md`.
 | Taxa de alucinação | ≤ 5% | **[PREENCHER]** | **[ ]** | Relatório RAGAS. |
 | `P@5` | ≥ 0,80 | **[PREENCHER]** | **[ ]** | Relatório RAGAS. |
 | Aderência aos filtros de negócio | 100% | **[PREENCHER]** | **[ ]** | Testes de recomendação e E2E-02. |
-| TTFT p95 | ≤ 2 s | **[PREENCHER]** | **[ ]** | `python -m app.telemetry.sla_probe`. |
-| Tempo total p95 | ≤ 8 s | **[PREENCHER]** | **[ ]** | `sla_probe`. |
-| Taxa de acerto do cache | ≥ 30% | **[PREENCHER]** | **[ ]** | `sla_probe` com perguntas recorrentes. |
+| TTFT p95 | ≤ 2 s | **[PREENCHER]** | **[ ]** | `python -m app.telemetry.sla_probe` (`ttft_p95_ms`; informar o n de `generated`). |
+| Tempo total p95 | ≤ 8 s | **[PREENCHER]** | **[ ]** | `sla_probe` (`total_p95_ms`, mesmo n). |
+| Taxa de acerto do cache | ≥ 30% | **[PREENCHER]** | **[ ]** | **[PREENCHER: fonte]** Não é o `synthetic_load_cache_hit_ratio` do `sla_probe` (carga sintética, 0 numa execução normal); depende da telemetria do `M04`. |
 | Disponibilidade do chat | ≥ 99% | **[PREENCHER]** | **[ ]** | Monitoramento da homologação. |
 | Taxa de erro da API | ≤ 1% | **[PREENCHER]** | **[ ]** | Logs do gateway. |
 | Aprovação das respostas | ≥ 80% | **[PREENCHER]** | **[ ]** | `feedback_logs` (depende do `M04`). |
@@ -111,13 +111,18 @@ Já registrado no repositório em 07/11/2026: com o Gemini, o TTFT medido ficou 
 1,3 s e 6 s (comentário da issue #7), acima da meta. Informar a medição final e a
 decisão tomada: **[PREENCHER]**.
 
+Execução única da sonda em 16/11/2026 na pilha real (Gemini, `--concurrency 2`); não é
+resultado de homologação: código de saída 1, 30 requisições, 23 geradas, 2 *fallbacks* e
+5 falhas `LLM_UNAVAILABLE` (HTTP 429 do provedor); TTFT p50 de 1431 ms e p95 de 4739 ms
+(teto 2000 ms); tempo total p95 de 5081 ms (teto 8000 ms).
+Ela não preenche a tabela acima.
+
 ## 6. Riscos
 
 | Risco | Ocorreu? | Impacto | Resposta aplicada |
 | :--- | :---: | :--- | :--- |
-| `R01` — alucinação técnica | **[PREENCHER]** | **[PREENCHER]** | Guardrails em três níveis e Golden Set. |
-| `R2` — falha na ingestão do catálogo | **[PREENCHER]** | **[PREENCHER]** | `ingestion_jobs` com novas tentativas. |
-| `R09` — preço ou estoque dessincronizado | **[PREENCHER]** | **[PREENCHER]** | Cards lidos do SQL e revalidação no *cache hit*. |
+| `R01` (Top 5 `R1`) — alucinação técnica | **[PREENCHER]** | **[PREENCHER]** | Guardrails em três níveis e Golden Set. |
+| `R09` (Top 5 `R2`) — falha na ingestão do catálogo e preço ou estoque dessincronizado | **[PREENCHER]** | **[PREENCHER]** | `ingestion_jobs` com novas tentativas; cards lidos do SQL e revalidação no *cache hit*. |
 | Indisponibilidade ou latência do provedor de IA | **[PREENCHER]** | **[PREENCHER]** | *Fallback* `LLM_UNAVAILABLE` e provedor configurável. |
 | **[PREENCHER: demais riscos de `16_gestao_riscos.md`]** | | | |
 
