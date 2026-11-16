@@ -14,11 +14,13 @@ from app.recommendation.cards import (
     upsell_justification,
 )
 from app.recommendation.intent import wants_upgrade
+from app.recommendation.models import DomainInputError
 from app.recommendation.service import (
     CrossSellRelation,
     RecommendationLookupError,
     RecommendationService,
 )
+from pydantic import ValidationError
 
 CARD_FIELDS = {
     "sku",
@@ -78,11 +80,18 @@ class FakeCatalog:
         upsells: Sequence[CatalogProduct] = (FAMILY, TOO_EXPENSIVE, SOLD_OUT),
         relations: Sequence[CrossSellRelation] = (KIT_RELATION,),
         failure: Exception | None = None,
+        current: CatalogProduct | None = None,
+        similarity: float = 0.5,
     ) -> None:
+        self.current = {current.sku: current} if current else {}
+        self.similarity = similarity
         self.upsells = list(upsells)
         self.relations = list(relations)
         self.failure = failure
         self.similarity_skus: list[str] = []
+
+    async def current_product(self, sku: str) -> CatalogProduct | None:
+        return self.current.get(sku)
 
     async def upsell_candidates(self, base: CatalogProduct) -> list[CatalogProduct]:
         if self.failure:
@@ -96,7 +105,7 @@ class FakeCatalog:
         self, skus: Sequence[str], embedding: Sequence[float]
     ) -> dict[str, float]:
         self.similarity_skus = list(skus)
-        return {sku: 0.5 for sku in skus}
+        return {sku: self.similarity for sku in skus}
 
 
 def cards(
@@ -105,7 +114,10 @@ def cards(
     *,
     allow_upsell: bool = True,
     embedding: Sequence[float] | None = (0.1, 0.2),
+    base_in_sql: bool = True,
 ) -> list[dict[str, object]]:
+    if base_in_sql:  # by default SQL still holds the row the turn started with
+        catalog.current.setdefault(base.sku, base)
     service = RecommendationService(catalog)
     return asyncio.run(
         service.cards(base, query_embedding=embedding, allow_upsell=allow_upsell)
@@ -163,8 +175,62 @@ def test_without_query_embedding_similarity_is_zero_and_sql_is_not_asked() -> No
     assert catalog.similarity_skus == []
 
 
-def test_lookup_failure_yields_no_cards_instead_of_breaking_the_answer() -> None:
-    assert cards(FakeCatalog(failure=RecommendationLookupError("db down"))) == []
+def _invalid_row_error() -> ValidationError:
+    with pytest.raises(ValidationError) as caught:
+        CatalogProduct.model_validate({})
+    return caught.value
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        RecommendationLookupError("db down"),
+        DomainInputError("tier_rank must be between 1 and 5"),
+        _invalid_row_error(),
+    ],
+)
+def test_any_recommendation_failure_yields_no_cards_instead_of_breaking_the_answer(
+    failure: Exception,
+) -> None:
+    assert cards(FakeCatalog(failure=failure)) == []
+
+
+def test_non_finite_similarity_yields_no_cards() -> None:
+    # pgvector answers NaN for a zero vector; the engine rejects it as a domain error.
+    assert cards(FakeCatalog(similarity=float("nan"))) == []
+
+
+def test_primary_card_uses_the_base_row_of_this_instant_not_the_turn_snapshot() -> None:
+    repriced = BASE.model_copy(update={"price": Decimal("519.90"), "stock_quantity": 2})
+    primary = cards(FakeCatalog(current=repriced), BASE)[0]
+    assert (primary["price"], primary["stock_quantity"]) == (519.9, 2)
+
+
+def test_base_sold_out_during_the_turn_is_not_a_primary_card() -> None:
+    sold_out_now = BASE.model_copy(update={"stock_quantity": 0})
+    assert roles(cards(FakeCatalog(current=sold_out_now), BASE)) == [
+        ("UPSELL", "AF-550-220V"),
+        ("CROSS_SELL", "KIT-SIL-01"),
+    ]
+
+
+def test_upsell_ceiling_follows_the_current_base_price() -> None:
+    cheaper_now = BASE.model_copy(update={"price": Decimal("400.00")})  # ceiling: 540.00
+    assert roles(cards(FakeCatalog(current=cheaper_now), BASE)) == [
+        ("PRIMARY", "AF-400-220V"),
+        ("CROSS_SELL", "KIT-SIL-01"),
+    ]
+
+
+def test_base_removed_or_deactivated_during_the_turn_yields_no_cards() -> None:
+    assert cards(FakeCatalog(), base_in_sql=False) == []
+    assert cards(FakeCatalog(current=BASE.model_copy(update={"is_active": False}))) == []
+
+
+def test_upsell_justification_groups_thousands_in_brazilian_format() -> None:
+    notebook = catalog_product("NB-1", "3999.00", capacity_liters=None)
+    better = catalog_product("NB-2", "5299.00", capacity_liters=None, tier_rank=2)
+    assert "por R$ 1.300,00 a mais (+33%)." in upsell_justification(notebook, better)
 
 
 def test_upsell_justification_uses_only_sql_numbers() -> None:
@@ -196,6 +262,8 @@ def test_primary_card_states_stock_and_voltage() -> None:
         "Qual a diferença para a de 5.5L?",
         "Vale a pena comparar com outra?",
         "Preciso de mais capacidade",
+        "Tem uma maior?",
+        "Comporta 5 porções de batata?",
     ],
 )
 def test_capacity_or_comparison_questions_ask_for_an_upgrade(question: str) -> None:
@@ -204,7 +272,15 @@ def test_capacity_or_comparison_questions_ask_for_an_upgrade(question: str) -> N
 
 @pytest.mark.parametrize(
     "question",
-    ["Posso usar papel alumínio no cesto?", "Qual a voltagem?", "Como limpar o cesto?"],
+    [
+        "Posso usar papel alumínio no cesto?",
+        "Qual a voltagem?",
+        "Como limpar o cesto?",
+        "Qual a maior temperatura que ela atinge?",
+        "Como ela se comporta em 127V?",
+        "A potência é suficiente para pão de queijo?",
+        "Não preciso de uma maior, qual a voltagem?",
+    ],
 )
 def test_plain_technical_questions_do_not_ask_for_an_upgrade(question: str) -> None:
     assert not wants_upgrade(question)

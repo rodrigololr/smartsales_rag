@@ -88,6 +88,27 @@ def test_cards_follow_the_stock_of_this_instant(tmp_path: Path) -> None:
     assert [card["sku"] for card in _cards(embedder)] == ["AF-400-220V"]
 
 
+def test_primary_card_is_reread_from_sql_after_the_turn_snapshot(tmp_path: Path) -> None:
+    _seed(tmp_path)
+
+    async def scenario() -> list[dict[str, object]]:
+        catalog = PostgresCatalog(DATABASE_URL)
+        turn_snapshot = await catalog.get_product("AF-400-220V")
+        assert turn_snapshot is not None
+        async with await psycopg.AsyncConnection.connect(DATABASE_URL, autocommit=True) as conn:
+            await conn.execute(
+                "UPDATE products SET stock_quantity = 0 WHERE sku = %s", (turn_snapshot.sku,)
+            )
+        return await RecommendationService(catalog).cards(
+            turn_snapshot, query_embedding=None, allow_upsell=True
+        )
+
+    assert [card["recommendation_type"] for card in asyncio.run(scenario())] == [
+        "UPSELL",
+        "CROSS_SELL",
+    ]
+
+
 def test_database_failure_is_a_lookup_error_and_the_service_returns_no_cards() -> None:
     unreachable = PostgresCatalog(
         "postgresql://smartsales:smartsales@127.0.0.1:1/none?connect_timeout=2"
@@ -96,6 +117,8 @@ def test_database_failure_is_a_lookup_error_and_the_service_returns_no_cards() -
     async def scenario() -> list[dict[str, object]]:
         with pytest.raises(RecommendationLookupError):
             await unreachable.cross_sell_relations("AF-400-220V")
+        with pytest.raises(RecommendationLookupError):
+            await unreachable.current_product("AF-400-220V")
         base = await PostgresCatalog(DATABASE_URL).get_product("AF-400-220V")
         assert base is not None
         return await RecommendationService(unreachable).cards(

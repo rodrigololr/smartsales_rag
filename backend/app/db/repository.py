@@ -71,6 +71,13 @@ class PostgresCatalog:
             rows = await cursor.fetchall()
         return [RetrievedChunk.model_validate(row) for row in rows]
 
+    async def current_product(self, sku: str) -> CatalogProduct | None:
+        """The consulted product as it is now, for the PRIMARY card (RN01, RN06)."""
+        rows = await self._recommendation_rows(
+            f"SELECT {_PRODUCT_COLUMNS} FROM products WHERE sku = %s", (sku,)
+        )
+        return CatalogProduct.model_validate(rows[0]) if rows else None
+
     async def upsell_candidates(self, base: CatalogProduct) -> list[CatalogProduct]:
         """In-stock products of the base's subcategory; RN04 price/tier rules stay in the engine."""
         rows = await self._recommendation_rows(
