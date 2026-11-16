@@ -3,8 +3,12 @@
 import re
 
 _INJECTION = re.compile(
-    r"(?:ignor|esque[cç]|desconsider)\w*\s+(?:as\s+|todas\s+as\s+|all\s+|the\s+|o\s+)?"
-    r"(?:instru|regras|previous|prior|guardrail|estoque|sistema)"
+    r"ignor\w*\s+(?:as\s+|todas\s+as\s+|all\s+|the\s+)?"
+    r"(?:instru|regras|previous|prior)"
+    # Imperative only: "esqueci as instruções" and "ignorando o estoque" are customer questions.
+    r"|\b(?:ignore|esque[cç]a|desconsidere|forget|disregard)\s+"
+    r"(?:(?:todas|all|as|os|o|the|suas|seus|your)\s+)*"
+    r"(?:instru|regras|rules|guardrail|estoque)"
     r"|system\s*(?:prompt|override)"
     r"|prompt\s+do\s+sistema"
     r"|voc[eê]\s+agora\s+[eé]|you\s+are\s+now"
