@@ -84,6 +84,29 @@ def test_ingestion_creates_backend_tables_and_replaces_relations_from_the_seed(
     ]
 
 
+def test_ingestion_without_relations_seed_keeps_existing_relations(tmp_path: Path) -> None:
+    asyncio.run(_reset())
+    embedder = HashingEmbedder()
+    sources = (DATABASE_URL, DATA_DIR / "catalog.json", DATA_DIR / "manuals", embedder, Settings())
+    seed_path = DATA_DIR / "product_relations.json"
+    asyncio.run(ingest(*sources, relations_path=seed_path))
+    seeded = asyncio.run(_relation_rows())
+    assert seeded
+
+    report = asyncio.run(ingest(*sources))
+    assert asyncio.run(_relation_rows()) == seeded
+    assert report.relations == 0
+
+    with pytest.raises(FileNotFoundError):
+        asyncio.run(ingest(*sources, relations_path=tmp_path / "ausente.json"))
+    assert asyncio.run(_relation_rows()) == seeded
+
+    empty_seed = tmp_path / "product_relations.json"
+    empty_seed.write_text("[]", encoding="utf-8")
+    asyncio.run(ingest(*sources, relations_path=empty_seed))
+    assert asyncio.run(_relation_rows()) == []
+
+
 def test_ingestion_indexes_catalog_and_manuals_then_search_stays_on_the_product(
     tmp_path: Path,
 ) -> None:

@@ -14,12 +14,16 @@ class PostgresProductSnapshots:
     shortcut: one connection per call; switch to psycopg_pool before load testing.
     """
 
-    def __init__(self, conninfo: str) -> None:
+    def __init__(self, conninfo: str, *, connect_timeout_seconds: int) -> None:
         self._conninfo = conninfo
+        self._connect_timeout_seconds = connect_timeout_seconds
 
     async def current(self, skus: Sequence[str]) -> dict[str, ProductSnapshot]:
         try:
-            async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
+            # Bounded: an unreachable PostgreSQL must become a cache miss, not a hung turn.
+            async with await psycopg.AsyncConnection.connect(
+                self._conninfo, connect_timeout=self._connect_timeout_seconds
+            ) as conn:
                 cursor = await conn.execute(
                     "SELECT sku, price, stock_quantity, is_active FROM products "
                     "WHERE sku = ANY(%s)",

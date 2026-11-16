@@ -9,17 +9,25 @@ import pytest
 from app.config import Settings
 from app.main import create_app
 from app.telemetry.sla_probe import (
+    MIN_GENERATED_SAMPLES,
     Sample,
     main,
     percentile,
     probe_once,
     run_probe,
+    sample_question,
     sse_events,
     summarize,
 )
 from test_chat_routes import CITATIONS, END, FALLBACK, TOKEN, FakeBackend
 
-LIMITS = {"ttft_p95_limit_ms": 2000.0, "total_p95_limit_ms": 8000.0}
+CEILINGS = {"ttft_p95_limit_ms": 2000.0, "total_p95_limit_ms": 8000.0}
+LIMITS = {**CEILINGS, "min_generated": 1}  # the sample-size gate has its own tests
+LLM_DOWN = {
+    "event": "error",
+    "data": {"code": "LLM_UNAVAILABLE", "recoverable": True, "fallback_message": "Indisponível."},
+}
+RUN_ID = "run1"
 
 
 def sample(ttft: float, total: float, *, cache_hit: bool = False, reason: str = "stop") -> Sample:
@@ -55,7 +63,8 @@ def test_report_gates_on_generated_answers_and_reports_the_hit_ratio() -> None:
     report = summarize(samples, **LIMITS)
     assert report.passed and report.failures == 0
     assert (report.ttft_p95_ms, report.total_p95_ms) == (1500, 5000)  # the cache hit is left out
-    assert report.cache_hits == 1 and report.cache_hit_ratio == 0.3333
+    assert report.generated == 2
+    assert report.cache_hits == 1 and report.synthetic_load_cache_hit_ratio == 0.3333
 
 
 def test_report_fails_above_the_ttft_or_latency_ceiling() -> None:
@@ -64,17 +73,50 @@ def test_report_fails_above_the_ttft_or_latency_ceiling() -> None:
     assert summarize([sample(2000, 8000)], **LIMITS).passed  # ceilings are inclusive
 
 
+def test_report_fails_below_the_minimum_of_generated_samples() -> None:
+    limits = {**CEILINGS, "min_generated": MIN_GENERATED_SAMPLES}
+    one_short = [sample(900, 3000)] * (MIN_GENERATED_SAMPLES - 1)
+    report = summarize([*one_short, sample(40, 60, cache_hit=True)], **limits)
+    assert not report.passed and report.generated == MIN_GENERATED_SAMPLES - 1
+    assert report.failed_gates == [
+        f"generated samples: {MIN_GENERATED_SAMPLES - 1} < minimum {MIN_GENERATED_SAMPLES}"
+    ]
+    assert not summarize([sample(900, 3000)], **limits).passed  # one sample is not a p95
+    enough = summarize([*one_short, sample(900, 3000)], **limits)
+    assert enough.passed and enough.failed_gates == []
+
+
+def test_error_turns_are_failures_even_when_they_answer_fast() -> None:
+    report = summarize([sample(5, 6, reason="error")] * MIN_GENERATED_SAMPLES, **LIMITS)
+    assert not report.passed and report.failures == MIN_GENERATED_SAMPLES
+    assert report.generated == 0 and report.ttft_p95_ms is None
+
+
+def test_fast_fallbacks_do_not_dilute_a_slow_generation() -> None:
+    samples = [sample(50, 60, reason="fallback")] * 19 + [sample(6000, 20000)]
+    report = summarize(samples, **LIMITS)
+    assert not report.passed and report.generated == 1
+    assert (report.ttft_p95_ms, report.total_p95_ms) == (6000, 20000)
+    assert report.fallbacks == 19 and report.fallback_ttft_p95_ms == 50
+
+
 def test_report_fails_on_incomplete_requests_or_without_generated_samples() -> None:
     broken = Sample(None, None, None, False, None, failure="ConnectError: down")
     report = summarize([sample(900, 3000), broken], **LIMITS)
     assert not report.passed and report.failures == 1 and report.completed == 1
     assert not summarize([sample(40, 60, cache_hit=True)], **LIMITS).passed
-    assert summarize([], **LIMITS).cache_hit_ratio == 0.0
+    assert summarize([], **LIMITS).synthetic_load_cache_hit_ratio == 0.0
 
 
 def test_fallback_turns_are_counted() -> None:
     report = summarize([sample(100, 200, reason="fallback"), sample(900, 3000)], **LIMITS)
-    assert report.fallbacks == 1
+    assert report.fallbacks == 1 and report.generated == 1 and report.ttft_p95_ms == 900
+
+
+def test_every_sample_asks_a_distinct_question_so_none_is_a_cache_hit() -> None:
+    first, second = sample_question("Qual a voltagem?", RUN_ID, 0), sample_question("Qual a voltagem?", RUN_ID, 1)
+    assert first != second and first.startswith("Qual a voltagem?")
+    assert sample_question("Qual a voltagem?", "run2", 0) != first  # a rerun misses too
 
 
 def gateway_client(events: list[Mapping[str, object]]) -> tuple[httpx.AsyncClient, FakeBackend]:
@@ -92,7 +134,7 @@ def probe(events: list[Mapping[str, object]], requests: int = 1) -> tuple[list[S
         ):
             samples = await run_probe(
                 client, "AF-400-220V", ["Qual a voltagem?", "E a potência?"],
-                requests=requests, concurrency=3,
+                run_id=RUN_ID, requests=requests, concurrency=3,
             )
         return samples, backend
 
@@ -104,7 +146,7 @@ def test_probe_measures_an_answered_turn_through_the_gateway() -> None:
     assert measured.completed and measured.finish_reason == "stop" and not measured.cache_hit
     assert measured.ttft_ms is not None and measured.total_ms is not None
     assert 0 <= measured.ttft_ms <= measured.total_ms
-    assert backend.calls[0][:2] == ("AF-400-220V", "Qual a voltagem?")
+    assert backend.calls[0][:2] == ("AF-400-220V", sample_question("Qual a voltagem?", RUN_ID, 0))
 
 
 def test_probe_counts_the_error_frame_as_first_content_on_fallbacks() -> None:
@@ -112,10 +154,19 @@ def test_probe_counts_the_error_frame_as_first_content_on_fallbacks() -> None:
     assert measured.finish_reason == "fallback" and measured.ttft_ms is not None
 
 
+def test_probe_through_the_gateway_fails_when_the_llm_is_down() -> None:
+    samples, _ = probe([LLM_DOWN, END], requests=3)
+    assert {item.finish_reason for item in samples} == {"error"}
+    report = summarize(samples, **LIMITS)
+    assert not report.passed and report.failures == 3
+
+
 def test_probe_runs_every_request_and_cycles_the_questions() -> None:
     samples, backend = probe([TOKEN, END], requests=5)
     assert len(samples) == 5 and all(item.completed for item in samples)
-    assert sorted(call[1] for call in backend.calls).count("Qual a voltagem?") == 3
+    questions = [call[1] for call in backend.calls]
+    assert len(set(questions)) == 5
+    assert sum(question.startswith("Qual a voltagem?") for question in questions) == 3
 
 
 def test_unreachable_gateway_is_a_failed_sample_not_an_exception() -> None:

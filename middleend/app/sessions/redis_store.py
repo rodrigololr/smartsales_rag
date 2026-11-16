@@ -3,13 +3,14 @@
 Keys, all under the session TTL (1800 s) unless noted:
     session:{id}:state      HASH   active_sku, state, updated_at
     session:{id}:history    LIST   newest first, LPUSH + LTRIM to the last N messages
-    session:{id}:lock       STRING client_request_id, SET NX EX 60 (one turn at a time)
+    session:{id}:lock       STRING owner token of the turn, SET NX EX 60 (one turn at a time)
     session:{id}:turn:{rid} STRING idempotency record of one client_request_id
     session:{id}:turns      SET    request ids, so DELETE removes every turn record
 """
 
 import dataclasses
 import json
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import cast
@@ -26,13 +27,40 @@ from app.sessions.store import (
 )
 from app.sse.models import CompletedTurn
 
+logger = logging.getLogger(__name__)
+
 IDLE_STATE = "IDLE"
-# Delete the lock only if this request still owns it (it may have expired and been retaken).
-_RELEASE_LOCK = """
-if redis.call('GET', KEYS[1]) == ARGV[1] then
-    return redis.call('DEL', KEYS[1])
+# Both scripts act only while ARGV[1] still owns the lock: it may have expired and been
+# retaken, even by a retry of the same client_request_id.
+# KEYS: lock, turn record, turns set. ARGV: owner token, client_request_id.
+# Atomic so a retry cannot slip between the unlock and the cleanup of the unfinished record.
+_RELEASE_TURN = """
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then
+    return 0
 end
-return 0
+redis.call('DEL', KEYS[1])
+local record = redis.call('GET', KEYS[2])
+if record and cjson.decode(record)['completed'] == cjson.null then
+    redis.call('DEL', KEYS[2])
+    redis.call('SREM', KEYS[3], ARGV[2])
+end
+return 1
+"""
+# KEYS: lock, turn record, history. ARGV: owner token, completed record, user message,
+# assistant message, session TTL, last index of the history window.
+_COMPLETE_TURN = """
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then
+    return 0
+end
+local record = redis.call('GET', KEYS[2])
+if not record or cjson.decode(record)['completed'] ~= cjson.null then
+    return 0
+end
+redis.call('SET', KEYS[2], ARGV[2], 'EX', ARGV[5])
+redis.call('LPUSH', KEYS[3], ARGV[3], ARGV[4])
+redis.call('LTRIM', KEYS[3], 0, ARGV[6])
+redis.call('EXPIRE', KEYS[3], ARGV[5])
+return 1
 """
 
 
@@ -81,15 +109,17 @@ class RedisSessionStore:
 
     async def create(self, current_product_sku: str | None) -> SessionSnapshot:
         session_id = str(uuid.uuid4())
-        await self._redis.hset(
-            self._state_key(session_id),
-            mapping={
-                "state": IDLE_STATE,
-                "active_sku": current_product_sku or "",
-                "updated_at": datetime.now(UTC).isoformat(),
-            },
-        )
-        await self._redis.expire(self._state_key(session_id), self._ttl_seconds)
+        async with self._redis.pipeline(transaction=True) as pipe:
+            pipe.hset(
+                self._state_key(session_id),
+                mapping={
+                    "state": IDLE_STATE,
+                    "active_sku": current_product_sku or "",
+                    "updated_at": datetime.now(UTC).isoformat(),
+                },
+            )
+            pipe.expire(self._state_key(session_id), self._ttl_seconds)
+            await pipe.execute()
         return SessionSnapshot(session_id, current_product_sku)
 
     async def get(self, session_id: str) -> SessionSnapshot | None:
@@ -118,47 +148,65 @@ class RedisSessionStore:
     async def begin_turn(
         self, session_id: str, client_request_id: str, payload_hash: str
     ) -> TurnStart:
-        record = await self._turn_record(session_id, client_request_id)
-        if record is not None and record["payload_hash"] != payload_hash:
-            return TurnStart(TurnDecision.CONFLICT)
-        if record is not None and record["completed"] is not None:
-            completed = _completed_turn(cast(dict[str, object], record["completed"]))
-            return TurnStart(TurnDecision.REPLAY, str(record["message_id"]), completed)
+        settled = self._settled(await self._turn_record(session_id, client_request_id), payload_hash)
+        if settled is not None:
+            return settled
+        lock_token = str(uuid.uuid4())
         acquired = await self._redis.set(
-            self._lock_key(session_id), client_request_id, nx=True, ex=self._lock_ttl_seconds
+            self._lock_key(session_id), lock_token, nx=True, ex=self._lock_ttl_seconds
         )
         if not acquired:
             return TurnStart(TurnDecision.IN_PROGRESS)
+        # Read again under the lock: the running turn may have completed since the first read.
+        settled = self._settled(await self._turn_record(session_id, client_request_id), payload_hash)
+        if settled is not None:
+            await self.release(session_id, client_request_id, lock_token)
+            return settled
         message_id = str(uuid.uuid4())
-        await self._save_turn(session_id, client_request_id, payload_hash, message_id, None)
-        return TurnStart(TurnDecision.NEW, message_id)
+        await self._save_turn(session_id, client_request_id, payload_hash, message_id)
+        return TurnStart(TurnDecision.NEW, message_id, lock_token=lock_token)
 
     async def complete(
-        self, session_id: str, client_request_id: str, question: str, turn: CompletedTurn
+        self,
+        session_id: str,
+        client_request_id: str,
+        lock_token: str,
+        question: str,
+        turn: CompletedTurn,
     ) -> None:
+        if not lock_token:
+            return  # replays hold no lock; history must not grow twice
         record = await self._turn_record(session_id, client_request_id)
-        if record is None or record["completed"] is not None:
-            return  # replays complete again; history must not grow twice
+        if record is None:
+            return
         user, assistant = turn_messages(question, turn)
-        history_key = self._history_key(session_id)
-        async with self._redis.pipeline(transaction=True) as pipe:
-            pipe.set(
-                self._turn_key(session_id, client_request_id),
-                _turn_json(str(record["payload_hash"]), str(record["message_id"]), turn),
-                ex=self._ttl_seconds,
-            )
-            pipe.lpush(history_key, _history_json(user), _history_json(assistant))
-            pipe.ltrim(history_key, 0, self._history_max_messages - 1)
-            pipe.expire(history_key, self._ttl_seconds)
-            await pipe.execute()
+        written = await self._redis.eval(
+            _COMPLETE_TURN,
+            3,
+            self._lock_key(session_id),
+            self._turn_key(session_id, client_request_id),
+            self._history_key(session_id),
+            lock_token,
+            _turn_json(str(record["payload_hash"]), str(record["message_id"]), turn),
+            _history_json(user),
+            _history_json(assistant),
+            self._ttl_seconds,
+            self._history_max_messages - 1,
+        )
+        if not written:
+            # The turn outlived its lock: whoever retook the session owns the history now.
+            logger.warning("turn_not_persisted_lock_lost", extra={"session_id": session_id})
 
-    async def release(self, session_id: str, client_request_id: str) -> None:
-        await self._redis.eval(_RELEASE_LOCK, 1, self._lock_key(session_id), client_request_id)
-        record = await self._turn_record(session_id, client_request_id)
-        if record is not None and record["completed"] is None:
-            # Unfinished turns are forgotten so the browser's reconnect regenerates them.
-            await self._redis.delete(self._turn_key(session_id, client_request_id))
-            await self._redis.srem(self._turns_key(session_id), client_request_id)
+    async def release(self, session_id: str, client_request_id: str, lock_token: str) -> None:
+        await self._redis.eval(
+            _RELEASE_TURN,
+            3,
+            self._lock_key(session_id),
+            self._turn_key(session_id, client_request_id),
+            self._turns_key(session_id),
+            lock_token,
+            client_request_id,
+        )
 
     async def ping(self) -> bool:
         try:
@@ -172,29 +220,40 @@ class RedisSessionStore:
         raw = await self._redis.get(self._turn_key(session_id, client_request_id))
         return cast(dict[str, object], json.loads(raw)) if raw else None
 
+    @staticmethod
+    def _settled(record: dict[str, object] | None, payload_hash: str) -> TurnStart | None:
+        """CONFLICT or REPLAY when the record already decides the request, else None."""
+        if record is None:
+            return None
+        if record["payload_hash"] != payload_hash:
+            return TurnStart(TurnDecision.CONFLICT)
+        if record["completed"] is None:
+            return None
+        completed = _completed_turn(cast(dict[str, object], record["completed"]))
+        return TurnStart(TurnDecision.REPLAY, str(record["message_id"]), completed)
+
     async def _save_turn(
-        self,
-        session_id: str,
-        client_request_id: str,
-        payload_hash: str,
-        message_id: str,
-        completed: CompletedTurn | None,
+        self, session_id: str, client_request_id: str, payload_hash: str, message_id: str
     ) -> None:
-        await self._redis.set(
-            self._turn_key(session_id, client_request_id),
-            _turn_json(payload_hash, message_id, completed),
-            ex=self._ttl_seconds,
-        )
-        await self._redis.sadd(self._turns_key(session_id), client_request_id)
-        await self._redis.expire(self._turns_key(session_id), self._ttl_seconds)
+        async with self._redis.pipeline(transaction=True) as pipe:
+            pipe.set(
+                self._turn_key(session_id, client_request_id),
+                _turn_json(payload_hash, message_id, None),
+                ex=self._ttl_seconds,
+            )
+            pipe.sadd(self._turns_key(session_id), client_request_id)
+            pipe.expire(self._turns_key(session_id), self._ttl_seconds)
+            await pipe.execute()
 
     async def _renew(self, session_id: str) -> None:
-        for key in (
-            self._state_key(session_id),
-            self._history_key(session_id),
-            self._turns_key(session_id),
-        ):
-            await self._redis.expire(key, self._ttl_seconds)
+        async with self._redis.pipeline(transaction=True) as pipe:
+            for key in (
+                self._state_key(session_id),
+                self._history_key(session_id),
+                self._turns_key(session_id),
+            ):
+                pipe.expire(key, self._ttl_seconds)
+            await pipe.execute()
 
     @staticmethod
     def _state_key(session_id: str) -> str:

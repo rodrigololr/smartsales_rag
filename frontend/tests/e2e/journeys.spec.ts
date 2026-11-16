@@ -4,8 +4,11 @@ import {
   AIRFRYER_4L,
   AIRFRYER_55L,
   CACHE_HIT_LIMIT_MS,
+  CHAT_STREAM_PATH,
+  FIRST_TEXT_SMOKE_LIMIT_MS,
+  SESSIONS_PATH,
   SILICONE_KIT,
-  TTFT_LIMIT_MS,
+  answerText,
   ask,
   openProduct,
   shownTtftMs,
@@ -22,14 +25,10 @@ import {
 test("E2E-01: dúvida técnica com streaming SSE e citação da página do manual", async ({ page }) => {
   const assistant = await openProduct(page, AIRFRYER_4L);
 
-  const sentAt = Date.now();
   const answer = await ask(assistant, "Posso usar formas de alumínio no cesto?");
-  const text = answer.locator("div.whitespace-pre-wrap");
-  await expect(text).toBeVisible({ timeout: 30_000 });
-  const firstTokenMs = Date.now() - sentAt;
+  await expect(answerText(answer)).toBeVisible({ timeout: FIRST_TEXT_SMOKE_LIMIT_MS });
   await waitForDone(assistant);
 
-  expect(firstTokenMs, "primeiro token visível no navegador").toBeLessThanOrEqual(TTFT_LIMIT_MS);
   const badge = answer.locator('[data-testid^="citation-badge-"]').first();
   await expect(badge).toContainText("Manual Airfryer SmartChef 4L");
   await expect(badge).toContainText(/p\. ?\d+/);
@@ -55,8 +54,15 @@ test("E2E-02: família grande recebe upsell e cross-sell em estoque", async ({ p
   await expect(carousel.getByTestId(`recommendation-card-${AIRFRYER_55L}`)).toContainText("Upgrade Recomendado");
   await expect(carousel.getByTestId(`recommendation-card-${SILICONE_KIT}`)).toContainText("Compre Junto Compatível");
   await expect(carousel.getByTestId(`recommendation-card-${AIRFRYER_55L}`)).toContainText("220V");
-  for (const sku of [AIRFRYER_4L, AIRFRYER_55L, SILICONE_KIT]) {
-    await expect(carousel.getByTestId(`buy-now-btn-${sku}`)).toBeEnabled();
+  const marketplaceBySku = {
+    [AIRFRYER_4L]: "Amazon",
+    [AIRFRYER_55L]: "Mercado Livre",
+    [SILICONE_KIT]: "Shopee",
+  };
+  for (const [sku, marketplace] of Object.entries(marketplaceBySku)) {
+    const buy = carousel.getByTestId(`buy-now-btn-${sku}`);
+    await expect(buy).toBeEnabled();
+    await expect(buy).toContainText(marketplace);
   }
 });
 
@@ -68,18 +74,34 @@ test.fixme("E2E-04: estoque zerado antes do clique em Comprar agora", async () =
   // Depende de POST /api/v1/checkout/mock com 409 OUT_OF_STOCK (pacote M05, issue #16).
 });
 
-test("E2E-05: pergunta fora do manual recebe fallback seguro, sem números inventados", async ({ page }) => {
-  const assistant = await openProduct(page, AIRFRYER_4L);
+const UNANSWERABLE_QUESTIONS = {
+  "técnica ausente do manual": "Qual é a pressão da bomba em bar?",
+  "fora do domínio": "Qual é a cotação do dólar hoje e o resultado do último jogo?",
+};
 
-  const answer = await ask(assistant, "Qual é a cotação do dólar hoje e o resultado do último jogo?");
-  await waitForDone(assistant);
+for (const [kind, question] of Object.entries(UNANSWERABLE_QUESTIONS)) {
+  test(`E2E-05: pergunta ${kind} recebe fallback seguro, sem números inventados`, async ({ page }) => {
+    const assistant = await openProduct(page, AIRFRYER_4L);
 
-  const fallback = answer.locator('[data-testid^="assistant-fallback-"]');
-  await expect(fallback).toBeVisible();
-  await expect(fallback).toContainText("LOW_SIMILARITY_FALLBACK");
-  await expect(answer.getByTestId("citation-list")).toHaveCount(0);
-  await expect(answer.locator("div.whitespace-pre-wrap")).toHaveCount(0);
-});
+    const answer = await ask(assistant, question);
+    await waitForDone(assistant);
+
+    const fallback = answer.locator('[data-testid^="assistant-fallback-"]');
+    await expect(fallback).toBeVisible();
+    await expect(fallback).toContainText("LOW_SIMILARITY_FALLBACK");
+    await expect(answer.getByTestId("citation-list")).toHaveCount(0);
+    await expect(answerText(answer)).toHaveCount(0);
+
+    // Regra 2: o fallback vem seguido de itens similares em estoque, validados no SQL.
+    const carousel = answer.getByTestId("recommendation-carousel");
+    await expect(carousel).toBeVisible();
+    const buyButtons = carousel.locator('[data-testid^="buy-now-btn-"]');
+    expect(await buyButtons.count()).toBeGreaterThan(0);
+    for (const buy of await buyButtons.all()) {
+      await expect(buy).toBeEnabled();
+    }
+  });
+}
 
 test("E2E-06 (cache): a mesma pergunta em nova sessão volta por cache hit", async ({ page }) => {
   const question = "Qual é a voltagem oficial deste modelo (220V)?";
@@ -102,7 +124,7 @@ test.fixme("E2E-06 (feedback): like persistido no banco", async () => {
 
 test("E2E-07: reiniciar a conversa encerra a sessão e não herda o contexto", async ({ page }) => {
   const assistant = await openProduct(page, AIRFRYER_4L);
-  const firstRequest = page.waitForRequest((request) => request.url().endsWith("/api/v1/chat/stream"));
+  const firstRequest = page.waitForRequest((request) => request.url().endsWith(CHAT_STREAM_PATH));
   await ask(assistant, "Como faço a limpeza do cesto?");
   const firstSession = (await firstRequest).postDataJSON().session_id as string;
   await waitForDone(assistant);
@@ -117,9 +139,16 @@ test("E2E-07: reiniciar a conversa encerra a sessão e não herda o contexto", a
   await expect(assistant.locator('[data-testid^="assistant-message-"]')).toHaveCount(0);
   await expect(assistant.getByTestId("quick-suggestion-0")).toBeVisible();
 
-  const secondRequest = page.waitForRequest((request) => request.url().endsWith("/api/v1/chat/stream"));
+  const created = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" && response.url().endsWith(SESSIONS_PATH),
+  );
+  const secondRequest = page.waitForRequest((request) => request.url().endsWith(CHAT_STREAM_PATH));
   await ask(assistant, "E a garantia?");
+  const newSession = (await (await created).json()) as { session_id: string; history: unknown[] };
+  expect(newSession.history, "a nova sessão nasce sem o histórico anterior").toEqual([]);
   const secondSession = (await secondRequest).postDataJSON().session_id as string;
+  expect(secondSession).toBe(newSession.session_id);
   expect(secondSession).not.toBe(firstSession);
   await waitForDone(assistant);
 });

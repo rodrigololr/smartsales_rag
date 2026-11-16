@@ -97,7 +97,10 @@ export function AssistantMessage({
       ) : null}
 
       {message.content ? (
-        <div className="whitespace-pre-wrap rounded-xl rounded-tl-sm border border-border bg-card p-3 text-sm leading-relaxed text-foreground">
+        <div
+          data-testid="assistant-text"
+          className="whitespace-pre-wrap rounded-xl rounded-tl-sm border border-border bg-card p-3 text-sm leading-relaxed text-foreground"
+        >
           {message.content}
           {message.isStreaming ? (
             <span className="ml-0.5 inline-block h-3.5 w-1 animate-pulse rounded-full bg-primary align-middle" />
