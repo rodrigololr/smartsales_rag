@@ -15,6 +15,7 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
+from functools import partial
 from pathlib import Path
 from uuid import UUID
 
@@ -22,7 +23,11 @@ import psycopg
 import tiktoken
 from pydantic import TypeAdapter
 
-from app.clients.catalog_version import CatalogVersionBumper, RedisCatalogVersion
+from app.clients.catalog_version import (
+    CatalogVersionBumper,
+    CatalogVersionUnavailableError,
+    RedisCatalogVersion,
+)
 from app.clients.openai_client import LLMUnavailableError, OpenAIEmbedder, make_client
 from app.config import Settings, get_settings
 from app.db.repository import (
@@ -55,7 +60,7 @@ class ManualSource:
     source: str
     title: str
     version: str
-    pages: list[str]
+    load_pages: Callable[[], list[str]]  # read inside the job: a broken PDF fails only its job
 
 
 @dataclass
@@ -68,6 +73,7 @@ class IngestionReport:
     relations: int = 0
     needs_intervention: list[str] = field(default_factory=list)
     catalog_version: int | None = None
+    catalog_version_error: str | None = None
 
 
 def load_catalog(path: Path) -> list[CatalogProduct]:
@@ -85,7 +91,7 @@ def sources_for(product: CatalogProduct, manuals_dir: Path) -> list[ManualSource
             source=SPEC_SHEET_SOURCE,
             title=f"Ficha técnica {product.name}",
             version=hashlib.sha256(sheet.encode()).hexdigest(),
-            pages=[sheet],
+            load_pages=lambda: [sheet],
         )
     ]
     manual = find_manual(manuals_dir, product.sku)
@@ -95,7 +101,7 @@ def sources_for(product: CatalogProduct, manuals_dir: Path) -> list[ManualSource
                 source=f"manual:{manual.name}",
                 title=product.manual_title or f"Manual {product.name}",
                 version=hashlib.sha256(manual.read_bytes()).hexdigest(),
-                pages=read_manual_pages(manual),
+                load_pages=partial(read_manual_pages, manual),
             )
         )
     return sources
@@ -116,25 +122,39 @@ async def ingest(
     relations = (
         load_relations(relations_path, {product.sku for product in products})
         if relations_path is not None
-        else []
+        else None
     )
     report = IngestionReport(products=len(products))
     async with await psycopg.AsyncConnection.connect(conninfo, autocommit=True) as conn:
-        await apply_schema(conn)
-        indexer = _SourceIndexer(conn, embedder, settings, report, sleep)
-        for product in products:
-            product_id = await upsert_product(conn, product)
-            sources = sources_for(product, manuals_dir)
-            if len(sources) == 1:
-                report.products_without_manual.append(product.sku)
-            for source in sources:
-                await indexer.index(product, product_id, source)
-        report.relations = await replace_product_relations(conn, relations)
-        report.deactivated = await deactivate_missing(conn, [p.sku for p in products])
-    if catalog_version is not None:
-        # After the commits above (spec 01, section 6): caches built on the old catalog die.
-        report.catalog_version = await catalog_version.bump()
+        try:
+            await apply_schema(conn)
+            indexer = _SourceIndexer(conn, embedder, settings, report, sleep)
+            for product in products:
+                product_id = await upsert_product(conn, product)
+                sources = sources_for(product, manuals_dir)
+                if len(sources) == 1:
+                    report.products_without_manual.append(product.sku)
+                for source in sources:
+                    await indexer.index(product, product_id, source)
+            if relations is not None:  # no seed given: existing relations stay untouched
+                report.relations = await replace_product_relations(conn, relations)
+            report.deactivated = await deactivate_missing(conn, [p.sku for p in products])
+        finally:
+            # Autocommit: even a run that dies midway already changed the catalog, so caches
+            # built on the old one must die too (spec 01, section 6).
+            if catalog_version is not None:
+                await _bump_catalog_version(catalog_version, report)
     return report
+
+
+async def _bump_catalog_version(
+    catalog_version: CatalogVersionBumper, report: IngestionReport
+) -> None:
+    try:
+        report.catalog_version = await catalog_version.bump()
+    except CatalogVersionUnavailableError as error:
+        logger.error("catalog_version_bump_failed", extra={"error": str(error)})
+        report.catalog_version_error = str(error)
 
 
 class _SourceIndexer:
@@ -162,48 +182,64 @@ class _SourceIndexer:
             return
         for attempt in range(1, self._settings.ingestion_max_attempts + 1):
             await start_ingestion_job(
-                self._conn, product_id=product_id, source_file=label, content_hash=source.version
+                self._conn,
+                product_id=product_id,
+                source_file=label,
+                content_hash=source.version,
+                attempt=attempt,
             )
             try:
-                await self._replace_chunks(product, product_id, source)
+                await self._replace_chunks(product, product_id, source, label)
             except RETRYABLE_INGESTION_ERRORS as error:
                 if not await self._retry_after(error, label, source, attempt):
                     return
                 continue
-            await self._finish(label, source, "INDEXED")
+            except Exception as error:
+                # Last line of defence (broken PDF, rejected API key...): retrying cannot fix
+                # it, so the job goes to the operator and the run moves on to the next source.
+                logger.exception("ingestion_source_failed", extra={"source": label})
+                await self._needs_intervention(error, label, source)
+                return
             self._report.indexed_sources.append(label)
             return
 
     async def _replace_chunks(
-        self, product: CatalogProduct, product_id: UUID, source: ManualSource
+        self, product: CatalogProduct, product_id: UUID, source: ManualSource, label: str
     ) -> None:
         rows = _chunk_rows(product, source, self._encoding, self._settings)
         embeddings = await self._embedder.embed([row.content for row in rows])
-        await replace_manual_chunks(
-            self._conn,
-            product_id=product_id,
-            sku=product.sku,
-            manual_source=source.source,
-            manual_version=source.version,
-            rows=[replace(row, embedding=v) for row, v in zip(rows, embeddings, strict=True)],
-        )
+        # One transaction: a crash can never leave new chunks under a job still RUNNING.
+        async with self._conn.transaction():
+            await replace_manual_chunks(
+                self._conn,
+                product_id=product_id,
+                sku=product.sku,
+                manual_source=source.source,
+                manual_version=source.version,
+                rows=[replace(row, embedding=v) for row, v in zip(rows, embeddings, strict=True)],
+            )
+            await self._finish(label, source, "INDEXED")
 
     async def _retry_after(
         self, error: Exception, label: str, source: ManualSource, attempt: int
     ) -> bool:
         """Record the failure; False when the attempts are exhausted (NEEDS_INTERVENTION)."""
-        exhausted = attempt >= self._settings.ingestion_max_attempts
         logger.warning(
             "ingestion_attempt_failed",
-            extra={"source": label, "attempt": attempt, "error": str(error)},
+            extra={"source": label, "attempt": attempt, "error": _describe(error)},
         )
-        status: IngestionJobStatus = "NEEDS_INTERVENTION" if exhausted else "FAILED"
-        await self._finish(label, source, status, last_error=str(error))
-        if exhausted:
-            self._report.needs_intervention.append(label)
+        if attempt >= self._settings.ingestion_max_attempts:
+            await self._needs_intervention(error, label, source)
             return False
+        await self._finish(label, source, "FAILED", last_error=_describe(error))
         await self._sleep(self._settings.ingestion_backoff_seconds * 2 ** (attempt - 1))
         return True
+
+    async def _needs_intervention(
+        self, error: Exception, label: str, source: ManualSource
+    ) -> None:
+        await self._finish(label, source, "NEEDS_INTERVENTION", last_error=_describe(error))
+        self._report.needs_intervention.append(label)
 
     async def _finish(
         self,
@@ -221,11 +257,16 @@ class _SourceIndexer:
         )
 
 
+def _describe(error: Exception) -> str:
+    """repr of the root cause: LLMUnavailableError wraps the provider error without a message."""
+    return repr(error.__cause__ or error)
+
+
 def _chunk_rows(
     product: CatalogProduct, source: ManualSource, encoding: tiktoken.Encoding, settings: Settings
 ) -> list[ChunkRow]:
     rows: list[ChunkRow] = []
-    for page_number, page in enumerate(source.pages, start=1):
+    for page_number, page in enumerate(source.load_pages(), start=1):
         pieces = chunk_page(
             page,
             encoding,
@@ -273,13 +314,18 @@ def main(argv: list[str] | None = None) -> int:
             settings,
             relations_path=args.relations,
             catalog_version=(
-                RedisCatalogVersion(settings.redis_url) if settings.redis_url else None
+                RedisCatalogVersion(
+                    settings.redis_url,
+                    connect_timeout_seconds=settings.redis_connect_timeout_seconds,
+                )
+                if settings.redis_url
+                else None
             ),
         )
     )
     print(json.dumps(report.__dict__, ensure_ascii=False, indent=2))
-    # Sources that exhausted their retries need the operator: fail the seed job.
-    return 1 if report.needs_intervention else 0
+    # Sources needing the operator or a cache left stale: fail the seed job.
+    return 1 if report.needs_intervention or report.catalog_version_error else 0
 
 
 if __name__ == "__main__":
