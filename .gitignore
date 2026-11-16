@@ -30,3 +30,4 @@ Thumbs.db
 
 # Local tooling artifacts
 .openchamber/
+backend/tests/ragas_eval/ragas_checkpoint.json
