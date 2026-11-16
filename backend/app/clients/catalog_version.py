@@ -3,6 +3,8 @@
 from typing import Protocol
 
 from redis.asyncio import Redis
+from redis.asyncio.retry import Retry
+from redis.backoff import NoBackoff
 from redis.exceptions import RedisError
 
 CATALOG_VERSION_KEY = "catalog:version"
@@ -25,7 +27,11 @@ class RedisCatalogVersion:
 
     async def bump(self) -> int:
         client = Redis.from_url(
-            self._redis_url, socket_connect_timeout=self._connect_timeout_seconds
+            self._redis_url,
+            socket_connect_timeout=self._connect_timeout_seconds,
+            socket_timeout=self._connect_timeout_seconds,
+            # INCR is not idempotent. A lost response must not replay it silently.
+            retry=Retry(NoBackoff(), 0),
         )
         try:
             return int(await client.incr(CATALOG_VERSION_KEY))

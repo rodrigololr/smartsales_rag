@@ -32,7 +32,9 @@ from app.clients.openai_client import LLMUnavailableError, OpenAIEmbedder, make_
 from app.config import Settings, get_settings
 from app.db.repository import (
     ChunkRow,
+    IngestionAlreadyRunningError,
     IngestionJobStatus,
+    acquire_ingestion_lock,
     apply_schema,
     current_version,
     deactivate_missing,
@@ -96,12 +98,13 @@ def sources_for(product: CatalogProduct, manuals_dir: Path) -> list[ManualSource
     ]
     manual = find_manual(manuals_dir, product.sku)
     if manual is not None:
+        snapshot = manual.read_bytes()
         sources.append(
             ManualSource(
                 source=f"manual:{manual.name}",
                 title=product.manual_title or f"Manual {product.name}",
-                version=hashlib.sha256(manual.read_bytes()).hexdigest(),
-                load_pages=partial(read_manual_pages, manual),
+                version=hashlib.sha256(snapshot).hexdigest(),
+                load_pages=partial(read_manual_pages, manual, content=snapshot),
             )
         )
     return sources
@@ -126,6 +129,7 @@ async def ingest(
     )
     report = IngestionReport(products=len(products))
     async with await psycopg.AsyncConnection.connect(conninfo, autocommit=True) as conn:
+        await acquire_ingestion_lock(conn)
         try:
             await apply_schema(conn)
             indexer = _SourceIndexer(conn, embedder, settings, report, sleep)
@@ -207,6 +211,8 @@ class _SourceIndexer:
         self, product: CatalogProduct, product_id: UUID, source: ManualSource, label: str
     ) -> None:
         rows = _chunk_rows(product, source, self._encoding, self._settings)
+        if not rows:
+            raise ValueError("Manual contains no extractable text; previous version preserved")
         embeddings = await self._embedder.embed([row.content for row in rows])
         # One transaction: a crash can never leave new chunks under a job still RUNNING.
         async with self._conn.transaction():
@@ -305,24 +311,28 @@ def main(argv: list[str] | None = None) -> int:
     )
     if settings.redis_url is None:
         logger.warning("REDIS_URL não definido: catalog:version não será incrementada")
-    report = asyncio.run(
-        ingest(
-            settings.database_url,
-            args.catalog,
-            args.manuals,
-            embedder,
-            settings,
-            relations_path=args.relations,
-            catalog_version=(
-                RedisCatalogVersion(
-                    settings.redis_url,
-                    connect_timeout_seconds=settings.redis_connect_timeout_seconds,
-                )
-                if settings.redis_url
-                else None
+    try:
+        report = asyncio.run(
+            ingest(
+                settings.database_url,
+                args.catalog,
+                args.manuals,
+                embedder,
+                settings,
+                relations_path=args.relations,
+                catalog_version=(
+                    RedisCatalogVersion(
+                        settings.redis_url,
+                        connect_timeout_seconds=settings.redis_connect_timeout_seconds,
+                    )
+                    if settings.redis_url
+                    else None
+                ),
             ),
         )
-    )
+    except IngestionAlreadyRunningError as error:
+        print(json.dumps({"ingestion_error": str(error)}, ensure_ascii=False, indent=2))
+        return 1
     print(json.dumps(report.__dict__, ensure_ascii=False, indent=2))
     # Sources needing the operator or a cache left stale: fail the seed job.
     return 1 if report.needs_intervention or report.catalog_version_error else 0

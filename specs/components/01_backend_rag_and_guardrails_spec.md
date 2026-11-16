@@ -149,4 +149,14 @@ O evento `correction` fica reservado à substituição por conteúdo seguro apó
 
 Cada manual possui `manual_source` estável e `manual_version` (SHA-256 do PDF). A extração e os embeddings são preparados fora da transação. Sob lock do produto, uma única transação apaga todos os chunks do `manual_source` substituído e insere o conjunto completo da nova versão; apenas depois marca o job INDEXED. Falha faz rollback e preserva integralmente a versão anterior. PDF menor não deixa páginas antigas. `INCR catalog:version` ocorre após commit; falha no Redis bloqueia leitura/escrita do cache até reconciliar a versão. Uma revisão nunca mistura versões na mesma busca.
 
+O hash e a extração usam o mesmo snapshot de bytes do arquivo. Um manual sem texto
+extraível exige intervenção (por exemplo, OCR para PDF digitalizado) e preserva a versão
+anterior. A CLI adquire um advisory lock de sessão no PostgreSQL antes de qualquer escrita:
+como catálogo, relações e desativação são globais, uma segunda ingestão simultânea é
+recusada com saída 1 e `ingestion_error`, sem alterar dados nem incrementar a versão.
+O lock termina quando a conexão fecha, inclusive em falhas. A troca dos chunks também
+trava a linha do produto antes do DELETE, protegendo chamadas diretas ao repositório.
+O cliente Redis limita conexão e leitura por `REDIS_CONNECT_TIMEOUT_SECONDS` (> 0),
+sem repetir automaticamente `INCR` após uma resposta perdida.
+
 Se não houver nenhuma sentença aprovada e a consulta não puder ser respondida com evidência, emitir error LOW_SIMILARITY_FALLBACK, recomendações determinísticas e end; o Gateway conclui com done(fallback). Nunca transmitir o rascunho rejeitado.

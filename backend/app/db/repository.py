@@ -14,6 +14,23 @@ from app.models.schemas import CatalogProduct, ProductRelation, RetrievedChunk
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
 IngestionJobStatus = Literal["INDEXED", "FAILED", "NEEDS_INTERVENTION"]
+INGESTION_LOCK_KEY = 0x5353494E47455354  # stable database-local "SSINGEST" advisory lock
+
+
+class IngestionAlreadyRunningError(RuntimeError):
+    """A catalog-wide ingestion already owns the database's ingestion lock."""
+
+
+async def acquire_ingestion_lock(conn: psycopg.AsyncConnection[object]) -> None:
+    """Hold a session lock until connection close, including preparation and Redis bump.
+
+    The catalog, relation seed and deactivation step are global. Reject overlapping
+    runs before any write; per-source locks alone cannot keep these steps consistent.
+    """
+    cursor = await conn.execute("SELECT pg_try_advisory_lock(%s)", (INGESTION_LOCK_KEY,))
+    row = await cursor.fetchone()
+    if not row or not cast(tuple[bool], row)[0]:
+        raise IngestionAlreadyRunningError("Another ingestion is already running; retry later")
 
 _PRODUCT_COLUMNS = (
     "sku, name, category, subcategory, brand, price, stock_quantity, voltage, "
@@ -125,6 +142,9 @@ async def replace_manual_chunks(
 ) -> None:
     """Swap a manual's chunks atomically: the old version survives any failure."""
     async with conn.transaction():
+        # A concurrent DELETE can miss the rows inserted by the transaction it waited
+        # for. Serialize before DELETE so its statement snapshot sees the full version.
+        await conn.execute("SELECT id FROM products WHERE id = %s FOR UPDATE", (product_id,))
         await conn.execute(
             "DELETE FROM manual_chunks WHERE product_id = %s AND manual_source = %s",
             (product_id, manual_source),
