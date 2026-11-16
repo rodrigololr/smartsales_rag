@@ -116,7 +116,7 @@ async def ingest(
     relations = (
         load_relations(relations_path, {product.sku for product in products})
         if relations_path is not None
-        else []
+        else None
     )
     report = IngestionReport(products=len(products))
     async with await psycopg.AsyncConnection.connect(conninfo, autocommit=True) as conn:
@@ -129,7 +129,8 @@ async def ingest(
                 report.products_without_manual.append(product.sku)
             for source in sources:
                 await indexer.index(product, product_id, source)
-        report.relations = await replace_product_relations(conn, relations)
+        if relations is not None:  # no seed given: existing relations stay untouched
+            report.relations = await replace_product_relations(conn, relations)
         report.deactivated = await deactivate_missing(conn, [p.sku for p in products])
     if catalog_version is not None:
         # After the commits above (spec 01, section 6): caches built on the old catalog die.
