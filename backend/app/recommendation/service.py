@@ -1,7 +1,8 @@
 """Application service of B04: SQL candidates -> RecommendationEngine -> Product Cards.
 
-Every figure of a card comes from the rows read here at answer time (RN01, RN06).
-A lookup failure yields no cards: recommendations never break a technical answer.
+Every figure of a card comes from the rows read here at answer time (RN01, RN06),
+the consulted product included: the turn's own snapshot predates the generation.
+Any failure yields no cards: recommendations never break a technical answer.
 """
 
 import logging
@@ -10,11 +11,14 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
 
+from pydantic import ValidationError
+
 from app.models.schemas import CatalogProduct
 from app.recommendation.cards import ProductCard, build_card, upsell_justification
 from app.recommendation.engine import RecommendationEngine
 from app.recommendation.models import (
     CompatibilityEvidence,
+    DomainInputError,
     Product,
     Recommendation,
     RecommendationCandidate,
@@ -39,6 +43,8 @@ class CrossSellRelation:
 
 
 class RecommendationCatalog(Protocol):
+    async def current_product(self, sku: str) -> CatalogProduct | None: ...
+
     async def upsell_candidates(self, base: CatalogProduct) -> list[CatalogProduct]: ...
 
     async def cross_sell_relations(self, sku: str) -> list[CrossSellRelation]: ...
@@ -83,14 +89,31 @@ class RecommendationService:
         allow_upsell: bool,
         requested_voltage: Voltage | None = None,
     ) -> list[ProductCard]:
-        """At most 3 cards (PRIMARY, UPSELL, CROSS_SELL), all in stock at this instant."""
+        """At most 3 cards (PRIMARY, UPSELL, CROSS_SELL), all in stock at this instant.
+
+        `base` only names the consulted product; its row is read again here.
+        """
         try:
-            upsells = await self._catalog.upsell_candidates(base)
-            relations = await self._catalog.cross_sell_relations(base.sku)
-            similarities = await self._similarities(upsells, relations, query_embedding)
-        except RecommendationLookupError:
-            logger.exception("recommendation_lookup_failed", extra={"sku": base.sku})
+            return await self._current_cards(
+                base.sku, query_embedding, allow_upsell, requested_voltage
+            )
+        except (RecommendationLookupError, DomainInputError, ValidationError):
+            logger.exception("recommendation_failed", extra={"sku": base.sku})
             return []
+
+    async def _current_cards(
+        self,
+        sku: str,
+        query_embedding: Sequence[float] | None,
+        allow_upsell: bool,
+        requested_voltage: Voltage | None,
+    ) -> list[ProductCard]:
+        base = await self._catalog.current_product(sku)
+        if base is None or not base.is_active:
+            return []
+        upsells = await self._catalog.upsell_candidates(base)
+        relations = await self._catalog.cross_sell_relations(base.sku)
+        similarities = await self._similarities(upsells, relations, query_embedding)
         selected = self._engine.recommend(
             _engine_product(base),
             [
