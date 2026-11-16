@@ -5,7 +5,7 @@ import { defineConfig, devices } from "@playwright/test";
  *   docker compose up --build        (vitrine em :3000, gateway em :8000)
  *   pnpm -C frontend exec playwright install chromium
  *   pnpm -C frontend run test:e2e
- * E2E_BASE_URL aponta para outra vitrine; E2E_API_URL, para outro gateway.
+ * E2E_BASE_URL aponta para outra vitrine.
  */
 export default defineConfig({
   testDir: "./tests/e2e",
