@@ -62,6 +62,7 @@ async def create_session(body: SessionCreate, request: Request) -> JSONResponse:
     store: SessionStore = request.app.state.store
     settings: Settings = request.app.state.settings
     if body.session_id is not None:
+        request.state.session_id = str(body.session_id)  # for error logs
         active = await store.get(str(body.session_id))
         if active is not None:
             return JSONResponse(_session_body(active, settings, restored=True), status_code=200)
@@ -72,6 +73,7 @@ async def create_session(body: SessionCreate, request: Request) -> JSONResponse:
 @router.delete("/sessions/{session_id}", status_code=204, response_model=None)
 async def end_session(session_id: uuid.UUID, request: Request) -> Response:
     store: SessionStore = request.app.state.store
+    request.state.session_id = str(session_id)  # for error logs
     if not await store.delete(str(session_id)):
         return error_response(404, "SESSION_NOT_FOUND", "Sessão não encontrada ou expirada.")
     return Response(status_code=204)
@@ -84,6 +86,7 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
     backend: RagBackend = request.app.state.backend
     settings: Settings = request.app.state.settings
 
+    request.state.session_id = str(body.session_id)  # for error logs
     session = await store.get(str(body.session_id))
     if session is None:
         return error_response(404, "SESSION_NOT_FOUND", "Sessão não encontrada ou expirada.")
@@ -113,10 +116,12 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
         stream = backend.open_stream(sku, body.message, list(session.history))
 
     async def release_turn() -> None:
-        await store.release(session.session_id, request_id)
+        await store.release(session.session_id, request_id, turn.lock_token)
 
     async def complete_turn(completed: CompletedTurn) -> None:
-        await store.complete(session.session_id, request_id, body.message, completed)
+        await store.complete(
+            session.session_id, request_id, turn.lock_token, body.message, completed
+        )
 
     frames = sse_chat_generator(
         request,
