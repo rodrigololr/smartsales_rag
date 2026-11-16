@@ -9,9 +9,7 @@ from app.models.schemas import ProductRelation
 
 
 def load_relations(path: Path, catalog_skus: Collection[str]) -> list[ProductRelation]:
-    """Relations from the seed file; a missing file means the catalog has none."""
-    if not path.is_file():
-        return []
+    """Relations from the seed file; a missing file raises (only an explicit [] means none)."""
     relations = TypeAdapter(list[ProductRelation]).validate_json(path.read_bytes())
     seen: set[tuple[str, str, str]] = set()
     for relation in relations:

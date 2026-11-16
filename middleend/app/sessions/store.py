@@ -43,6 +43,9 @@ class TurnStart:
     kind: TurnDecision
     message_id: str = ""
     completed: CompletedTurn | None = None
+    # Set only for NEW: proves ownership of this acquisition of the session lock, so a
+    # stale owner with the same client_request_id cannot complete or release the retry.
+    lock_token: str = ""
 
 
 class SessionStore(Protocol):
@@ -61,13 +64,21 @@ class SessionStore(Protocol):
         ...
 
     async def complete(
-        self, session_id: str, client_request_id: str, question: str, turn: CompletedTurn
+        self,
+        session_id: str,
+        client_request_id: str,
+        lock_token: str,
+        question: str,
+        turn: CompletedTurn,
     ) -> None:
-        """Persist the approved turn once: idempotency record plus the history window."""
+        """Persist the approved turn once: idempotency record plus the history window.
+
+        Writes nothing unless `lock_token` still owns the session lock.
+        """
         ...
 
-    async def release(self, session_id: str, client_request_id: str) -> None:
-        """Free the lock held by this request; an unfinished turn may be retried."""
+    async def release(self, session_id: str, client_request_id: str, lock_token: str) -> None:
+        """Free the lock if `lock_token` still owns it; its unfinished turn may be retried."""
         ...
 
     async def ping(self) -> bool: ...
@@ -95,7 +106,7 @@ class _Session:
     expires_at: float
     history: list[HistoryItem] = field(default_factory=list)
     turns: dict[str, _TurnRecord] = field(default_factory=dict)
-    running_request_id: str | None = None
+    running_lock_token: str | None = None
 
 
 class InMemorySessionStore:
@@ -138,31 +149,37 @@ class InMemorySessionStore:
             return TurnStart(TurnDecision.CONFLICT)
         if record is not None and record.completed is not None:
             return TurnStart(TurnDecision.REPLAY, record.message_id, record.completed)
-        if session.running_request_id is not None:
+        if session.running_lock_token is not None:
             return TurnStart(TurnDecision.IN_PROGRESS)
-        message_id = str(uuid.uuid4())
+        message_id, lock_token = str(uuid.uuid4()), str(uuid.uuid4())
         session.turns[client_request_id] = _TurnRecord(payload_hash, message_id)
-        session.running_request_id = client_request_id
-        return TurnStart(TurnDecision.NEW, message_id)
+        session.running_lock_token = lock_token
+        return TurnStart(TurnDecision.NEW, message_id, lock_token=lock_token)
 
     async def complete(
-        self, session_id: str, client_request_id: str, question: str, turn: CompletedTurn
+        self,
+        session_id: str,
+        client_request_id: str,
+        lock_token: str,
+        question: str,
+        turn: CompletedTurn,
     ) -> None:
         session = self._sessions.get(session_id)
-        record = session.turns.get(client_request_id) if session else None
-        if session is None or record is None or record.completed is not None:
-            return  # replays complete again; history must not grow twice
+        if session is None or session.running_lock_token != lock_token:
+            return  # replays and stale owners hold no lock; history must not grow twice
+        record = session.turns.get(client_request_id)
+        if record is None or record.completed is not None:
+            return
         record.completed = turn
         session.history = [*session.history, *turn_messages(question, turn)][
             -self._history_max_messages :
         ]
 
-    async def release(self, session_id: str, client_request_id: str) -> None:
+    async def release(self, session_id: str, client_request_id: str, lock_token: str) -> None:
         session = self._sessions.get(session_id)
-        if session is None:
+        if session is None or session.running_lock_token != lock_token:
             return
-        if session.running_request_id == client_request_id:
-            session.running_request_id = None
+        session.running_lock_token = None
         record = session.turns.get(client_request_id)
         if record is not None and record.completed is None:
             # Unfinished turns are forgotten so the browser's reconnect regenerates them.

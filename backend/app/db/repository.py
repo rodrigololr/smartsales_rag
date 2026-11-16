@@ -71,6 +71,13 @@ class PostgresCatalog:
             rows = await cursor.fetchall()
         return [RetrievedChunk.model_validate(row) for row in rows]
 
+    async def current_product(self, sku: str) -> CatalogProduct | None:
+        """The consulted product as it is now, for the PRIMARY card (RN01, RN06)."""
+        rows = await self._recommendation_rows(
+            f"SELECT {_PRODUCT_COLUMNS} FROM products WHERE sku = %s", (sku,)
+        )
+        return CatalogProduct.model_validate(rows[0]) if rows else None
+
     async def upsell_candidates(self, base: CatalogProduct) -> list[CatalogProduct]:
         """In-stock products of the base's subcategory; RN04 price/tier rules stay in the engine."""
         rows = await self._recommendation_rows(
@@ -221,17 +228,18 @@ async def start_ingestion_job(
     product_id: UUID,
     source_file: str,
     content_hash: str,
+    attempt: int,
 ) -> None:
-    """Open (or reopen) the job of this source version as RUNNING and count the attempt."""
+    """Open (or reopen) the job of this source version as RUNNING on the run's nth attempt."""
     await conn.execute(
         """
         INSERT INTO ingestion_jobs (product_id, source_file, content_hash, status, attempts)
-        VALUES (%s, %s, %s, 'RUNNING', 1)
+        VALUES (%s, %s, %s, 'RUNNING', %s)
         ON CONFLICT (source_file, content_hash) DO UPDATE SET
             product_id = EXCLUDED.product_id, status = 'RUNNING',
-            attempts = ingestion_jobs.attempts + 1, last_error = NULL, updated_at = NOW()
+            attempts = EXCLUDED.attempts, last_error = NULL, updated_at = NOW()
         """,
-        (product_id, source_file, content_hash),
+        (product_id, source_file, content_hash, attempt),
     )
 
 
@@ -248,6 +256,13 @@ async def finish_ingestion_job(
         "WHERE source_file = %s AND content_hash = %s",
         (status, last_error, source_file, content_hash),
     )
+    if status == "INDEXED":
+        # Unfinished jobs of older versions of this source are settled by this one.
+        await conn.execute(
+            "DELETE FROM ingestion_jobs "
+            "WHERE source_file = %s AND content_hash <> %s AND status <> 'INDEXED'",
+            (source_file, content_hash),
+        )
 
 
 async def replace_product_relations(
