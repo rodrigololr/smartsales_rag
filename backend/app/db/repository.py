@@ -157,6 +157,10 @@ async def replace_product_relations(
 ) -> int:
     """The seed is the source of truth: relations absent from it stop being offered."""
     async with conn.transaction():
+        # Serialize whole-table replacements before DELETE takes its READ COMMITTED
+        # snapshot. Readers keep seeing the committed seed; commit/rollback releases
+        # this writer lock, including for an explicit empty replacement seed.
+        await conn.execute("LOCK TABLE product_relations IN SHARE ROW EXCLUSIVE MODE")
         await conn.execute("DELETE FROM product_relations")
         async with conn.cursor() as cursor:
             await cursor.executemany(

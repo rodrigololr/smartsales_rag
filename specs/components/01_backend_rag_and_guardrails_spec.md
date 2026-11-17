@@ -41,6 +41,14 @@ flowchart LR
 - Etapas: validação de *schema* do catálogo (`UT-B01-01`) → *upsert* em `products`/`product_relations` → para cada PDF novo ou alterado (`content_hash` SHA-256 diferente) cria/atualiza `ingestion_jobs` (`PENDING → RUNNING → INDEXED`) → extração, *chunking*, *embeddings* e substituição transacional dos chunks da versão anterior (seção 6) → ao final, `INCR catalog:version` no Redis (`RN09`).
 - Falhas: até `3` tentativas com *backoff* exponencial; esgotadas, o job vai para `NEEDS_INTERVENTION` e é listado na saída da CLI e no painel `/admin/metricas` (`UC09`). Produtos removidos do *seed* são marcados `is_active = FALSE` e seus *chunks* apagados.
 
+Quando `--relations` é informado, o seed substitui integralmente `product_relations`
+em uma transação. Antes do DELETE, adquirir `LOCK TABLE product_relations IN SHARE
+ROW EXCLUSIVE MODE` para serializar escritores, inclusive ao publicar `[]`; leituras
+continuam vendo o último seed confirmado. Commit ou rollback libera o bloqueio.
+Sem `--relations`, preservar as relações existentes; arquivo informado e inexistente
+é erro. Este bloqueio protege a substituição da tabela e complementa o lock global
+de ingestão de B03, responsável pelos demais passos da carga.
+
 ### 2.1. Regras de Processamento de Manuais Técnicos (`EAP 4.2`)
 1. **Extração por Página com Preservação de Tabelas**:
    - Cada página do PDF é extraída mantendo seu número original (`page_number >= 1`).
