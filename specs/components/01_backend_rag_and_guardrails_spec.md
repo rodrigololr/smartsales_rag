@@ -41,6 +41,14 @@ flowchart LR
 - Etapas: validação de *schema* do catálogo (`UT-B01-01`) → *upsert* em `products`/`product_relations` → para cada PDF novo ou alterado (`content_hash` SHA-256 diferente) cria/atualiza `ingestion_jobs` (`PENDING → RUNNING → INDEXED`) → extração, *chunking*, *embeddings* e substituição transacional dos chunks da versão anterior (seção 6) → ao final, `INCR catalog:version` no Redis (`RN09`).
 - Falhas: até `3` tentativas com *backoff* exponencial; esgotadas, o job vai para `NEEDS_INTERVENTION` e é listado na saída da CLI e no painel `/admin/metricas` (`UC09`). Produtos removidos do *seed* são marcados `is_active = FALSE` e seus *chunks* apagados.
 
+Quando `--relations` é informado, o seed substitui integralmente `product_relations`
+em uma transação. Antes do DELETE, adquirir `LOCK TABLE product_relations IN SHARE
+ROW EXCLUSIVE MODE` para serializar escritores, inclusive ao publicar `[]`; leituras
+continuam vendo o último seed confirmado. Commit ou rollback libera o bloqueio.
+Sem `--relations`, preservar as relações existentes; arquivo informado e inexistente
+é erro. Este bloqueio protege a substituição da tabela e complementa o lock global
+de ingestão de B03, responsável pelos demais passos da carga.
+
 ### 2.1. Regras de Processamento de Manuais Técnicos (`EAP 4.2`)
 1. **Extração por Página com Preservação de Tabelas**:
    - Cada página do PDF é extraída mantendo seu número original (`page_number >= 1`).
@@ -148,5 +156,39 @@ O evento `correction` fica reservado à substituição por conteúdo seguro apó
 ## 6. Ingestão versionada e publicação atômica
 
 Cada manual possui `manual_source` estável e `manual_version` (SHA-256 do PDF). A extração e os embeddings são preparados fora da transação. Sob lock do produto, uma única transação apaga todos os chunks do `manual_source` substituído e insere o conjunto completo da nova versão; apenas depois marca o job INDEXED. Falha faz rollback e preserva integralmente a versão anterior. PDF menor não deixa páginas antigas. `INCR catalog:version` ocorre após commit; falha no Redis bloqueia leitura/escrita do cache até reconciliar a versão. Uma revisão nunca mistura versões na mesma busca.
+
+O hash e a extração usam o mesmo snapshot de bytes do arquivo. Um manual sem texto
+extraível exige intervenção (por exemplo, OCR para PDF digitalizado) e preserva a versão
+anterior. A CLI adquire um advisory lock de sessão no PostgreSQL antes de qualquer escrita:
+como catálogo, relações e desativação são globais, uma segunda ingestão simultânea é
+recusada com saída 1 e `ingestion_error`, sem alterar dados nem incrementar a versão.
+O lock termina quando a conexão fecha, inclusive em falhas. A troca dos chunks também
+trava a linha do produto antes do DELETE, protegendo chamadas diretas ao repositório.
+O cliente Redis limita conexão e leitura por `REDIS_CONNECT_TIMEOUT_SECONDS` (> 0),
+sem repetir automaticamente `INCR` após uma resposta perdida.
+
+O SHA-256 do arquivo permanece em `manual_version`. O campo JSON
+`metadata.ingestion_fingerprint` identifica adicionalmente título, cabeçalho de
+contexto, modelo/provedor de embeddings, dimensões e parâmetros de chunking.
+Só pular a fonte se todos os chunks tiverem o mesmo hash e fingerprint atual;
+mudança de contexto ou configuração reconstrói o índice. Chunks anteriores sem
+fingerprint são reindexados uma vez. Se os chunks atuais já estiverem completos,
+reconciliar jobs ausentes como INDEXED sem chamar embeddings (attempts=0 para o
+registro reconstruído). Uma troca de extensão aposenta os chunks do manual
+anterior do SKU somente na transação que confirma a nova versão.
+
+Erro de leitura que impede obter os bytes/hash é listado em `source_read_errors`
+e `needs_intervention`, preservando a versão anterior e processando as demais
+fontes. Não inventar um content_hash para um arquivo que não pôde ser lido.
+
+Na publicação, preço e valores elétricos/capacidade são conferidos contra o SQL
+do SKU consultado. Sentenças SQL usam estruturas simples que vinculam atributo
+e unidade; afirmações não verificáveis caem no fallback. Para outros fatos,
+exigir extrato literal da evidência, preservando negações e restrições. Citações
+precisam sustentar a sentença na página indicada; se um extrato não vier com
+citação, vinculá-lo deterministicamente ao chunk de suporte. Emitir apenas seus
+IDs no evento citations, sem acrescentar páginas não utilizadas. Chunks de outro
+SKU não entram no prompt. O protocolo SSE permanece igual; nenhuma correção de
+fato incorreto depende de já tê-lo exposto ao usuário.
 
 Se não houver nenhuma sentença aprovada e a consulta não puder ser respondida com evidência, emitir error LOW_SIMILARITY_FALLBACK, recomendações determinísticas e end; o Gateway conclui com done(fallback). Nunca transmitir o rascunho rejeitado.

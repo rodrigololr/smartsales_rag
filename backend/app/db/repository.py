@@ -15,6 +15,23 @@ from app.recommendation.service import CrossSellRelation, RecommendationLookupEr
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
 IngestionJobStatus = Literal["INDEXED", "FAILED", "NEEDS_INTERVENTION"]
+INGESTION_LOCK_KEY = 0x5353494E47455354  # stable database-local "SSINGEST" advisory lock
+
+
+class IngestionAlreadyRunningError(RuntimeError):
+    """A catalog-wide ingestion already owns the database's ingestion lock."""
+
+
+async def acquire_ingestion_lock(conn: psycopg.AsyncConnection[object]) -> None:
+    """Hold a session lock until connection close, including preparation and Redis bump.
+
+    The catalog, relation seed and deactivation step are global. Reject overlapping
+    runs before any write; per-source locks alone cannot keep these steps consistent.
+    """
+    cursor = await conn.execute("SELECT pg_try_advisory_lock(%s)", (INGESTION_LOCK_KEY,))
+    row = await cursor.fetchone()
+    if not row or not cast(tuple[bool], row)[0]:
+        raise IngestionAlreadyRunningError("Another ingestion is already running; retry later")
 
 _PRODUCT_COLUMNS = (
     "sku, name, category, subcategory, brand, price, stock_quantity, voltage, "
@@ -34,6 +51,7 @@ class ChunkRow:
     content: str
     embedding: list[float]
     manual_title: str
+    ingestion_fingerprint: str | None = None
 
 
 class PostgresCatalog:
@@ -172,12 +190,15 @@ async def upsert_product(conn: psycopg.AsyncConnection[object], product: Catalog
 
 
 async def current_version(
-    conn: psycopg.AsyncConnection[object], product_id: UUID, manual_source: str
+    conn: psycopg.AsyncConnection[object], product_id: UUID, manual_source: str,
+    *, fingerprint: str | None = None,
 ) -> str | None:
     cursor = await conn.execute(
-        "SELECT manual_version FROM manual_chunks WHERE product_id = %s AND manual_source = %s "
-        "LIMIT 1",
-        (product_id, manual_source),
+        "SELECT MIN(manual_version) FROM manual_chunks "
+        "WHERE product_id = %s AND manual_source = %s "
+        "HAVING COUNT(DISTINCT manual_version) = 1 AND "
+        "(%s::text IS NULL OR BOOL_AND(COALESCE(metadata->>'ingestion_fingerprint' = %s, FALSE)))",
+        (product_id, manual_source, fingerprint, fingerprint),
     )
     row = await cursor.fetchone()
     return cast(str, cast(tuple[object, ...], row)[0]) if row else None
@@ -194,6 +215,10 @@ async def replace_manual_chunks(
 ) -> None:
     """Swap a manual's chunks atomically: the old version survives any failure."""
     async with conn.transaction():
+        # A concurrent DELETE can miss the rows inserted by the transaction it waited
+        # for. Serialize before DELETE so its statement snapshot sees the full version.
+        await conn.execute("SELECT id FROM products WHERE id = %s FOR UPDATE", (product_id,))
+        await retire_other_manual_sources(conn, product_id, sku, manual_source)
         await conn.execute(
             "DELETE FROM manual_chunks WHERE product_id = %s AND manual_source = %s",
             (product_id, manual_source),
@@ -202,8 +227,8 @@ async def replace_manual_chunks(
             await cursor.executemany(
                 """
                 INSERT INTO manual_chunks (product_id, sku, manual_title, page_number,
-                    chunk_index, manual_source, manual_version, content, embedding)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::vector)
+                    chunk_index, manual_source, manual_version, content, embedding, metadata)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::vector, %s::jsonb)
                 """,
                 [
                     (
@@ -216,10 +241,39 @@ async def replace_manual_chunks(
                         manual_version,
                         row.content,
                         vector_literal(row.embedding),
+                        json.dumps({"ingestion_fingerprint": row.ingestion_fingerprint}),
                     )
                     for row in rows
                 ],
             )
+
+
+async def retire_other_manual_sources(
+    conn: psycopg.AsyncConnection[object], product_id: UUID, sku: str, source: str,
+) -> None:
+    """A SKU has one active manual, even when its filename extension changes."""
+    if source.startswith("manual:"):
+        await conn.execute(
+            "DELETE FROM manual_chunks WHERE product_id = %s "
+            "AND manual_source LIKE 'manual:%%' AND manual_source <> %s", (product_id, source),
+        )
+        await conn.execute(
+            "DELETE FROM ingestion_jobs WHERE product_id = %s "
+            "AND source_file LIKE %s AND source_file <> %s AND status <> 'INDEXED'",
+            (product_id, f"{sku}/manual:%", f"{sku}/{source}"),
+        )
+
+
+async def ensure_indexed_job(
+    conn: psycopg.AsyncConnection[object], product_id: UUID, label: str, version: str,
+) -> None:
+    """Backfill bookkeeping for already committed chunks, preserving attempt history."""
+    await conn.execute(
+        "INSERT INTO ingestion_jobs (product_id, source_file, content_hash, status, attempts) "
+        "VALUES (%s, %s, %s, 'INDEXED', 0) ON CONFLICT (source_file, content_hash) DO NOTHING",
+        (product_id, label, version),
+    )
+    await finish_ingestion_job(conn, source_file=label, content_hash=version, status="INDEXED")
 
 
 async def start_ingestion_job(
@@ -270,6 +324,10 @@ async def replace_product_relations(
 ) -> int:
     """The seed is the source of truth: relations absent from it stop being offered."""
     async with conn.transaction():
+        # Serialize whole-table replacements before DELETE takes its READ COMMITTED
+        # snapshot. Readers keep seeing the committed seed; commit/rollback releases
+        # this writer lock, including for an explicit empty replacement seed.
+        await conn.execute("LOCK TABLE product_relations IN SHARE ROW EXCLUSIVE MODE")
         await conn.execute("DELETE FROM product_relations")
         async with conn.cursor() as cursor:
             await cursor.executemany(

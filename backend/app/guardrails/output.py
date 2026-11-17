@@ -9,8 +9,10 @@ Claim = tuple[str, str]
 _UNITS = {
     "v": "V", "volt": "V", "volts": "V",
     "w": "W", "watt": "W", "watts": "W",
+    "kw": "kW", "quilowatt": "kW", "quilowatts": "kW",
     "l": "L", "litro": "L", "litros": "L",
-    "ml": "mL", "bar": "bar", "kg": "kg", "g": "g",
+    "ml": "mL", "mililitro": "mL", "mililitros": "mL",
+    "bar": "bar", "kg": "kg", "g": "g",
     "min": "min", "minuto": "min", "minutos": "min",
     "°c": "°C", "ºc": "°C", "graus": "°C",
     "cm": "cm", "mm": "mm",
@@ -22,6 +24,10 @@ _FIGURE = re.compile(
     re.IGNORECASE,
 )
 _BIVOLT = re.compile(r"\bbivolt\b", re.IGNORECASE)
+_MONEY = re.compile(
+    r"(?:R\$\s*|\b(?:custa|pre[cç]o(?:\s+atual)?(?:\s+(?:de|é))?)\s*:?\s*)(\d[\d.,]*)"
+    r"|(\d[\d.,]*)\s*reais\b", re.IGNORECASE,
+)
 _SENTENCE_END = ".!?"
 
 
@@ -33,7 +39,20 @@ def _number(raw: str) -> str:
 
 
 def technical_claims(text: str) -> set[Claim]:
-    claims = {(_number(value), _UNITS[unit.lower()]) for value, unit in _FIGURE.findall(text)}
+    claims: set[Claim] = set()
+    for value, raw_unit in _FIGURE.findall(text):
+        unit = _UNITS[raw_unit.lower()]
+        if unit in {"mL", "kW"}:
+            value = str(Decimal(_number(value)) * (Decimal("0.001") if unit == "mL" else 1000))
+            unit = "L" if unit == "mL" else "W"
+        claims.add((_number(value), unit))
+    for prefixed, suffixed in _MONEY.findall(text):
+        raw = (prefixed or suffixed).rstrip(".,")
+        if "," in raw:
+            raw = raw.replace(".", "").replace(",", ".")
+        elif raw.count(".") > 1 or ("." in raw and len(raw.rsplit(".", 1)[1]) == 3):
+            raw = raw.replace(".", "")
+        claims.add((_number(raw), "BRL"))
     if _BIVOLT.search(text):
         claims.add(("bivolt", "V"))
     return claims

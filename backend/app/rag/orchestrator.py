@@ -6,15 +6,15 @@ mandatory `end` marker.
 """
 
 import logging
-import re
 from collections.abc import AsyncIterator, Callable, Sequence
 from typing import Protocol
 
 from app.clients.openai_client import LLMUnavailableError
 from app.config import Settings
-from app.generation.prompt import Message, build_messages, catalog_block
+from app.generation.prompt import Message, build_messages
 from app.guardrails.input import is_prompt_injection
-from app.guardrails.output import Claim, SentenceBuffer, technical_claims, unsupported_claims
+from app.guardrails.output import SentenceBuffer
+from app.guardrails.publication import SentenceVerifier
 from app.models.schemas import CatalogProduct, RagRequest, RetrievedChunk
 from app.recommendation.intent import wants_upgrade
 from app.recommendation.models import Voltage
@@ -37,7 +37,6 @@ MISSING_EVIDENCE_NOTICE = (
     "Essa especificação específica não consta no manual técnico oficial deste modelo. "
 )
 EXCERPT_MAX_CHARS = 400
-_CITATION_MARK = re.compile(r"\[Fonte:\s*(.+?),\s*p\.\s*(\d+)\]")
 ANSWER_INTENT = "TECHNICAL_QA"
 
 
@@ -81,12 +80,6 @@ def _end(tokens_used: int, intent: str) -> InternalEvent:
 def _token(delta: str) -> InternalEvent:
     return {"event": "token", "data": {"delta": delta}}
 
-
-def _cited_chunks(published: str, chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
-    """Chunks the answer actually cites; all retrieved evidence if it cites none."""
-    marks = {(title.strip(), int(page)) for title, page in _CITATION_MARK.findall(published)}
-    cited = [c for c in chunks if (c.manual_title, c.page_number) in marks]
-    return cited or chunks
 
 
 def _citation(chunk: RetrievedChunk) -> dict[str, object]:
@@ -157,7 +150,8 @@ class RAGOrchestrator:
         found = await self._chunks.search(
             request.sku, query_embedding, self._settings.retrieval_top_k
         )
-        evidence = [c for c in found if c.similarity_score >= self._settings.similarity_threshold]
+        evidence = [c for c in found if c.sku == request.sku
+                    and c.similarity_score >= self._settings.similarity_threshold]
         return query_embedding, evidence
 
     async def _recommendations(
@@ -202,19 +196,15 @@ class RAGOrchestrator:
             request.question,
             history_limit=self._settings.history_max_messages,
         )
-        evidence = technical_claims(
-            catalog_block(product) + "\n" + "\n".join(c.content for c in chunks)
-        )
-        gate = _PublicationGate(evidence, request.sku)
+        verifier = SentenceVerifier(product, chunks)
+        gate = _PublicationGate(verifier, request.sku)
         draft: list[str] = []
-        published: list[str] = []
         buffer = SentenceBuffer()
         try:
             async for delta in self._chat_model.stream(messages):
                 draft.append(delta)
                 for sentence in buffer.feed(delta):
                     for approved in gate.review(sentence):
-                        published.append(approved)
                         yield _token(approved)
         except LLMUnavailableError:
             logger.exception("llm_unavailable", extra={"sku": request.sku})
@@ -224,7 +214,6 @@ class RAGOrchestrator:
             yield _end(0, ANSWER_INTENT)
             return
         for approved in gate.review(buffer.flush()) + gate.close():
-            published.append(approved)
             yield _token(approved)
         tokens_used = self._count_tokens("".join(draft))
         if not gate.approved:
@@ -233,7 +222,7 @@ class RAGOrchestrator:
                 yield event
             yield _end(tokens_used, "LOW_SIMILARITY")
             return
-        cited = _cited_chunks("".join(published), chunks)
+        cited = [chunk for chunk in chunks if chunk.chunk_id in verifier.cited_chunk_ids]
         yield {"event": "citations", "data": {"citations": [_citation(c) for c in cited]}}
         for event in await self._recommendations(
             request, product, query_embedding, substitutes=False
@@ -246,8 +235,8 @@ class _PublicationGate:
     """Publishes approved sentences; a blocked sentence becomes the missing-evidence
     notice, emitted only next to approved text so a fully rejected draft publishes nothing."""
 
-    def __init__(self, evidence: set[Claim], sku: str) -> None:
-        self._evidence = evidence
+    def __init__(self, verifier: SentenceVerifier, sku: str) -> None:
+        self._verifier = verifier
         self._sku = sku
         self._notice_pending = False
         self._notice_sent = False
@@ -256,13 +245,13 @@ class _PublicationGate:
     def review(self, sentence: str) -> list[str]:
         if not sentence.strip():
             return [sentence] if self.approved else []
-        rejected = unsupported_claims(sentence, self._evidence)
-        if rejected:
-            logger.warning("gout_blocked_sentence", extra={"sku": self._sku, "claims": sorted(rejected)})
+        approved = self._verifier.approve(sentence)
+        if approved is None:
+            logger.warning("gout_blocked_sentence", extra={"sku": self._sku})
             self._notice_pending = True
             return []
         self.approved += 1
-        return [*self._notice(), sentence]
+        return [*self._notice(), approved]
 
     def close(self) -> list[str]:
         return self._notice() if self.approved else []
