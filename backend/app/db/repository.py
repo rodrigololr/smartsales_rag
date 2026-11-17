@@ -50,6 +50,7 @@ class ChunkRow:
     content: str
     embedding: list[float]
     manual_title: str
+    ingestion_fingerprint: str | None = None
 
 
 class PostgresCatalog:
@@ -120,12 +121,15 @@ async def upsert_product(conn: psycopg.AsyncConnection[object], product: Catalog
 
 
 async def current_version(
-    conn: psycopg.AsyncConnection[object], product_id: UUID, manual_source: str
+    conn: psycopg.AsyncConnection[object], product_id: UUID, manual_source: str,
+    *, fingerprint: str | None = None,
 ) -> str | None:
     cursor = await conn.execute(
-        "SELECT manual_version FROM manual_chunks WHERE product_id = %s AND manual_source = %s "
-        "LIMIT 1",
-        (product_id, manual_source),
+        "SELECT MIN(manual_version) FROM manual_chunks "
+        "WHERE product_id = %s AND manual_source = %s "
+        "HAVING COUNT(DISTINCT manual_version) = 1 AND "
+        "(%s::text IS NULL OR BOOL_AND(COALESCE(metadata->>'ingestion_fingerprint' = %s, FALSE)))",
+        (product_id, manual_source, fingerprint, fingerprint),
     )
     row = await cursor.fetchone()
     return cast(str, cast(tuple[object, ...], row)[0]) if row else None
@@ -145,6 +149,7 @@ async def replace_manual_chunks(
         # A concurrent DELETE can miss the rows inserted by the transaction it waited
         # for. Serialize before DELETE so its statement snapshot sees the full version.
         await conn.execute("SELECT id FROM products WHERE id = %s FOR UPDATE", (product_id,))
+        await retire_other_manual_sources(conn, product_id, sku, manual_source)
         await conn.execute(
             "DELETE FROM manual_chunks WHERE product_id = %s AND manual_source = %s",
             (product_id, manual_source),
@@ -153,8 +158,8 @@ async def replace_manual_chunks(
             await cursor.executemany(
                 """
                 INSERT INTO manual_chunks (product_id, sku, manual_title, page_number,
-                    chunk_index, manual_source, manual_version, content, embedding)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::vector)
+                    chunk_index, manual_source, manual_version, content, embedding, metadata)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::vector, %s::jsonb)
                 """,
                 [
                     (
@@ -167,10 +172,39 @@ async def replace_manual_chunks(
                         manual_version,
                         row.content,
                         vector_literal(row.embedding),
+                        json.dumps({"ingestion_fingerprint": row.ingestion_fingerprint}),
                     )
                     for row in rows
                 ],
             )
+
+
+async def retire_other_manual_sources(
+    conn: psycopg.AsyncConnection[object], product_id: UUID, sku: str, source: str,
+) -> None:
+    """A SKU has one active manual, even when its filename extension changes."""
+    if source.startswith("manual:"):
+        await conn.execute(
+            "DELETE FROM manual_chunks WHERE product_id = %s "
+            "AND manual_source LIKE 'manual:%%' AND manual_source <> %s", (product_id, source),
+        )
+        await conn.execute(
+            "DELETE FROM ingestion_jobs WHERE product_id = %s "
+            "AND source_file LIKE %s AND source_file <> %s AND status <> 'INDEXED'",
+            (product_id, f"{sku}/manual:%", f"{sku}/{source}"),
+        )
+
+
+async def ensure_indexed_job(
+    conn: psycopg.AsyncConnection[object], product_id: UUID, label: str, version: str,
+) -> None:
+    """Backfill bookkeeping for already committed chunks, preserving attempt history."""
+    await conn.execute(
+        "INSERT INTO ingestion_jobs (product_id, source_file, content_hash, status, attempts) "
+        "VALUES (%s, %s, %s, 'INDEXED', 0) ON CONFLICT (source_file, content_hash) DO NOTHING",
+        (product_id, label, version),
+    )
+    await finish_ingestion_job(conn, source_file=label, content_hash=version, status="INDEXED")
 
 
 async def start_ingestion_job(

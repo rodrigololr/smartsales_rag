@@ -38,9 +38,11 @@ from app.db.repository import (
     apply_schema,
     current_version,
     deactivate_missing,
+    ensure_indexed_job,
     finish_ingestion_job,
     replace_manual_chunks,
     replace_product_relations,
+    retire_other_manual_sources,
     start_ingestion_job,
     upsert_product,
 )
@@ -76,6 +78,7 @@ class IngestionReport:
     needs_intervention: list[str] = field(default_factory=list)
     catalog_version: int | None = None
     catalog_version_error: str | None = None
+    source_read_errors: dict[str, str] = field(default_factory=dict)
 
 
 def load_catalog(path: Path) -> list[CatalogProduct]:
@@ -86,7 +89,9 @@ def load_catalog(path: Path) -> list[CatalogProduct]:
     return products
 
 
-def sources_for(product: CatalogProduct, manuals_dir: Path) -> list[ManualSource]:
+def sources_for(
+    product: CatalogProduct, manuals_dir: Path, *, read_errors: dict[str, str] | None = None,
+) -> list[ManualSource]:
     sheet = spec_sheet(product)
     sources = [
         ManualSource(
@@ -98,7 +103,13 @@ def sources_for(product: CatalogProduct, manuals_dir: Path) -> list[ManualSource
     ]
     manual = find_manual(manuals_dir, product.sku)
     if manual is not None:
-        snapshot = manual.read_bytes()
+        try:
+            snapshot = manual.read_bytes()
+        except OSError as error:
+            if read_errors is None:
+                raise
+            read_errors[f"{product.sku}/manual:{manual.name}"] = repr(error)
+            return sources
         sources.append(
             ManualSource(
                 source=f"manual:{manual.name}",
@@ -135,8 +146,11 @@ async def ingest(
             indexer = _SourceIndexer(conn, embedder, settings, report, sleep)
             for product in products:
                 product_id = await upsert_product(conn, product)
-                sources = sources_for(product, manuals_dir)
-                if len(sources) == 1:
+                read_errors: dict[str, str] = {}
+                sources = sources_for(product, manuals_dir, read_errors=read_errors)
+                report.source_read_errors.update(read_errors)
+                report.needs_intervention.extend(read_errors)
+                if len(sources) == 1 and not read_errors:
                     report.products_without_manual.append(product.sku)
                 for source in sources:
                     await indexer.index(product, product_id, source)
@@ -181,7 +195,14 @@ class _SourceIndexer:
 
     async def index(self, product: CatalogProduct, product_id: UUID, source: ManualSource) -> None:
         label = f"{product.sku}/{source.source}"
-        if await current_version(self._conn, product_id, source.source) == source.version:
+        fingerprint = self._fingerprint(product, source)
+        if await current_version(
+            self._conn, product_id, source.source, fingerprint=fingerprint,
+        ) == source.version:
+            async with self._conn.transaction():
+                await self._conn.execute("SELECT id FROM products WHERE id = %s FOR UPDATE", (product_id,))
+                await retire_other_manual_sources(self._conn, product_id, product.sku, source.source)
+                await ensure_indexed_job(self._conn, product_id, label, source.version)
             self._report.skipped_sources.append(label)
             return
         for attempt in range(1, self._settings.ingestion_max_attempts + 1):
@@ -207,6 +228,19 @@ class _SourceIndexer:
             self._report.indexed_sources.append(label)
             return
 
+    def _fingerprint(self, product: CatalogProduct, source: ManualSource) -> str:
+        policy = {
+            "version": source.version, "title": source.title,
+            "context": context_header(product, page_number=1),
+            "embedding_model": self._settings.embedding_model,
+            "embedding_base_url": self._settings.llm_base_url,
+            "dimensions": self._settings.embedding_dimensions,
+            "chunk_size": self._settings.chunk_size_tokens,
+            "chunk_overlap": self._settings.chunk_overlap_tokens,
+            "policy": "ingestion-v2",
+        }
+        return hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()
+
     async def _replace_chunks(
         self, product: CatalogProduct, product_id: UUID, source: ManualSource, label: str
     ) -> None:
@@ -222,7 +256,8 @@ class _SourceIndexer:
                 sku=product.sku,
                 manual_source=source.source,
                 manual_version=source.version,
-                rows=[replace(row, embedding=v) for row, v in zip(rows, embeddings, strict=True)],
+                rows=[replace(row, embedding=v, ingestion_fingerprint=self._fingerprint(product, source))
+                      for row, v in zip(rows, embeddings, strict=True)],
             )
             await self._finish(label, source, "INDEXED")
 

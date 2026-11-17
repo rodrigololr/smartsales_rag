@@ -167,4 +167,28 @@ trava a linha do produto antes do DELETE, protegendo chamadas diretas ao reposit
 O cliente Redis limita conexão e leitura por `REDIS_CONNECT_TIMEOUT_SECONDS` (> 0),
 sem repetir automaticamente `INCR` após uma resposta perdida.
 
+O SHA-256 do arquivo permanece em `manual_version`. O campo JSON
+`metadata.ingestion_fingerprint` identifica adicionalmente título, cabeçalho de
+contexto, modelo/provedor de embeddings, dimensões e parâmetros de chunking.
+Só pular a fonte se todos os chunks tiverem o mesmo hash e fingerprint atual;
+mudança de contexto ou configuração reconstrói o índice. Chunks anteriores sem
+fingerprint são reindexados uma vez. Se os chunks atuais já estiverem completos,
+reconciliar jobs ausentes como INDEXED sem chamar embeddings (attempts=0 para o
+registro reconstruído). Uma troca de extensão aposenta os chunks do manual
+anterior do SKU somente na transação que confirma a nova versão.
+
+Erro de leitura que impede obter os bytes/hash é listado em `source_read_errors`
+e `needs_intervention`, preservando a versão anterior e processando as demais
+fontes. Não inventar um content_hash para um arquivo que não pôde ser lido.
+
+Na publicação, preço e valores elétricos/capacidade são conferidos contra o SQL
+do SKU consultado. Sentenças SQL usam estruturas simples que vinculam atributo
+e unidade; afirmações não verificáveis caem no fallback. Para outros fatos,
+exigir extrato literal da evidência, preservando negações e restrições. Citações
+precisam sustentar a sentença na página indicada; se um extrato não vier com
+citação, vinculá-lo deterministicamente ao chunk de suporte. Emitir apenas seus
+IDs no evento citations, sem acrescentar páginas não utilizadas. Chunks de outro
+SKU não entram no prompt. O protocolo SSE permanece igual; nenhuma correção de
+fato incorreto depende de já tê-lo exposto ao usuário.
+
 Se não houver nenhuma sentença aprovada e a consulta não puder ser respondida com evidência, emitir error LOW_SIMILARITY_FALLBACK, recomendações determinísticas e end; o Gateway conclui com done(fallback). Nunca transmitir o rascunho rejeitado.
