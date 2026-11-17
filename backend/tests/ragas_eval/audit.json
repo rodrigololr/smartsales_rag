@@ -1,0 +1,8 @@
+{
+  "status": "pending",
+  "reviewed_by": "",
+  "reviewed_at": "",
+  "fixture_sha256": "fc971221d77869abf0e198dfc16a07b50fb78d6eac69e45a588775a0b15906af",
+  "corpus_sha256": "722d338f4147e9e5b4147d89182cf81ee99e977e6cff2e77bde34e9229e3838e",
+  "note": "Synthetic demonstration sources. Approval must be recorded by the human reviewer."
+}

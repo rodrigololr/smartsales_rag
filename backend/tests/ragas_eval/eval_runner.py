@@ -1,336 +1,277 @@
-"""Evaluation runner and CI gate auditor for RAGAS and Golden Set (B05 / EAP 5.1)."""
+"""B05: validate seed offline, or evaluate the actual pipeline with an independent RAGAS judge."""
 
 import argparse
+import asyncio
 import json
-import os
-import shutil
-import subprocess
-import sys
-import time
+from collections import Counter
 from pathlib import Path
-from typing import Literal
 
-from app.guardrails.input import is_prompt_injection
+from app.clients.openai_client import OpenAIChatModel, OpenAIEmbedder, make_client
+from app.config import Settings
+from app.db.repository import PostgresCatalog
 
+from .checkpoint import load_checkpoint, make_identity, save_checkpoint, write_json
+from .corpus import Corpus
+from .judge import CognitiveJudge, JudgeSettings, RagasJudge, checked_score
 from .metrics import (
+    CITATION,
     aggregate_macro_metrics,
-    calculate_answer_relevance,
-    calculate_business_rule_adherence,
-    calculate_faithfulness,
+    business_violations,
     calculate_retrieval_precision,
-    calculate_technical_hallucination,
+    technical_violations,
 )
-from .models import EvalCaseResult, EvaluationReport, GoldenSetFixture
+from .models import EvalCaseResult, EvaluationReport, GoldenSetFixture, ObservedTurn, RunIdentity
+from .pipeline import Pipeline, ProductionPipeline
 
-DEFAULT_FIXTURE_PATH = Path(__file__).parent / "golden_set.json"
-
-
-def resolve_opencode_cmd() -> list[str]:
-    """Resolve direct opencode executable binary on Windows to avoid cmd.exe stdin pipe hang."""
-    appdata = os.environ.get("APPDATA", "")
-    npm_bin = Path(appdata) / "npm" / "node_modules" / "@opencode" / "cli" / "bin" / "opencode.exe"
-    if npm_bin.is_file():
-        return [str(npm_bin), "run", "--agent", "lote", "-"]
-
-    which_cmd = shutil.which("opencode.cmd") or shutil.which("opencode")
-    if which_cmd:
-        cand = Path(which_cmd).parent / "node_modules" / "@opencode" / "cli" / "bin" / "opencode.exe"
-        if cand.is_file():
-            return [str(cand), "run", "--agent", "lote", "-"]
-        return [which_cmd, "run", "--agent", "lote", "-"]
-    return ["opencode", "run", "--agent", "lote", "-"]
+ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_FIXTURE_PATH = Path(__file__).with_name("golden_set.json")
+CATEGORY_COUNTS = {
+    "Técnica Exata": 12,
+    "Voltagem Crítica": 10,
+    "Coloquial / Medida": 10,
+    "Upsell + Cross-sell": 10,
+    "Adversarial / Sem Evidência": 8,
+}
 
 
-def query_opencode(prompt: str, timeout: int = 35) -> str:
-    """Call OpenCode headless agent with deepseek-v4.1-flash using direct binary execution."""
-    cmd = resolve_opencode_cmd()
-    last_err: Exception | None = None
-    for _ in range(2):
-        try:
-            res = subprocess.run(
-                cmd,
-                input=prompt,
-                text=True,
-                capture_output=True,
-                shell=False,
-                timeout=timeout,
+def load_fixtures(path: Path, corpus: Corpus) -> list[GoldenSetFixture]:
+    fixtures = [GoldenSetFixture.model_validate(item) for item in json.loads(path.read_bytes())]
+    if [f.id for f in fixtures] != [f"RAGAS-GS-{i:02}" for i in range(1, 51)]:
+        raise ValueError("The complete ordered Golden Set must contain 50 unique cases")
+    if Counter(f.category for f in fixtures) != CATEGORY_COUNTS:
+        raise ValueError("Golden Set category counts differ from the B05 specification")
+    for fixture in fixtures:
+        corpus.validate_fixture(fixture)
+    return fixtures
+
+
+def _deterministic_checks(
+    fixture: GoldenSetFixture, turn: ObservedTurn, corpus: Corpus
+) -> EvalCaseResult:
+    from app.generation.prompt import catalog_block
+
+    result = EvalCaseResult(
+        case_id=fixture.id,
+        expected_action=fixture.expected_action,
+        actual_action=turn.action,
+        expected_metrics=fixture.applicable_metrics,
+        actual_answer=turn.answer,
+        retrieved_chunk_ids=[c.chunk_id for c in turn.retrieved],
+        generation_calls=turn.generation_calls,
+        errors=list(turn.errors),
+        observation=turn,
+    )
+    evidence = {sku: catalog_block(product) for sku, product in turn.products.items()}
+    for chunk in turn.retrieved:
+        evidence[chunk.sku] = evidence.get(chunk.sku, "") + "\n" + chunk.content
+    evidence_by_page: dict[tuple[str, str, int], str] = {}
+    for chunk in turn.retrieved:
+        if chunk.chunk_id in turn.citation_chunk_ids:
+            key = (chunk.sku, chunk.manual_title, chunk.page_number)
+            body = (
+                chunk.content.split("\n", 1)[-1]
+                if chunk.content.startswith("[PRODUTO:")
+                else chunk.content
             )
-            if res.returncode != 0:
-                raise RuntimeError(f"OpenCode error code {res.returncode}: {res.stderr}")
-            return res.stdout.strip()
-        except Exception as e:
-            last_err = e
-            time.sleep(1.0)
-    raise RuntimeError(f"OpenCode query failed after 2 attempts: {last_err}")
+            evidence_by_page[key] = evidence_by_page.get(key, "") + "\n" + body
+    result.technical_violations = technical_violations(
+        turn.emitted_content or turn.answer,
+        evidence,
+        turn.citations,
+        primary_sku=fixture.input_filters.sku,
+        products=turn.products,
+        evidence_by_page=evidence_by_page,
+    )
+    result.business_violations = business_violations(turn, fixture, corpus.relations)
+    if fixture.expected_action != "ANSWER" and turn.generation_calls:
+        result.errors.append("Negative case opened generation instead of G-IN/G-RET blocking")
+    if "retrieval" in fixture.applicable_metrics:
+        result.precision_at_5, result.precision_returned, result.recall = (
+            calculate_retrieval_precision(
+                result.retrieved_chunk_ids,
+                corpus.relevant_ids(fixture),
+            )
+        )
+    if fixture.expected_action == "ANSWER" and turn.action == "ANSWER":
+        manual_required = any(e.source.startswith("manual:") for e in fixture.relevant_evidence)
+        if manual_required and not CITATION.search(turn.answer):
+            result.technical_violations.append("Manual-based answer has no inline citation")
+    return result
 
 
-def run_ragas_evaluation(
-    fixture_path: Path | None = None,
-    mock_mode: bool = True,
-    mode: Literal["mock", "opencode"] = "mock",
-    limit: int | None = None,
-    output_path: Path | None = None,
+async def evaluate_case(
+    fixture: GoldenSetFixture, pipeline: Pipeline, judge: CognitiveJudge, corpus: Corpus
+) -> EvalCaseResult:
+    try:
+        turn = await pipeline.run(fixture.pipeline_input())
+        result = _deterministic_checks(fixture, turn, corpus)
+    except Exception as error:
+        return EvalCaseResult(
+            case_id=fixture.id,
+            expected_action=fixture.expected_action,
+            actual_action="ERROR",
+            expected_metrics=fixture.applicable_metrics,
+            errors=[f"Pipeline/evidence failed: {type(error).__name__}"],
+        )
+    if "faithfulness" not in fixture.applicable_metrics:
+        return result
+    if turn.action != "ANSWER" or not turn.answer.strip():
+        result.faithfulness, result.answer_relevance = 0.0, 0.0
+        result.errors.append("Expected ANSWER did not publish a nonempty answer")
+        return result
+    try:
+        faithfulness, relevance = await judge.score(
+            fixture.query, turn.answer, turn.evidence_contexts
+        )
+        result.faithfulness, result.answer_relevance = (
+            checked_score(faithfulness),
+            checked_score(relevance),
+        )
+    except Exception as error:
+        result.errors.append(f"Judge failed: {type(error).__name__}")
+    return result
+
+
+async def run_ragas_evaluation(
+    *,
+    fixtures: list[GoldenSetFixture],
+    pipeline: Pipeline,
+    judge: CognitiveJudge,
+    corpus: Corpus,
+    identity: RunIdentity,
     checkpoint_path: Path | None = None,
 ) -> EvaluationReport:
-    """Run evaluation over the Golden Set and return the aggregate report with gates."""
-    path = fixture_path or DEFAULT_FIXTURE_PATH
-    with open(path, "r", encoding="utf-8") as f:
-        raw_fixtures = json.load(f)
-
-    fixtures = [GoldenSetFixture.model_validate(item) for item in raw_fixtures]
-    if limit is not None and limit > 0:
-        fixtures = fixtures[:limit]
-
+    cached = load_checkpoint(checkpoint_path, identity)
     results: list[EvalCaseResult] = []
-    eval_mode = "opencode" if mode == "opencode" or not mock_mode else "mock"
-
-    cached: dict[str, EvalCaseResult] = {}
-    if checkpoint_path and checkpoint_path.is_file():
-        try:
-            with open(checkpoint_path, "r", encoding="utf-8") as cf:
-                cached = {item["case_id"]: EvalCaseResult.model_validate(item) for item in json.load(cf)}
-        except Exception:
-            cached = {}
-
-    def _save_cp() -> None:
-        if checkpoint_path:
-            with open(checkpoint_path, "w", encoding="utf-8", newline="\n") as cf:
-                json.dump([r.model_dump() for r in results], cf, indent=2, ensure_ascii=False)
-
-    for idx, fix in enumerate(fixtures, start=1):
-        if fix.id in cached:
-            cached_item = cached[fix.id]
-            if fix.expected_action == "ANSWER" and cached_item.actual_answer:
-                actual_answer = cached_item.actual_answer
-                context_texts = [fix.expected_answer] + [f"Evidência: {c}" for c in fix.expected_citations]
-                cached_item.faithfulness = calculate_faithfulness(actual_answer, context_texts)
-                cached_item.technical_hallucination = calculate_technical_hallucination(
-                    actual_answer=actual_answer,
-                    expected_answer=fix.expected_answer,
-                    input_filters=fix.input_filters,
-                    evidence_texts=context_texts,
-                    query=fix.query,
-                )
-                cached_item.answer_relevance = calculate_answer_relevance(
-                    query=fix.query,
-                    actual_answer=actual_answer,
-                    expected_answer=fix.expected_answer,
-                )
-            results.append(cached_item)
-            print(f"[{idx}/{len(fixtures)}] Cached {fix.id} ({fix.category})")
-            continue
-        print(f"[{idx}/{len(fixtures)}] Evaluating {fix.id} ({fix.category})...", flush=True)
-        if fix.expected_action == "REFUSE":
-            # Verify that G-IN blocks injection attempts before any LLM call
-            is_injection = is_prompt_injection(fix.query)
-            actual_action = "REFUSE" if is_injection else "ANSWER"
-            actual_answer = (
-                "Solicitação bloqueada pelo filtro de segurança (PROMPT_INJECTION)."
-                if is_injection
-                else fix.expected_answer
-            )
-            action_matched = (actual_action == fix.expected_action)
-            th = False
-
-            results.append(
-                EvalCaseResult(
-                    case_id=fix.id,
-                    category=fix.category,
-                    expected_action=fix.expected_action,
-                    actual_action=actual_action,
-                    answerable=fix.answerable,
-                    actual_answer=actual_answer,
-                    actual_citations=[],
-                    retrieved_chunks=[],
-                    faithfulness=None,
-                    answer_relevance=None,
-                    precision_at_5=None,
-                    precision_returned=None,
-                    recall=None,
-                    technical_hallucination=th,
-                    business_rule_adherence=True,
-                    action_matched=action_matched,
-                    details={"violation": "PROMPT_INJECTION" if is_injection else None},
-                )
-            )
-            _save_cp()
-
-        elif fix.expected_action == "FALLBACK":
-            # Off-topic / low similarity trigger fallback without open generation
-            actual_action = "FALLBACK"
-            actual_answer = fix.expected_answer
-            action_matched = True
-            th = False
-
-            results.append(
-                EvalCaseResult(
-                    case_id=fix.id,
-                    category=fix.category,
-                    expected_action=fix.expected_action,
-                    actual_action=actual_action,
-                    answerable=fix.answerable,
-                    actual_answer=actual_answer,
-                    actual_citations=[],
-                    retrieved_chunks=[],
-                    faithfulness=None,
-                    answer_relevance=None,
-                    precision_at_5=None,
-                    precision_returned=None,
-                    recall=None,
-                    technical_hallucination=th,
-                    business_rule_adherence=True,
-                    action_matched=action_matched,
-                    details={"fallback_reason": "LOW_SIMILARITY_FALLBACK"},
-                )
-            )
-            _save_cp()
-
-        else:
-            # Expected ANSWER (Cats 1, 2, 3, 4)
-            actual_action = "ANSWER"
-            actual_citations = fix.expected_citations
-            retrieved_chunks = fix.relevant_chunk_ids
-            context_texts = [fix.expected_answer] + [f"Evidência: {c}" for c in fix.expected_citations]
-
-            if eval_mode == "opencode":
-                # Real LLM generation using OpenCode (DeepSeek v4.1 Flash)
-                prompt = f"""Você é o consultor de vendas especialista do SmartSales RAG. Responda à pergunta do cliente usando APENAS as evidências técnicas fornecidas do manual e catálogo. Seja conciso, cite o manual e a página oficial. Nunca invente dados elétricos ou mecânicos.
-
-[PRODUTO: SKU {fix.input_filters.get('sku')} | FILTROS: {fix.input_filters}]
-Evidências Técnicas Oficiais:
-{fix.expected_answer}
-Citações Oficiais: {', '.join(fix.expected_citations)}
-
-Pergunta do cliente: {fix.query}"""
-                actual_answer = query_opencode(prompt)
-            else:
-                actual_answer = fix.expected_answer
-
-            faithfulness = calculate_faithfulness(actual_answer, context_texts)
-            p5, p_ret, recall = calculate_retrieval_precision(retrieved_chunks, fix.relevant_chunk_ids)
-            th = calculate_technical_hallucination(
-                actual_answer=actual_answer,
-                expected_answer=fix.expected_answer,
-                input_filters=fix.input_filters,
-                evidence_texts=context_texts,
-                query=fix.query,
-            )
-            relevance = calculate_answer_relevance(
-                query=fix.query,
-                actual_answer=actual_answer,
-                expected_answer=fix.expected_answer,
-            )
-            br = calculate_business_rule_adherence(actual_answer, fix.input_filters)
-            action_matched = True
-
-            results.append(
-                EvalCaseResult(
-                    case_id=fix.id,
-                    category=fix.category,
-                    expected_action=fix.expected_action,
-                    actual_action=actual_action,
-                    answerable=fix.answerable,
-                    actual_answer=actual_answer,
-                    actual_citations=actual_citations,
-                    retrieved_chunks=retrieved_chunks,
-                    faithfulness=faithfulness,
-                    answer_relevance=relevance,
-                    precision_at_5=p5,
-                    precision_returned=p_ret,
-                    recall=recall,
-                    technical_hallucination=th,
-                    business_rule_adherence=br,
-                    action_matched=action_matched,
-                    details={"mode": eval_mode},
-                )
-            )
-            _save_cp()
-
-    report = aggregate_macro_metrics(results)
-
-    if output_path:
-        with open(output_path, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(report.model_dump(), f, indent=2, ensure_ascii=False)
-
-    return report
+    for fixture in fixtures:
+        result = cached.get(fixture.id)
+        if result is None or result.errors:
+            result = await evaluate_case(fixture, pipeline, judge, corpus)
+        if (
+            result.case_id != fixture.id
+            or result.expected_metrics != fixture.applicable_metrics
+            or result.expected_action != fixture.expected_action
+        ):
+            raise ValueError("Checkpoint expectation differs from the current fixture")
+        results.append(result)
+        save_checkpoint(checkpoint_path, identity, results)
+    return aggregate_macro_metrics(results, identity)
 
 
-def format_markdown_report(report: EvaluationReport, mode: str = "mock") -> str:
-    """Format evaluation results into a human-readable Markdown summary table."""
+def format_markdown_report(report: EvaluationReport) -> str:
     lines = [
-        f"# Relatório Oficial de Homologação RAGAS (B05 / EAP 5.1) — Modo {mode.upper()}",
+        f"# Avaliação B05: {report.status}",
         "",
-        f"- **Total de Casos Avaliados:** {report.evaluated_cases} / {report.total_cases}",
-        f"- **Status Geral dos Gates CI:** {'APROVADO' if report.all_gates_passed else 'REPROVADO'}",
+        f"- Modo: **{report.identity.mode}**",
+        f"- Commit: `{report.identity.revision}`",
+        f"- Fingerprint: `{report.identity.fingerprint}`",
+        f"- Casos: {report.evaluated_cases}/{report.total_cases}",
+        "- Corpus: seed sintético de demonstração; auditoria do PO/fabricante não atestada.",
+        f"- Sentenças bloqueadas internamente: {sum(r.observation.blocked_sentences for r in report.case_results if r.observation)}",
         "",
-        "## 1. Gates de Homologação e Critérios Bloqueantes",
-        "",
-        "| Métrica Avaliada | Valor Obtido | Piso / Limiar | Veredito | Descrição |",
-        "| :--- | :---: | :---: | :---: | :--- |",
+        "| Gate | Valor | Amostras | Resultado | Motivo |",
+        "|---|---:|---:|---|---|",
     ]
-
-    for g in report.gates:
-        symbol = ">=" if g.comparator == ">=" else "<="
-        status_badge = "PASS" if g.passed else "FAIL"
-        val_str = f"{g.value * 100:.1f}%" if g.value <= 1.0 else f"{g.value:.2f}"
-        thresh_str = f"{g.threshold * 100:.1f}%" if g.threshold <= 1.0 else f"{g.threshold:.2f}"
+    for gate in report.gates:
+        value = f"{gate.value:.4f}" if gate.value is not None else "N/A"
         lines.append(
-            f"| **{g.metric_name}** | **{val_str}** | {symbol} {thresh_str} | **{status_badge}** | {g.description} |"
+            f"| {gate.metric_name} | {value} | {gate.denominator} | "
+            f"{'PASS' if gate.passed else 'FAIL'} | {gate.reason} |"
         )
+    lines.extend(["", "## Falhas por caso"])
+    for result in report.case_results:
+        failures = [*result.errors, *result.technical_violations, *result.business_violations]
+        if not result.action_matched:
+            failures.append(
+                f"Ação esperada {result.expected_action}, observada {result.actual_action}"
+            )
+        if failures:
+            lines.append(f"- {result.case_id}: " + "; ".join(failures))
+    return "\n".join(lines) + "\n"
 
-    lines.extend([
-        "",
-        "## 2. Sumário Executivo por Categoria",
-        "",
-        "| Categoria | Casos | Acurácia de Ação | Fidelidade Média | Alucinação Técnica |",
-        "| :--- | :---: | :---: | :---: | :---: |",
-    ])
 
-    cats = sorted(list({r.category for r in report.case_results}))
-    for cat in cats:
-        cat_cases = [r for r in report.case_results if r.category == cat]
-        n_cat = len(cat_cases)
-        act_acc = sum(1 for r in cat_cases if r.action_matched) / n_cat
-        f_vals = [r.faithfulness for r in cat_cases if r.faithfulness is not None]
-        f_avg = sum(f_vals) / len(f_vals) if f_vals else 1.0
-        th_cnt = sum(1 for r in cat_cases if r.technical_hallucination)
-        lines.append(
-            f"| {cat} | {n_cat} | {act_acc * 100:.1f}% | {f_avg * 100:.1f}% | {th_cnt} falhas |"
+async def _live(
+    settings: Settings,
+    judge_settings: JudgeSettings,
+    corpus: Corpus,
+    fixtures: list[GoldenSetFixture],
+    args: argparse.Namespace,
+) -> EvaluationReport:
+    if not settings.llm_api_key:
+        raise ValueError("LLM_API_KEY is required for a live production-pipeline evaluation")
+    if settings.llm_model == judge_settings.judge_model:
+        raise ValueError("The judge must be configured independently from the generator")
+    await corpus.verify_database(settings.database_url)
+    identity = make_identity(ROOT, args.fixture, corpus, settings, judge_settings, mode="live")
+    catalog = PostgresCatalog(settings.database_url)
+    async with make_client(settings) as client:
+        embedder = OpenAIEmbedder(
+            client,
+            model=settings.embedding_model,
+            dimensions=settings.embedding_dimensions,
+            batch_size=settings.embedding_batch_size,
         )
+        model = OpenAIChatModel(
+            client,
+            model=settings.llm_model,
+            temperature=settings.llm_temperature,
+            max_tokens=settings.llm_max_tokens,
+            first_token_timeout=settings.llm_first_token_timeout_seconds,
+            first_token_attempts=settings.llm_first_token_attempts,
+        )
+        pipeline = ProductionPipeline(catalog, catalog, embedder, model, settings, corpus, catalog)
+        report = await run_ragas_evaluation(
+            fixtures=fixtures[: args.limit] if args.limit else fixtures,
+            pipeline=pipeline,
+            judge=RagasJudge.from_settings(judge_settings),
+            corpus=corpus,
+            identity=identity,
+            checkpoint_path=args.checkpoint,
+        )
+        # Concurrent catalog/vector changes invalidate the run rather than changing its denominator.
+        original_index = (dict(corpus.database_ids), corpus.embeddings_sha256)
+        await corpus.verify_database(settings.database_url)
+        if original_index != (corpus.database_ids, corpus.embeddings_sha256):
+            raise ValueError("Evaluation corpus changed during the run")
+        return report
 
-    return "\n".join(lines)
 
-
-def main() -> None:
-    """CLI entrypoint."""
-    parser = argparse.ArgumentParser(description="Runner oficial de avaliação RAGAS (B05).")
-    parser.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE_PATH, help="Caminho do golden_set.json")
-    parser.add_argument(
-        "--mode",
-        choices=["mock", "opencode"],
-        default="mock",
-        help="Modo de avaliação: mock (determinístico offline) ou opencode (DeepSeek real via OpenCode)",
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Auditoria de fontes ou avaliação live B05; nenhum modo mock homologa"
     )
-    parser.add_argument("--limit", type=int, default=None, help="Limita o número de fixtures avaliadas")
-    parser.add_argument("--output", type=Path, default=None, help="Caminho para salvar o relatório JSON")
-    parser.add_argument("--checkpoint", type=Path, default=None, help="Caminho do arquivo de checkpoint incremental")
-    parser.add_argument("--gate-check", action="store_true", help="Falha com exit code 1 se algum gate reprovar")
+    parser.add_argument("--mode", choices=["validate", "live"], default="validate")
+    parser.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE_PATH)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--limit", type=int, choices=range(1, 51))
+    parser.add_argument("--gate-check", action="store_true")
     args = parser.parse_args()
-
-    report = run_ragas_evaluation(
-        fixture_path=args.fixture,
-        mock_mode=(args.mode == "mock"),
-        mode=args.mode,
-        limit=args.limit,
-        output_path=args.output,
-        checkpoint_path=args.checkpoint,
-    )
-    print(format_markdown_report(report, mode=args.mode))
-
-    if args.gate_check and not report.all_gates_passed:
-        sys.exit(1)
-    sys.exit(0)
+    try:
+        settings = Settings()
+        corpus = Corpus.from_seed(ROOT, settings)
+        fixtures = load_fixtures(args.fixture, corpus)
+        if args.mode == "live":
+            # Configuration validation happens before any model invocation.
+            judge_settings = JudgeSettings.model_validate({})
+            report = asyncio.run(_live(settings, judge_settings, corpus, fixtures, args))
+        else:
+            identity = make_identity(ROOT, args.fixture, corpus, settings, None, mode="validate")
+            report = aggregate_macro_metrics([], identity)
+            report.errors.append(
+                "Sources verified; cognitive evaluation PENDING until a full live run"
+            )
+        if args.output:
+            write_json(args.output, report.model_dump(mode="json"))
+        print(format_markdown_report(report))
+        return 1 if args.gate_check and not report.all_gates_passed else 0
+    except Exception as error:
+        # SDK/validation exceptions can contain credentials or user data; show only the error type.
+        print(
+            f"Evaluation unavailable ({type(error).__name__}); check corpus, database and EVAL_/LLM_ configuration."
+        )
+        return 2
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

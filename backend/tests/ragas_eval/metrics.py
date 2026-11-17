@@ -1,321 +1,405 @@
-"""Cognitive and business metrics engines for RAGAS evaluation (B05 / EAP 5.1)."""
+"""Deterministic safety checks and fail-closed aggregation; cognition is scored by RAGAS."""
 
+import math
 import re
 import unicodedata
-from typing import Any
+from decimal import Decimal
 
-from .models import EvalCaseResult, EvaluationReport, GateResult
+from app.guardrails.output import Claim, technical_claims
+from app.models.schemas import CatalogProduct, ProductRelation
+from app.recommendation.engine import CROSS_SELL_MAX_PRICE_RATIO, UPSELL_MAX_PRICE_RATIO
+
+from .models import (
+    EvalCaseResult,
+    EvaluationReport,
+    GateResult,
+    GoldenSetFixture,
+    ObservedTurn,
+    RunIdentity,
+)
+
+FAITHFULNESS_FLOOR = 0.85
+RELEVANCE_FLOOR = 0.85
+RETRIEVAL_FLOOR = 0.80
+HALLUCINATION_CEILING = 0.05
+TOP_K = 5
+CITATION = re.compile(r"\[Fonte:\s*(.+?),\s*p\.\s*(\d+)\]", re.IGNORECASE)
+_AMOUNT = r"(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?![\d.,])"
+PRICE = re.compile(r"(?:R\$\s*|(?:custa|preço(?: atual)?(?: é| de)?)\s+)" + _AMOUNT, re.I)
+REALS = re.compile(_AMOUNT + r"\s*reais\b", re.I)
+_FIGURE = re.compile(
+    r"(?<![\w.,])(\d+(?:[.,]\d+)?)\s*(kW|quilowatts?|W|watts?|mL|mililitros?|L|litros?|V|volts?|kg|g|cm|mm|bar|Hz|°C)\b",
+    re.I,
+)
+_BIVOLT = re.compile(r"\bbivolt\b", re.I)
+_SKU = re.compile(r"\b[A-Z]+(?:-[A-Z0-9]+)+\b", re.I)
+DENIAL = re.compile(
+    r"\b(?:nao|nunca|jamais)\s+(?:(?:e|eh|opera|funciona|suporta|tem|possui|custa|"
+    r"aceita|deve|ser|usad[oa]|ligad[oa]|em|a|com|uma|tomada|de)\s+)*$"
+    r"|\b(?:proibid[oa]|incompativel)\s+(?:em\s+|com\s+)?$"
+)
 
 
-def _normalize(text: str) -> str:
-    """Normalize text: lowercase, remove accents, collapse whitespace."""
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8")
-    return " ".join(text.lower().split())
+def normalize(text: str) -> str:
+    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
 
 
-def calculate_faithfulness(actual_answer: str, context_chunks: list[str]) -> float:
-    """Compute faithfulness ratio: supported factual assertions / total assertions."""
-    if not actual_answer.strip():
-        return 1.0
-    if not context_chunks:
-        return 0.0
+def number(raw: str) -> Decimal:
+    return Decimal(
+        raw.replace(".", "").replace(",", ".")
+        if "," in raw or re.fullmatch(r"\d{1,3}(?:\.\d{3})+", raw)
+        else raw
+    )
 
-    normalized_context = " ".join(_normalize(c) for c in context_chunks)
-    context_tokens = re.findall(r"\b\w+\b", normalized_context)
-    context_stems = {_stem(t) for t in context_tokens if len(t) > 2}
 
-    # Protect decimal numbers (e.g. 5.5L, 499.90, 1.35) from being split on period
-    clean_text = re.sub(r"(\d)\.(\d)", r"\1__DEC__\2", actual_answer)
-    delimiters = [".", ";", "\n"]
-    pattern = "[" + "".join(delimiters) + "]"
-    raw_clauses = re.split(pattern, clean_text)
-    clauses = [c.replace("__DEC__", ".").strip() for c in raw_clauses if len(c.strip()) > 5]
-    if not clauses:
-        return 1.0
+def canonical_claim(claim: Claim) -> Claim:
+    value, unit = claim
+    if unit in {"kg", "L"}:
+        return (format((Decimal(value) * 1000).normalize(), "f"), "g" if unit == "kg" else "mL")
+    return (value if value == "bivolt" else format(Decimal(value).normalize(), "f"), unit)
 
-    stopwords = {
-        "para", "com", "uma", "este", "esse", "esta", "essa", "que", "nao", "sao",
-        "tem", "foi", "desde", "veja", "aqui", "sobre", "qual", "como", "posso",
-        "por", "dos", "das", "nos", "nas", "seu", "sua", "seus", "suas", "de", "do", "da",
-        "resumo", "resposta", "mais", "menos", "alem", "disso", "voce", "costuma", "ideal",
-    }
 
-    supported = 0
-    total = len(clauses)
-
-    for clause in clauses:
-        norm_clause = _normalize(clause)
-        # Extract critical tokens
-        tokens = [
-            t for t in re.findall(r"\b\w+\b", norm_clause)
-            if len(t) > 2 and t not in stopwords
-        ]
-        if not tokens:
-            supported += 1
-            continue
-
-        matched_tokens = sum(
-            1 for t in tokens if _stem(t) in context_stems or t in normalized_context
-        )
-        match_ratio = matched_tokens / len(tokens)
-        if match_ratio >= 0.35:
-            supported += 1
-
-    return round(supported / total, 4)
+def supported_claims(text: str) -> set[Claim]:
+    # Independent numeric scan for hard attributes, in addition to general units.
+    claims = {canonical_claim(c) for c in technical_claims(text)}
+    for match in _FIGURE.finditer(text):
+        value, unit = Decimal(match[1].replace(",", ".")), match[2].lower()
+        if unit in {"v", "volt", "volts"}:
+            claims.add((format(value.normalize(), "f"), "V"))
+        elif unit in {"w", "watt", "watts", "kw", "quilowatt", "quilowatts"}:
+            factor = 1000 if unit in {"kw", "quilowatt", "quilowatts"} else 1
+            claims.add((format((value * factor).normalize(), "f"), "W"))
+        elif unit in {"l", "litro", "litros", "ml", "mililitro", "mililitros"}:
+            factor = 1000 if unit in {"l", "litro", "litros"} else 1
+            claims.add((format((value * factor).normalize(), "f"), "mL"))
+    return claims
 
 
 def calculate_retrieval_precision(
-    retrieved_ids: list[str], relevant_ids: list[str]
+    retrieved_ids: list[str],
+    relevant_ids: list[str],
 ) -> tuple[float | None, float, float]:
-    """Compute Precision@5, Precision@returned and Recall.
-
-    Per spec Section 5: P@5 applies only when >= 5 relevant chunks are labeled in the corpus.
-    Otherwise, precision_returned and recall are used.
-    """
-    if not relevant_ids:
-        return None, 1.0, 1.0
-
-    rel_set = set(relevant_ids)
-    ret_set = set(retrieved_ids)
-
-    # Precision@5
-    if len(relevant_ids) >= 5:
-        top_5 = set(retrieved_ids[:5])
-        p_at_5: float | None = round(len(top_5 & rel_set) / 5.0, 4)
-    else:
-        p_at_5 = None
-
-    # Precision@returned
-    if retrieved_ids:
-        p_ret = round(len(ret_set & rel_set) / len(retrieved_ids), 4)
-    else:
-        p_ret = 0.0
-
-    # Recall
-    recall = round(len(ret_set & rel_set) / len(rel_set), 4)
-
-    return p_at_5, p_ret, recall
+    if not relevant_ids or len(relevant_ids) != len(set(relevant_ids)):
+        raise ValueError("Retrieval requires nonempty unique relevant UUIDs")
+    if len(retrieved_ids) != len(set(retrieved_ids)):
+        raise ValueError("Duplicate retrieved UUIDs cannot inflate retrieval scores")
+    relevant = set(relevant_ids)
+    precision = len(set(retrieved_ids) & relevant) / len(retrieved_ids) if retrieved_ids else 0.0
+    recall = len(set(retrieved_ids) & relevant) / len(relevant)
+    p5 = len(set(retrieved_ids[:TOP_K]) & relevant) / TOP_K if len(relevant) >= TOP_K else None
+    return p5, precision, recall
 
 
-def calculate_technical_hallucination(
-    actual_answer: str,
-    expected_answer: str,
-    input_filters: dict[str, Any],
-    evidence_texts: list[str],
-    query: str = "",
-) -> bool:
-    """Check for technical hallucinations on critical specifications.
-
-    Critical specifications: voltage (127V vs 220V / bivolt), power (Watts),
-    pressure (bar), capacity (L), and cited pages.
-    Returns True if ANY critical hallucination is detected.
-    """
-    norm_ans = _normalize(actual_answer)
-    norm_evidence = " ".join(_normalize(e) for e in evidence_texts)
-    norm_expected = _normalize(expected_answer)
-    norm_query = _normalize(query)
-    sku = input_filters.get("sku", "")
-
-    # 1. Voltage validation (Anti-inversão 127V / 220V)
-    is_220v = "220v" in sku.lower() or "220v" in input_filters.get("voltage", "").lower()
-    is_127v = "127v" in sku.lower() or "127v" in input_filters.get("voltage", "").lower()
-
-    negatives = ("nao", "nunca", "exclusiv", "proibid", "apenas")
-    has_negation = any(neg in norm_ans for neg in negatives)
-
-    if is_220v:
-        if bool(re.search(r"\b(?:127v|110v|bivolt)\b", norm_ans)):
-            if not has_negation and "127v" not in norm_evidence:
-                return True
-
-    if is_127v:
-        if bool(re.search(r"\b(?:220v|bivolt)\b", norm_ans)):
-            if not has_negation and "220v" not in norm_evidence:
-                return True
-
-    # 2. Fabricated numerical claims (e.g. 3000W when evidence says 1500W)
-    ans_watts = re.findall(r"(\d+)\s*(?:w|watts)", norm_ans)
-    if ans_watts:
-        for w in ans_watts:
-            if w not in norm_evidence and w not in norm_expected and w not in norm_query:
-                return True
-
-    ans_bars = re.findall(r"(\d+)\s*(?:bar|bares)", norm_ans)
-    if ans_bars:
-        for b in ans_bars:
-            if b not in norm_evidence and b not in norm_expected and b not in norm_query:
-                return True
-
-    return False
-
-
-def _stem(word: str) -> str:
-    """Basic Portuguese plural and inflection suffix normalization."""
-    if len(word) > 4:
-        for suffix in (
-            "oes", "aes", "eis", "ais", "mente", "idas", "idos", "ida", "ido",
-            "adas", "ados", "ada", "ado", "as", "es", "os", "s",
-        ):
-            if word.endswith(suffix):
-                return word[:-len(suffix)]
-    return word
-
-
-def _extract_stems(text: str) -> set[str]:
-    """Extract normalized token stems excluding common stopwords."""
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8").lower()
-    tokens = re.findall(r"\b\w+\b", text)
-    stopwords = {
-        "para", "com", "uma", "este", "esse", "esta", "essa", "que", "nao", "sao",
-        "de", "do", "da", "em", "um", "e", "o", "a", "os", "as", "qual", "como", "posso",
-        "por", "sobre", "dos", "das", "nos", "nas", "seu", "sua", "seus", "suas",
-    }
-    return {_stem(t) for t in tokens if len(t) > 2 and t not in stopwords}
-
-
-def calculate_answer_relevance(query: str, actual_answer: str, expected_answer: str) -> float:
-    """Compute semantic relevance score between query, answer, and ground truth."""
-    if not actual_answer.strip():
-        return 0.0
-
-    q_stems = _extract_stems(query)
-    ans_stems = _extract_stems(actual_answer)
-    exp_stems = _extract_stems(expected_answer)
-
-    if not q_stems or not exp_stems:
-        return 1.0
-
-    q_cov = len(q_stems & ans_stems) / len(q_stems) if q_stems else 1.0
-    exp_cov = len(exp_stems & ans_stems) / len(exp_stems) if exp_stems else 1.0
-
-    base_rel = 0.50 * exp_cov + 0.50 * q_cov
-    return min(1.0, round(base_rel * 1.45, 4))
-
-
-def calculate_business_rule_adherence(
-    actual_answer: str, input_filters: dict[str, Any], stock_quantity: int = 1
-) -> bool:
-    """Check adherence to business rules (stock, voltage, and upsell limits)."""
-    norm_ans = _normalize(actual_answer)
-
-    # RN10: If stock is 0, must not encourage purchase of unavailable item
-    if stock_quantity <= 0:
-        if "pronta entrega" in norm_ans or "compre agora" in norm_ans:
-            return False
-
-    return True
-
-
-def aggregate_macro_metrics(results: list[EvalCaseResult]) -> EvaluationReport:
-    """Aggregate macro averages and evaluate CI blocking quality gates."""
-    total = len(results)
-    if total == 0:
-        return EvaluationReport(
-            total_cases=0,
-            evaluated_cases=0,
-            faithfulness_macro=0.0,
-            precision_at_5_macro=0.0,
-            technical_hallucination_rate=0.0,
-            answer_relevance_macro=0.0,
-            business_rule_adherence_rate=0.0,
-            action_accuracy=0.0,
-            gates=[],
-            all_gates_passed=False,
-            case_results=[],
-        )
-
-    # Faithfulness macro (cases where faithfulness is not None)
-    faithfulness_vals = [r.faithfulness for r in results if r.faithfulness is not None]
-    f_macro = round(sum(faithfulness_vals) / len(faithfulness_vals), 4) if faithfulness_vals else 1.0
-
-    # Precision macro (uses precision_at_5 when available, else precision_returned)
-    prec_vals: list[float] = []
-    for r in results:
-        val = r.precision_at_5 if r.precision_at_5 is not None else r.precision_returned
-        if val is not None:
-            prec_vals.append(val)
-    p_macro = round(sum(prec_vals) / len(prec_vals), 4) if prec_vals else 1.0
-
-    # Technical Hallucination Rate
-    hallucination_count = sum(1 for r in results if r.technical_hallucination)
-    th_rate = round(hallucination_count / total, 4)
-
-    # Answer Relevance macro
-    rel_vals = [r.answer_relevance for r in results if r.answer_relevance is not None]
-    rel_macro = round(sum(rel_vals) / len(rel_vals), 4) if rel_vals else 1.0
-
-    # Business Rule Adherence
-    adherent_count = sum(1 for r in results if r.business_rule_adherence)
-    br_rate = round(adherent_count / total, 4)
-
-    # Action Accuracy (matched expected_action)
-    action_match_count = sum(1 for r in results if r.action_matched)
-    action_acc = round(action_match_count / total, 4)
-
-    # Gates definition aligned with spec B05 Section 1
-    gates = [
-        GateResult(
-            metric_name="Faithfulness",
-            value=f_macro,
-            threshold=0.85,
-            comparator=">=",
-            passed=f_macro >= 0.85,
-            description="Fidelidade macro nos casos respondíveis (Piso: >= 0.85, Alvo: >= 0.90)",
-        ),
-        GateResult(
-            metric_name="Technical Hallucination Rate",
-            value=th_rate,
-            threshold=0.05,
-            comparator="<=",
-            passed=th_rate <= 0.05,
-            description="Taxa de alucinação técnica G-OUT (Teto: <= 0.05 / 5%)",
-        ),
-        GateResult(
-            metric_name="Precision@5 / Retrieval Precision",
-            value=p_macro,
-            threshold=0.80,
-            comparator=">=",
-            passed=p_macro >= 0.80,
-            description="Precisão de recuperação de evidências (Piso: >= 0.80, Alvo: >= 0.85)",
-        ),
-        GateResult(
-            metric_name="Answer Relevance",
-            value=rel_macro,
-            threshold=0.85,
-            comparator=">=",
-            passed=rel_macro >= 0.85,
-            description="Relevância da resposta gerada (Piso: >= 0.85, Alvo: >= 0.90)",
-        ),
-        GateResult(
-            metric_name="Business Rule Adherence",
-            value=br_rate,
-            threshold=1.00,
-            comparator=">=",
-            passed=br_rate >= 1.00,
-            description="Aderência aos filtros de negócio (Piso e Alvo: 100%)",
-        ),
-        GateResult(
-            metric_name="Action Accuracy",
-            value=action_acc,
-            threshold=1.00,
-            comparator=">=",
-            passed=action_acc >= 1.00,
-            description="Acurácia de ação em recusa G-IN e fallback G-RET (Piso: 100%)",
-        ),
+def _scope(clause: str, position: int, skus: list[str], primary: str) -> str:
+    mentions = [
+        (m.start(), sku)
+        for sku in skus
+        for m in re.finditer(re.escape(sku), clause)
+        if m.start() <= position
     ]
+    mentions.extend(
+        (m.start(), m.group())
+        for m in _SKU.finditer(clause)
+        if m.start() <= position and any(c.isdigit() for c in m.group())
+    )
+    return max(mentions)[1] if mentions else primary
 
-    all_passed = all(g.passed for g in gates)
 
+def _catalog_claims(product: CatalogProduct | None, evidence: str) -> set[Claim]:
+    claims = supported_claims(evidence)
+    if product is None:
+        return claims
+    # SQL owns these attributes; stale manual/header values never authorize them.
+    claims = {c for c in claims if c[1] not in {"V", "W", "mL", "BRL"}}
+    if product.voltage == "BIVOLT":
+        claims.update({("127", "V"), ("220", "V"), ("bivolt", "V")})
+    elif product.voltage != "N/A":
+        claims.add((product.voltage[:-1], "V"))
+    if product.power_watts is not None:
+        claims.add((str(product.power_watts), "W"))
+    if product.capacity_liters is not None:
+        claims.add((format((product.capacity_liters * 1000).normalize(), "f"), "mL"))
+    return claims
+
+
+def technical_violations(
+    answer: str,
+    evidence_by_sku: dict[str, str],
+    citations: list[tuple[str, str, int]],
+    *,
+    primary_sku: str,
+    products: dict[str, CatalogProduct] | None = None,
+    evidence_by_page: dict[tuple[str, str, int], str] | None = None,
+) -> list[str]:
+    """Conservative factual tripwire; no ground truth or user question enters this check."""
+    products = products or {}
+    violations: list[str] = []
+    for mark in CITATION.finditer(answer):
+        sku = _scope(answer, mark.start(), list(evidence_by_sku), primary_sku)
+        title, page = mark[1].strip(), int(mark[2])
+        if (sku, title, page) not in citations:
+            violations.append(f"Unsupported citation for {sku}: {title}, p. {page}")
+        if evidence_by_page is not None:
+            prefix = CITATION.sub("", answer[: mark.start()])
+            before = re.split(r"(?<!\d)[.!?;\n]|[.!?;\n](?!\d)", prefix)[-1]
+            before = re.sub(r"^\s*SKU [A-Za-z0-9_-]+:\s*", "", before)
+            page_text = evidence_by_page.get((sku, title, page), "")
+            claims = supported_claims(before)
+            literal = " ".join(re.findall(r"\w+", normalize(before)))
+            normalized_page = " ".join(re.findall(r"\w+", normalize(page_text)))
+            if (claims and not claims <= supported_claims(page_text)) or (
+                not claims and (not literal or literal not in normalized_page)
+            ):
+                violations.append(f"Citation page does not support statement: {sku}, p. {page}")
+    clean = CITATION.sub("", answer)
+    # Preserve decimal points; clauses keep negation local instead of disabling a whole answer.
+    clauses = re.split(r"(?<!\d)[.!?;\n]|[.!?;\n](?!\d)", clean)
+    for clause in clauses:
+        violations.extend(_clause_violations(clause, evidence_by_sku, products, primary_sku))
+    return violations
+
+
+def _clause_violations(
+    clause: str,
+    evidence: dict[str, str],
+    products: dict[str, CatalogProduct],
+    primary: str,
+) -> list[str]:
+    violations: list[str] = []
+    masked = clause
+    for sku in evidence:
+        masked = masked.replace(sku, " " * len(sku))
+    positions = [
+        (m.start(), m.group()) for regex in (_FIGURE, _BIVOLT) for m in regex.finditer(masked)
+    ]
+    for start, raw in positions:
+        sku = _scope(clause, start, list(evidence), primary)
+        supported = _catalog_claims(products.get(sku), evidence.get(sku, ""))
+        denied = bool(DENIAL.search(normalize(masked[:start]).strip()))
+        # Attribute/unit binding is checked independently of mere value membership.
+        prefix = normalize(masked[:start])
+        if re.search(r"(?:voltagem|tensao|funciona|opera)(?: e| de| em)?\s*$", prefix) and not any(
+            unit == "V" for _, unit in supported_claims(raw)
+        ):
+            violations.append(f"Wrong voltage unit: {raw}")
+        if re.search(r"potencia(?: e| de)?\s*$", prefix) and not any(
+            unit == "W" for _, unit in supported_claims(raw)
+        ):
+            violations.append(f"Wrong power unit: {raw}")
+        if re.search(r"capacidade(?: e| de)?\s*$", prefix) and not any(
+            unit == "mL" for _, unit in supported_claims(raw)
+        ):
+            violations.append(f"Wrong capacity unit: {raw}")
+        for claim in supported_claims(raw):
+            if (claim not in supported and not denied) or (claim in supported and denied):
+                violations.append(f"Unsupported/contradicted {sku} claim: {raw}")
+    for match in [*PRICE.finditer(masked), *REALS.finditer(masked)]:
+        sku = _scope(clause, match.start(), list(evidence), primary)
+        prices = (
+            {products[sku].price}
+            if sku in products
+            else {number(p) for p in PRICE.findall(evidence.get(sku, ""))}
+        )
+        if number(match.group(1)) not in prices:
+            violations.append(f"Unsupported {sku} price: {match.group()}")
+    return violations
+
+
+def business_violations(
+    turn: ObservedTurn, fixture: GoldenSetFixture, relations: list[ProductRelation] | None = None
+) -> list[str]:
+    violations: list[str] = []
+    base = turn.products.get(fixture.input_filters.sku)
+    if base is None:
+        return ["Missing current catalog snapshot"]
+    requested = fixture.input_filters.voltage
+    if len(turn.offers) > 3 or len({offer.role for offer in turn.offers}) != len(turn.offers):
+        violations.append("More than three cards or repeated recommendation role")
+    if len({offer.sku for offer in turn.offers}) != len(turn.offers):
+        violations.append("Duplicate offer SKU")
+    for offer in turn.offers:
+        product = turn.products.get(offer.sku)
+        if product is None or not product.is_active or product.stock_quantity <= 0:
+            violations.append(f"Unavailable offer: {offer.sku}")
+            continue
+        if offer.price != product.price:
+            violations.append(f"Stale/fabricated price: {offer.sku}")
+        if requested is not None and product.voltage not in {requested, "BIVOLT", "N/A"}:
+            violations.append(f"Incompatible buying voltage: {offer.sku}")
+        if offer.stock_quantity is not None and offer.stock_quantity != product.stock_quantity:
+            violations.append(f"Fabricated stock: {offer.sku}")
+        if offer.voltage is not None and offer.voltage != product.voltage:
+            violations.append(f"Fabricated voltage: {offer.sku}")
+        if offer.role == "PRIMARY" and product.sku != base.sku:
+            violations.append("PRIMARY differs from consulted SKU")
+        if offer.role != "PRIMARY" and product.voltage not in {
+            requested or base.voltage,
+            "BIVOLT",
+            "N/A",
+        }:
+            violations.append(f"Incompatible secondary offer: {offer.sku}")
+        if offer.role == "CROSS_SELL" and (
+            product.price > base.price * CROSS_SELL_MAX_PRICE_RATIO
+            or not any(
+                r.base_sku == base.sku
+                and r.related_sku == product.sku
+                and r.relation_type == "CROSS_SELL"
+                for r in relations or []
+            )
+        ):
+            violations.append(f"Unverified/overpriced cross-sell: {offer.sku}")
+        if offer.role == "UPSELL" and not (
+            base.price < product.price <= base.price * UPSELL_MAX_PRICE_RATIO
+            and base.category == product.category
+            and base.subcategory == product.subcategory
+            and (
+                product.tier_rank > base.tier_rank
+                or (
+                    product.capacity_liters is not None
+                    and base.capacity_liters is not None
+                    and product.capacity_liters > base.capacity_liters
+                )
+            )
+        ):
+            violations.append(f"Invalid upsell price/category: {offer.sku}")
+    actual = {(o.sku, o.role) for o in turn.offers}
+    if any((o.sku, o.role) not in actual for o in fixture.expected_offers):
+        violations.append("Required recommendation missing from published events (B04 integration)")
+    if fixture.offer_policy == "exact" and actual != {
+        (o.sku, o.role) for o in fixture.expected_offers
+    }:
+        violations.append("Published offers differ from the requested purchase scenario")
+    if base.stock_quantity == 0 and not turn.offers:
+        text = normalize(turn.answer)
+        if re.search(r"\b(?:compre|finaliz\w*|pronta entrega|temos disponivel)\b", text):
+            violations.append("Purchase encouraged for zero-stock scenario")
+    return violations
+
+
+def _average_gate(name: str, values: list[float | None], floor: float) -> GateResult:
+    valid = bool(values) and all(v is not None and math.isfinite(v) and 0 <= v <= 1 for v in values)
+    mean = sum(v for v in values if v is not None) / len(values) if valid else None
+    return GateResult(
+        metric_name=name,
+        value=mean,
+        threshold=floor,
+        denominator=len(values),
+        passed=mean is not None and mean >= floor,
+        reason="" if valid else "Missing, invalid or absent applicable samples",
+    )
+
+
+def aggregate_macro_metrics(
+    results: list[EvalCaseResult], identity: RunIdentity
+) -> EvaluationReport:
+    factual = [r for r in results if "faithfulness" in r.expected_metrics]
+    retrieval = [r for r in results if "retrieval" in r.expected_metrics]
+    relevant = [r for r in results if "answer_relevance" in r.expected_metrics]
+    faithfulness = _average_gate(
+        "Faithfulness", [r.faithfulness for r in factual], FAITHFULNESS_FLOOR
+    )
+    precision = _average_gate(
+        "Retrieval precision",
+        [
+            r.precision_at_5 if r.precision_at_5 is not None else r.precision_returned
+            for r in retrieval
+        ],
+        RETRIEVAL_FLOOR,
+    )
+    recall = _average_gate(
+        "Recall", [r.recall for r in retrieval if r.precision_at_5 is None], RETRIEVAL_FLOOR
+    )
+    # P@5 fixtures do not require a full relevant-set recall, per spec section 5.
+    if retrieval and all(r.precision_at_5 is not None for r in retrieval):
+        recall.reason, recall.passed = "Not applicable: all retrieval cases use P@5", True
+    relevance = _average_gate(
+        "Answer relevance", [r.answer_relevance for r in relevant], RELEVANCE_FLOOR
+    )
+    actions = _average_gate("Action accuracy", [float(r.action_matched) for r in results], 1.0)
+    business = _average_gate(
+        "Business rules", [float(not r.business_violations) for r in results], 1.0
+    )
+    critical = _average_gate(
+        "No critical published violations",
+        [float(not r.technical_violations) for r in results],
+        1.0,
+    )
+    failure_rate = (
+        sum(bool(r.technical_violations) for r in results) / len(results) if results else None
+    )
+    hallucination = GateResult(
+        metric_name="Technical hallucination rate",
+        value=failure_rate,
+        threshold=HALLUCINATION_CEILING,
+        comparator="<=",
+        denominator=len(results),
+        passed=failure_rate is not None and failure_rate <= HALLUCINATION_CEILING,
+    )
+    errors = [f"{r.case_id}: {error}" for r in results for error in r.errors]
+    integrity = (
+        identity.mode == "live"
+        and identity.corpus_verified
+        and identity.clean_checkout
+        and bool(identity.revision)
+        and bool(identity.fingerprint)
+        and identity.integrated_b04
+        and bool(identity.judge_model)
+        and identity.judge_model != identity.generator_model
+        and {r.case_id for r in results} == {f"RAGAS-GS-{i:02}" for i in range(1, 51)}
+        and all(r.observation is not None for r in results)
+        and len(results) == identity.expected_cases == 50
+        and not errors
+    )
+    execution = GateResult(
+        metric_name="Verified full live execution",
+        value=float(integrity),
+        threshold=1.0,
+        denominator=len(results),
+        passed=integrity,
+        reason="" if integrity else "Offline, partial, dirty, unverified or failed execution",
+    )
+    audit = GateResult(
+        metric_name="PO source audit approval",
+        value=float(identity.po_audit_approved),
+        threshold=1,
+        denominator=50,
+        passed=identity.po_audit_approved,
+        reason="Seed demonstration sources still require recorded human audit"
+        if not identity.po_audit_approved
+        else "",
+    )
+    gates = [
+        faithfulness,
+        precision,
+        recall,
+        relevance,
+        actions,
+        business,
+        critical,
+        hallucination,
+        execution,
+        audit,
+    ]
+    passed = all(g.passed for g in gates)
     return EvaluationReport(
-        total_cases=total,
-        evaluated_cases=total,
-        faithfulness_macro=f_macro,
-        precision_at_5_macro=p_macro,
-        technical_hallucination_rate=th_rate,
-        answer_relevance_macro=rel_macro,
-        business_rule_adherence_rate=br_rate,
-        action_accuracy=action_acc,
+        identity=identity,
+        total_cases=identity.expected_cases,
+        evaluated_cases=len(results),
+        faithfulness_macro=faithfulness.value,
+        precision_macro=precision.value,
+        recall_macro=recall.value,
+        answer_relevance_macro=relevance.value,
         gates=gates,
-        all_gates_passed=all_passed,
+        all_gates_passed=passed,
+        status="PASSED" if passed else ("PENDING" if identity.mode != "live" else "FAILED"),
         case_results=results,
+        errors=errors,
+        exclusions={
+            metric: [
+                f"{r.case_id}: expected action {r.expected_action}"
+                for r in results
+                if metric not in r.expected_metrics
+            ]
+            for metric in ("faithfulness", "answer_relevance", "retrieval")
+        },
     )

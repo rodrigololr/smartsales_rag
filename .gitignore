@@ -31,3 +31,6 @@ Thumbs.db
 # Local tooling artifacts
 .openchamber/
 backend/tests/ragas_eval/ragas_checkpoint.json
+
+# Evaluation outputs/checkpoints are local, never a source of CI approval.
+.ragas-evaluation/
