@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.clients.backend import ReplayStream
 from app.config import Settings
-from app.schemas import ChatStreamRequest, SessionCreate
+from app.schemas import ChatStreamRequest, Filters, SessionCreate
 from app.sessions.store import HistoryItem, SessionSnapshot, SessionStore, TurnDecision
 from app.sse import sse_chat_generator
 from app.sse.models import BackendStream, CompletedTurn, ProductCard
@@ -24,7 +24,8 @@ HEALTH_TIMEOUT_SECONDS = 2.0
 
 class RagBackend(Protocol):
     def open_stream(
-        self, sku: str, question: str, history: list[HistoryItem]
+        self, sku: str, question: str, history: list[HistoryItem],
+        *, filters: Filters | None = None,
     ) -> BackendStream: ...
 
 
@@ -113,7 +114,10 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
     if turn.kind == TurnDecision.REPLAY and turn.completed is not None:
         stream = ReplayStream(turn.completed)
     else:
-        stream = backend.open_stream(sku, body.message, list(session.history))
+        stream = backend.open_stream(
+            sku, body.message, list(session.history),
+            filters=filters,
+        )
 
     async def release_turn() -> None:
         await store.release(session.session_id, request_id, turn.lock_token)

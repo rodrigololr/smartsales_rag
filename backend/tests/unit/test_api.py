@@ -46,3 +46,18 @@ def test_rag_stream_validates_the_request(fake: FakeOrchestrator) -> None:
 
 def test_health() -> None:
     assert TestClient(app).get("/health").json() == {"status": "ok"}
+
+
+def test_internal_request_keeps_resolved_purchase_filters(fake: FakeOrchestrator) -> None:
+    from decimal import Decimal
+
+    response = TestClient(app).post('/internal/rag/stream', json={
+        'sku': 'AF-400-220V', 'question': 'Tem um modelo maior?',
+        'preferred_voltage': '127V', 'category': 'Eletroportáteis',
+        'capacity_min': 5, 'budget_max': 650,
+    })
+    assert response.status_code == 200
+    received = fake.requests[0]
+    assert received.preferred_voltage == '127V'
+    assert received.category == 'Eletroportáteis'
+    assert received.capacity_min == Decimal('5') and received.budget_max == Decimal('650')

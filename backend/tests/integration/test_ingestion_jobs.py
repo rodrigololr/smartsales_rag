@@ -21,6 +21,7 @@ from app.clients.catalog_version import (
 )
 from app.clients.openai_client import LLMUnavailableError
 from app.config import Settings, get_settings
+from app.db.repository import acquire_ingestion_lock, apply_schema
 from app.ingestion.run import IngestionReport, ingest
 from ingestion_support import DATA_DIR, DATABASE_URL, HashingEmbedder, reset_backend_tables
 from redis.asyncio import Redis
@@ -279,3 +280,20 @@ def test_cli_with_redis_down_prints_the_report_and_fails(
     assert _run_cli(monkeypatch, UNREACHABLE_REDIS_URL, HashingEmbedder()) == 1
     printed = capsys.readouterr().out
     assert '"indexed_sources"' in printed and '"catalog_version_error": "' in printed
+
+
+def test_cli_rejects_an_overlapping_ingestion_without_writes(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    asyncio.run(reset_backend_tables())
+
+    async def scenario() -> int:
+        async with await psycopg.AsyncConnection.connect(DATABASE_URL, autocommit=True) as owner:
+            await acquire_ingestion_lock(owner)
+            await apply_schema(owner)
+            # The CLI owns its own event loop in this worker, as in a second process.
+            return await asyncio.to_thread(_run_cli, monkeypatch, "", HashingEmbedder())
+
+    assert asyncio.run(scenario()) == 1
+    assert '"ingestion_error"' in capsys.readouterr().out
+    assert asyncio.run(_jobs(MANUAL_JOB)) == []
