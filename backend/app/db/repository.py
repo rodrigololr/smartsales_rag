@@ -1,7 +1,8 @@
 """PostgreSQL + pgvector access (catalog reads, cosine search, ingestion writes)."""
 
 import json
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -57,11 +58,15 @@ class ChunkRow:
 class PostgresCatalog:
     """Read side used by the RAG orchestrator.
 
-    shortcut: one connection per call; switch to psycopg_pool before load testing.
+    Retrieval uses one connection per call. Recommendations share a read-only
+    snapshot connection. Connection pooling remains a load-testing concern.
     """
 
-    def __init__(self, conninfo: str) -> None:
+    def __init__(
+        self, conninfo: str, *, read_connection: psycopg.AsyncConnection[object] | None = None
+    ) -> None:
         self._conninfo = conninfo
+        self._read_connection = read_connection
 
     async def get_product(self, sku: str) -> CatalogProduct | None:
         async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
@@ -88,6 +93,16 @@ class PostgresCatalog:
             )
             rows = await cursor.fetchall()
         return [RetrievedChunk.model_validate(row) for row in rows]
+
+    @asynccontextmanager
+    async def snapshot(self) -> AsyncIterator["PostgresCatalog"]:
+        """One committed revision for all prices, stock, relations and vectors."""
+        try:
+            async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
+                await conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+                yield PostgresCatalog(self._conninfo, read_connection=conn)
+        except psycopg.Error as error:
+            raise RecommendationLookupError("recommendation snapshot failed") from error
 
     async def current_product(self, sku: str) -> CatalogProduct | None:
         """The consulted product as it is now, for the PRIMARY card (RN01, RN06)."""
@@ -150,6 +165,10 @@ class PostgresCatalog:
         self, query: str, parameters: Sequence[object]
     ) -> list[dict[str, Any]]:
         try:
+            if self._read_connection is not None:
+                cursor = self._read_connection.cursor(row_factory=dict_row)
+                await cursor.execute(query.encode(), parameters)
+                return await cursor.fetchall()
             async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
                 cursor = conn.cursor(row_factory=dict_row)
                 await cursor.execute(query.encode(), parameters)

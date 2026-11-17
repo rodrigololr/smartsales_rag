@@ -7,9 +7,11 @@ from app.clients.openai_client import LLMUnavailableError
 from app.config import Settings
 from app.models.schemas import CatalogProduct, RagRequest
 from app.rag.orchestrator import RAGOrchestrator
+from app.recommendation.cards import build_card
 from test_orchestrator import PRODUCT, Catalog, ChatModel, Embedder, chunk, names
+from test_recommendation_service import FAMILY
 
-CARD: dict[str, object] = {"sku": "AF-550-220V", "recommendation_type": "UPSELL"}
+CARD = build_card(FAMILY, "UPSELL", "Dados SQL")
 GROUNDED = ["O cesto suporta até 1,2 kg [Fonte: Manual Airfryer SmartChef 4L, p. 7]."]
 
 
@@ -25,6 +27,7 @@ class Recommender:
         query_embedding: Sequence[float] | None,
         allow_upsell: bool,
         requested_voltage: str | None = None,
+        **constraints: object,
     ) -> list[dict[str, object]]:
         self.calls.append(
             {
@@ -80,7 +83,7 @@ def test_answered_turn_emits_cards_after_citations_without_upsell() -> None:
     assert events[2]["data"] == {"products": [CARD]}
     assert recommender.calls == [
         {"sku": PRODUCT.sku, "has_embedding": True, "allow_upsell": False, "voltage": None}
-    ]
+    ] * 2
 
 
 def test_need_above_capacity_opens_the_upsell_branch() -> None:
@@ -101,7 +104,8 @@ def test_sold_out_product_is_answered_and_gets_substitutes() -> None:
     recommender = Recommender()
     events = run(Catalog(sold_out, [chunk()]), ChatModel(GROUNDED), recommender)
     assert "recommendations" in names(events)
-    assert recommender.calls[0]["allow_upsell"] is True
+    # Stock is resolved by the service from fresh SQL, not this initial snapshot.
+    assert recommender.calls[0]["allow_upsell"] is False
 
 
 def test_low_similarity_fallback_offers_similar_products_in_stock() -> None:
@@ -150,3 +154,42 @@ def test_blocked_or_unavailable_turns_never_recommend() -> None:
     unavailable = run(Catalog(inactive, [chunk()]), ChatModel(["x"]), recommender)
     assert names(blocked) == names(unavailable) == ["error", "end"]
     assert recommender.calls == []
+
+
+def test_consultative_prompt_can_publish_only_facts_bound_to_the_recommended_sku() -> None:
+    card = build_card(FAMILY, "UPSELL", "Dados SQL")
+    recommender = Recommender([card])
+    model = ChatModel([
+        f"SKU {FAMILY.sku}: Possui capacidade de 5,5 L. ",
+        f"SKU {FAMILY.sku}: Preço atual: R$ 629,90. ",
+        f"SKU {FAMILY.sku}: Opera em 127V. ",
+        "O modelo de 5,5 L atende 10 pessoas.",
+    ])
+    events = run(Catalog(PRODUCT, [chunk()]), model, recommender, question="Tem um modelo maior?")
+    text = ''.join(str(e['data']['delta']) for e in events if e['event'] == 'token')
+    assert "5,5 L" in text and "629,90" in text
+    assert "127V" not in text and "10 pessoas" not in text
+    assert FAMILY.sku in model.messages[0]['content']
+
+
+def test_cards_are_refreshed_after_generation_instead_of_replaying_the_prompt_snapshot() -> None:
+    planned = build_card(FAMILY, 'UPSELL', 'Dados SQL')
+    class SellOut(Recommender):
+        async def cards(self, *args: object, **kwargs: object) -> list[dict[str, object]]:
+            result = await super().cards(*args, **kwargs)  # type: ignore[arg-type]
+            self.cards_to_return = []
+            return result
+    recommender = SellOut([planned])
+    model = ChatModel(GROUNDED)
+    events = run(Catalog(PRODUCT, [chunk()]), model, recommender)
+    assert FAMILY.sku in model.messages[0]['content']
+    assert names(events) == ['token', 'citations', 'end']
+    assert len(recommender.calls) == 2
+
+
+def test_malformed_planned_card_never_authorizes_its_technical_prose() -> None:
+    malformed = {"sku": FAMILY.sku, "recommendation_type": "UPSELL", "price": 1}
+    model = ChatModel([f"SKU {FAMILY.sku}: Preço atual: R$ 1,00."])
+    events = run(Catalog(PRODUCT, [chunk()]), model, Recommender([malformed]))
+    assert not any(event['event'] == 'token' for event in events)
+    assert names(events) == ['error', 'recommendations', 'end']

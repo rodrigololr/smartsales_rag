@@ -126,3 +126,41 @@ def test_database_failure_is_a_lookup_error_and_the_service_returns_no_cards() -
         )
 
     assert asyncio.run(scenario()) == []
+
+
+def test_cards_never_mix_catalog_revisions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _seed(tmp_path)
+    original = PostgresCatalog._recommendation_rows
+    changed = False
+
+    async def concurrent_revision(self, query, parameters):  # type: ignore[no-untyped-def]
+        nonlocal changed
+        rows = await original(self, query, parameters)
+        if not changed and 'WHERE sku = %s' in query:
+            changed = True
+            async with await psycopg.AsyncConnection.connect(DATABASE_URL) as writer:
+                await writer.execute("UPDATE products SET price = 400 WHERE sku = 'AF-400-220V'")
+                await writer.execute("UPDATE products SET price = 539 WHERE sku = 'AF-550-220V'")
+        return rows
+
+    monkeypatch.setattr(PostgresCatalog, '_recommendation_rows', concurrent_revision)
+    found = _cards(HashingEmbedder())
+    by_role = {card['recommendation_type']: card for card in found}
+    assert (by_role['PRIMARY']['price'], by_role['UPSELL']['price']) == (499.9, 629.9)
+
+
+def test_real_sql_cards_respect_the_requested_outlet(tmp_path: Path) -> None:
+    _seed(tmp_path)
+
+    async def scenario() -> list[dict[str, object]]:
+        async with await psycopg.AsyncConnection.connect(DATABASE_URL) as conn:
+            await conn.execute("UPDATE products SET voltage = '127V' WHERE sku = 'AF-550-220V'")
+        catalog = PostgresCatalog(DATABASE_URL)
+        base = await catalog.get_product('AF-400-220V')
+        assert base is not None
+        return await RecommendationService(catalog).cards(
+            base, query_embedding=None, allow_upsell=False, requested_voltage='127V',
+        )
+    found = asyncio.run(scenario())
+    assert [card['recommendation_type'] for card in found] == ['UPSELL', 'CROSS_SELL']
+    assert all(card['voltage'] in {'127V', 'BIVOLT', 'N/A'} for card in found)

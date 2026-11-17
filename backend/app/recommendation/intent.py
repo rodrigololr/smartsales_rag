@@ -9,8 +9,7 @@ import re
 import unicodedata
 
 _UPGRADE_PATTERNS = (
-    r"\bpessoas?\b",
-    r"\bfamilia\b",
+    r"\b(?:para|atende|serve|comporta|conta)(?: uma?)? (?:familia|\d+ pessoas?)\b",
     r"\b(modelo|versao|opcao|tamanho|capacidade|cesto) maior(es)?\b",
     r"\bmaior (modelo|versao|opcao|tamanho|capacidade|cesto)\b",
     r"\b(tem|existe|ha) (um|uma|algum|alguma) maior\b",
@@ -32,4 +31,10 @@ def _folded(text: str) -> str:
 
 
 def wants_upgrade(question: str) -> bool:
-    return _UPGRADE.search(_folded(question)) is not None
+    for clause in re.split(r"[.!?;,]|\bmas\b", _folded(question)):
+        # Negated requests are different from "não atende 5 pessoas" (a need).
+        if re.search(r"\b(?:nao (?:quero|preciso|desejo|busco|procuro)|sem upgrade)\b", clause):
+            continue
+        if _UPGRADE.search(clause):
+            return True
+    return False

@@ -1,4 +1,4 @@
-"""Single-product RAG turn: G-IN -> retrieval (G-RET) -> generation -> G-OUT.
+"""Product-context RAG turn with SQL-backed consultative options: G-IN -> retrieval (G-RET) -> generation -> G-OUT.
 
 Yields the internal M02 protocol consumed by the middle-end: approved `token`
 sentences, `citations`, `recommendations` (B04 cards read from SQL), `error` and the
@@ -7,15 +7,18 @@ mandatory `end` marker.
 
 import logging
 from collections.abc import AsyncIterator, Callable, Sequence
+from decimal import Decimal
 from typing import Protocol
+
+from pydantic import ValidationError
 
 from app.clients.openai_client import LLMUnavailableError
 from app.config import Settings
 from app.generation.prompt import Message, build_messages
 from app.guardrails.input import is_prompt_injection
 from app.guardrails.output import SentenceBuffer
-from app.guardrails.publication import SentenceVerifier
-from app.models.schemas import CatalogProduct, RagRequest, RetrievedChunk
+from app.guardrails.publication import ConsultativeVerifier
+from app.models.schemas import CatalogProduct, ProductRecommendation, RagRequest, RetrievedChunk
 from app.recommendation.intent import wants_upgrade
 from app.recommendation.models import Voltage
 
@@ -66,6 +69,9 @@ class Recommender(Protocol):
         query_embedding: Sequence[float] | None,
         allow_upsell: bool,
         requested_voltage: Voltage | None = None,
+        category: str | None = None,
+        capacity_min: Decimal | None = None,
+        budget_max: Decimal | None = None,
     ) -> list[dict[str, object]]: ...
 
 
@@ -81,7 +87,6 @@ def _token(delta: str) -> InternalEvent:
     return {"event": "token", "data": {"delta": delta}}
 
 
-
 def _citation(chunk: RetrievedChunk) -> dict[str, object]:
     # Stored content starts with the [PRODUTO: ...] context header line.
     excerpt = chunk.content.split("\n", 1)[-1].strip()[:EXCERPT_MAX_CHARS]
@@ -94,6 +99,20 @@ def _citation(chunk: RetrievedChunk) -> dict[str, object]:
         "similarity_score": round(chunk.similarity_score, 4),
         "excerpt": excerpt,
     }
+
+
+def _planned_cards(events: list[InternalEvent]) -> list[ProductRecommendation]:
+    # The recommender is injected; malformed card facts must never authorize prose.
+    if not events:
+        return []
+    payload = events[0].get("data")
+    if not isinstance(payload, dict) or not isinstance(payload.get("products"), list):
+        return []
+    try:
+        return [ProductRecommendation.model_validate(card) for card in payload["products"]]
+    except ValidationError:
+        logger.exception("invalid_recommendation_evidence")
+        return []
 
 
 class RAGOrchestrator:
@@ -166,14 +185,15 @@ class RAGOrchestrator:
         branch; an answered turn opens it only for a sold-out base or a stated need."""
         if self._recommender is None:
             return []
-        allow_upsell = (
-            substitutes or product.stock_quantity <= 0 or wants_upgrade(request.question)
-        )
+        allow_upsell = substitutes or wants_upgrade(request.question)
         cards = await self._recommender.cards(
             product,
             query_embedding=query_embedding,
             allow_upsell=allow_upsell,
             requested_voltage=request.preferred_voltage,
+            category=request.category,
+            capacity_min=request.capacity_min,
+            budget_max=request.budget_max,
         )
         return [{"event": "recommendations", "data": {"products": cards}}] if cards else []
 
@@ -189,14 +209,19 @@ class RAGOrchestrator:
         chunks: list[RetrievedChunk],
         query_embedding: Sequence[float],
     ) -> AsyncIterator[InternalEvent]:
+        planned_events = await self._recommendations(
+            request, product, query_embedding, substitutes=False
+        )
+        planned_cards = _planned_cards(planned_events)
         messages = build_messages(
             product,
             chunks,
             request.history,
             request.question,
             history_limit=self._settings.history_max_messages,
+            recommendations=[card.model_dump(mode="json") for card in planned_cards],
         )
-        verifier = SentenceVerifier(product, chunks)
+        verifier = ConsultativeVerifier(product, chunks, planned_cards)
         gate = _PublicationGate(verifier, request.sku)
         draft: list[str] = []
         buffer = SentenceBuffer()
@@ -235,7 +260,7 @@ class _PublicationGate:
     """Publishes approved sentences; a blocked sentence becomes the missing-evidence
     notice, emitted only next to approved text so a fully rejected draft publishes nothing."""
 
-    def __init__(self, verifier: SentenceVerifier, sku: str) -> None:
+    def __init__(self, verifier: ConsultativeVerifier, sku: str) -> None:
         self._verifier = verifier
         self._sku = sku
         self._notice_pending = False
