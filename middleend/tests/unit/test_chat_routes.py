@@ -265,7 +265,7 @@ def test_gateway_on_redis_frees_the_lock_when_the_stream_fails(backend: FakeBack
     settings = Settings(backend_internal_url="http://127.0.0.1:9", redis_url=REDIS_URL)
     with TestClient(create_app(settings, backend)) as gateway:
         session_id = new_session(gateway)
-        backend.open_stream = lambda *_: BrokenStream([TOKEN])  # type: ignore[method-assign]
+        backend.open_stream = lambda *_, **kwargs: BrokenStream([TOKEN])  # type: ignore[method-assign]
         request_id = str(uuid.uuid4())
         failed = sse_events(ask(gateway, session_id, request_id).text)
         assert [name for name, _ in failed] == ["metadata", "token", "error", "recommendations", "done"]
@@ -273,7 +273,10 @@ def test_gateway_on_redis_frees_the_lock_when_the_stream_fails(backend: FakeBack
 
         del backend.open_stream  # type: ignore[attr-defined]
         retried = sse_events(ask(gateway, session_id, request_id).text)  # no 409: lock was freed
-        assert retried[-1][1]["finish_reason"] == "stop"
+        assert retried[-1][1]["finish_reason"] == "error"
+        assert len(backend.calls) == 0
+        fresh = sse_events(ask(gateway, session_id, str(uuid.uuid4())).text)
+        assert fresh[-1][1]["finish_reason"] == "stop"
         history = gateway.post("/api/v1/sessions", json={"session_id": session_id}).json()["history"]
         assert [message["content"] for message in history] == ["Qual a voltagem?", "Opera em 220V. "]
 

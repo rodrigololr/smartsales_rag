@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import UUID4, BaseModel, ConfigDict, Field
 
 
 class SessionCreate(BaseModel):
@@ -26,6 +26,6 @@ class ChatStreamRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     session_id: UUID
-    client_request_id: UUID
+    client_request_id: UUID4
     message: str = Field(min_length=1, max_length=1000)
     context_filters: Filters | None = None

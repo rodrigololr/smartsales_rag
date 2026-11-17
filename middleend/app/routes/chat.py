@@ -1,43 +1,64 @@
 """Public gateway routes for the MVP: sessions, chat SSE stream and health."""
 
 import hashlib
+import json
+import logging
 import time
 import uuid
 from typing import Protocol
 
+import anyio
 import httpx
 from fastapi import APIRouter, Request, Response
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 
 from app.clients.backend import ReplayStream
 from app.config import Settings
 from app.schemas import ChatStreamRequest, Filters, SessionCreate
-from app.sessions.store import HistoryItem, SessionSnapshot, SessionStore, TurnDecision
+from app.sessions.lease import LeaseStream
+from app.sessions.response import SessionStreamingResponse
+from app.sessions.store import HistoryItem, SessionSnapshot, SessionStore, TurnDecision, TurnState
 from app.sse import sse_chat_generator
 from app.sse.models import BackendStream, CompletedTurn, ProductCard
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/v1")
 
-SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+SSE_HEADERS = {
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
 HEALTH_TIMEOUT_SECONDS = 2.0
 
 
 class RagBackend(Protocol):
     def open_stream(
-        self, sku: str, question: str, history: list[HistoryItem],
-        *, filters: Filters | None = None,
+        self,
+        sku: str,
+        question: str,
+        history: list[HistoryItem],
+        *,
+        filters: Filters | None = None,
     ) -> BackendStream: ...
 
 
 def error_response(
     status: int, code: str, message: str, headers: dict[str, str] | None = None
 ) -> JSONResponse:
-    body = {"error": {"code": code, "message": message, "trace_id": str(uuid.uuid4()), "details": {}}}
+    body = {
+        "error": {"code": code, "message": message, "trace_id": str(uuid.uuid4()), "details": {}}
+    }
     return JSONResponse(body, status_code=status, headers=headers)
 
 
 def _payload_hash(body: ChatStreamRequest) -> str:
-    return hashlib.sha256(body.model_dump_json(exclude={"client_request_id"}).encode()).hexdigest()
+    payload = body.model_dump(mode="json", exclude={"client_request_id"})
+    if body.context_filters is not None and body.context_filters.budget_max is not None:
+        payload["context_filters"]["budget_max"] = f"{body.context_filters.budget_max:.2f}"
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode()).hexdigest()
 
 
 async def _no_recommendations() -> list[ProductCard]:
@@ -45,7 +66,9 @@ async def _no_recommendations() -> list[ProductCard]:
     return []
 
 
-def _session_body(session: SessionSnapshot, settings: Settings, *, restored: bool) -> dict[str, object]:
+def _session_body(
+    session: SessionSnapshot, settings: Settings, *, restored: bool
+) -> dict[str, object]:
     return {
         "session_id": session.session_id,
         "restored": restored,
@@ -98,6 +121,10 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
 
     request_id = str(body.client_request_id)
     turn = await store.begin_turn(session.session_id, request_id, _payload_hash(body))
+    if turn.kind == TurnDecision.NOT_FOUND:
+        return error_response(404, "SESSION_NOT_FOUND", "Sessão não encontrada ou expirada.")
+    if turn.kind == TurnDecision.EXPIRED:
+        return error_response(410, "TURN_EXPIRED", "Pedido expirado. Envie uma nova pergunta.")
     if turn.kind == TurnDecision.CONFLICT:
         return error_response(
             409, "IDEMPOTENCY_CONFLICT", "client_request_id reutilizado com outro conteúdo."
@@ -110,15 +137,6 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
             headers={"Retry-After": str(settings.turn_retry_after_seconds)},
         )
 
-    stream: BackendStream
-    if turn.kind == TurnDecision.REPLAY and turn.completed is not None:
-        stream = ReplayStream(turn.completed)
-    else:
-        stream = backend.open_stream(
-            sku, body.message, list(session.history),
-            filters=filters,
-        )
-
     async def release_turn() -> None:
         await store.release(session.session_id, request_id, turn.lock_token)
 
@@ -126,6 +144,40 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
         await store.complete(
             session.session_id, request_id, turn.lock_token, body.message, completed
         )
+
+    async def transition(state: TurnState) -> None:
+        if turn.lock_token:
+            await store.transition(session.session_id, turn.lock_token, state)
+
+    stream: BackendStream
+    try:
+        if turn.kind == TurnDecision.REPLAY and turn.completed is not None:
+            stream = ReplayStream(turn.completed)
+        else:
+            # Snapshot belongs to this acquisition; a GET before it may predate another completion.
+            snapshot = turn.snapshot or session
+            stream = LeaseStream(
+                backend.open_stream(sku, body.message, list(snapshot.history), filters=filters),
+                store,
+                session.session_id,
+                request_id,
+                turn.lock_token,
+                settings.session_heartbeat_seconds,
+                settings.session_lock_ttl_seconds,
+            )
+    except BaseException as failure:
+        with anyio.CancelScope(shield=True):
+            await release_turn()
+        if isinstance(failure, Exception):
+            logger.error(
+                "backend_stream_initialization_failed", extra={"session_id": session.session_id}
+            )
+            return error_response(
+                503,
+                "SERVICE_UNAVAILABLE",
+                "Não foi possível iniciar a resposta. Envie uma nova pergunta.",
+            )
+        raise
 
     frames = sse_chat_generator(
         request,
@@ -137,8 +189,11 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
         _no_recommendations,
         complete_turn,
         started_at=started_at,
+        fail_turn=complete_turn,
+        transition=transition,
+        check_delivery=stream.check_delivery if isinstance(stream, LeaseStream) else None,
     )
-    return StreamingResponse(frames, media_type="text/event-stream", headers=SSE_HEADERS)
+    return SessionStreamingResponse(frames, headers=SSE_HEADERS)
 
 
 @router.get("/health")
@@ -157,13 +212,15 @@ async def health(request: Request) -> JSONResponse:
         redis_status = "disabled"  # sessions in process memory
     else:
         redis_status = "ok" if await store.ping() else "error"
-    healthy = backend_status == "ok" and redis_status != "error"
+    database_ok = await store.database_ping()
+    postgres_status = "via-backend" if database_ok is None else "ok" if database_ok else "error"
+    healthy = backend_status == "ok" and redis_status != "error" and postgres_status != "error"
     return JSONResponse(
         {
             "status": "ok" if healthy else "degraded",
             "components": {
                 "redis": redis_status,
-                "postgres": "via-backend",
+                "postgres": postgres_status,
                 "backend": backend_status,
             },
             "version": settings.app_version,
