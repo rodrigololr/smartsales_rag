@@ -101,6 +101,7 @@ class RecommendationService:
         category: str | None = None,
         capacity_min: Decimal | None = None,
         budget_max: Decimal | None = None,
+        allow_secondary: bool = True,
     ) -> list[ProductCard]:
         """At most 3 cards (PRIMARY, UPSELL, CROSS_SELL), all in stock at this instant.
 
@@ -110,7 +111,7 @@ class RecommendationService:
             async with self._catalog.snapshot() as catalog:
                 return await self._current_cards(
                     catalog, base.sku, query_embedding, allow_upsell, requested_voltage,
-                    category, capacity_min, budget_max
+                    category, capacity_min, budget_max, allow_secondary
                 )
         except (RecommendationLookupError, DomainInputError, ValidationError):
             logger.exception("recommendation_failed", extra={"sku": base.sku})
@@ -126,6 +127,7 @@ class RecommendationService:
         category: str | None,
         capacity_min: Decimal | None,
         budget_max: Decimal | None,
+        allow_secondary: bool,
     ) -> list[ProductCard]:
         base = await catalog.current_product(sku)
         if base is None or not base.is_active:
@@ -138,11 +140,13 @@ class RecommendationService:
         insufficient = capacity_min is not None and (
             base.capacity_liters is None or base.capacity_liters < capacity_min
         )
-        allow_upsell = allow_upsell or base.stock_quantity <= 0 or incompatible or insufficient
+        allow_upsell = allow_secondary and (
+            allow_upsell or base.stock_quantity <= 0 or incompatible or insufficient
+        )
         upsells = await catalog.upsell_candidates(base) if allow_upsell else []
         upsells = [p for p in upsells if _fits(p, capacity_min, budget_max)]
         relations = [r for r in await catalog.cross_sell_relations(base.sku)
-                     if _fits(r.product, None, budget_max)]
+                     if _fits(r.product, None, budget_max)] if allow_secondary else []
         similarities = await self._similarities(catalog, upsells, relations, query_embedding)
         selected = self._engine.recommend(
             _engine_product(base),

@@ -38,3 +38,11 @@ def wants_upgrade(question: str) -> bool:
         if _UPGRADE.search(clause):
             return True
     return False
+
+
+def only_consulted_product(question: str) -> bool:
+    """Explicit purchase/display restriction; a technical mention of 'only' is not enough."""
+    return re.search(
+        r"\b(?:comprar|mostrar|mostre|ver|ofereca|oferecer)\s+(?:somente|apenas|so)\s+"
+        r"(?:o|a|este|esta|esse|essa)\b", _folded(question),
+    ) is not None
