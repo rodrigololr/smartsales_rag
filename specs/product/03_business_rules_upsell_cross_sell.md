@@ -92,3 +92,9 @@ Base, candidatos, relações e similaridades são lidos em uma única transaçã
 Filtros resolvidos de categoria, capacidade mínima e orçamento também chegam ao worker. Categoria e capacidade mínima restringem PRIMARY/UPSELL antes do ranking; acessórios não são rejeitados por terem outra categoria ou não possuírem litros, pois sua elegibilidade vem da relação explícita. O orçamento máximo limita cada card, inclusive acessórios, e não representa um orçamento de carrinho. Necessidade estruturada acima da capacidade base abre upsell sem estimar litros por pessoa. Não filtrar as evidências do SKU explícito por essas restrições de compra.
 
 O prompt consultivo recebe os cards SQL selecionados antes da geração. Cada sentença sobre outra opção deve identificar explicitamente `SKU <código>:` e usar uma estrutura verificável por atributo. O G-OUT valida essa sentença contra os valores daquele SKU; números pertencentes a outro produto não a autorizam. Não inferir número de pessoas, tempo de preparo ou compatibilidade física a partir de litros/tier. Fatos de manuais continuam limitados aos chunks do SKU consultado; para opções recomendadas sem evidência de manual, só publicar dados SQL estruturados. Os cards são relidos ao término da geração, antes de emitir o evento de recomendações.
+
+Uma restrição explícita de compra/exibição somente do produto consultado (por
+exemplo, "comprar somente essa cafeteira") desabilita UPSELL e CROSS_SELL, inclusive
+em fallback ou estoque zero. Ela nunca autoriza emitir PRIMARY esgotado ou
+incompatível; nesse caso a seleção pode ficar vazia. A palavra "somente" em uma
+pergunta técnica, sozinha, não configura essa restrição comercial.

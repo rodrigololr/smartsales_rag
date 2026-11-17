@@ -193,3 +193,13 @@ def test_malformed_planned_card_never_authorizes_its_technical_prose() -> None:
     events = run(Catalog(PRODUCT, [chunk()]), model, Recommender([malformed]))
     assert not any(event['event'] == 'token' for event in events)
     assert names(events) == ['error', 'recommendations', 'end']
+
+
+def test_primary_only_purchase_restriction_reaches_the_service() -> None:
+    class Restricted(Recommender):
+        async def cards(self, *args: object, **kwargs: object) -> list[dict[str, object]]:
+            assert kwargs['allow_secondary'] is False
+            return []
+    events = run(Catalog(PRODUCT,[chunk()]), ChatModel(GROUNDED), Restricted(),
+                 question='Quero comprar somente esse produto, sem oferecer outro.')
+    assert names(events) == ['token','citations','end']

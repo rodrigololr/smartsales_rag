@@ -371,3 +371,16 @@ def test_restocked_base_does_not_force_an_unrequested_upgrade() -> None:
     old = BASE.model_copy(update={"stock_quantity": 0})
     catalog = FakeCatalog(current=BASE)
     assert ("UPSELL", FAMILY.sku) not in roles(cards(catalog, old, allow_upsell=False))
+
+
+def test_explicit_primary_only_request_never_emits_secondary_offers() -> None:
+    found = asyncio.run(RecommendationService(FakeCatalog(current=BASE)).cards(
+        BASE, query_embedding=None, allow_upsell=True, allow_secondary=False,
+    ))
+    assert roles(found) == [('PRIMARY', BASE.sku)]
+
+
+def test_technical_only_word_does_not_suppress_secondary_cards() -> None:
+    from app.recommendation.intent import only_consulted_product
+    assert not only_consulted_product('Somente o cesto pode ser lavado?')
+    assert only_consulted_product('Mostre apenas o produto consultado.')

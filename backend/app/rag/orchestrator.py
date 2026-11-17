@@ -19,7 +19,7 @@ from app.guardrails.input import is_prompt_injection
 from app.guardrails.output import SentenceBuffer
 from app.guardrails.publication import ConsultativeVerifier
 from app.models.schemas import CatalogProduct, ProductRecommendation, RagRequest, RetrievedChunk
-from app.recommendation.intent import wants_upgrade
+from app.recommendation.intent import only_consulted_product, wants_upgrade
 from app.recommendation.models import Voltage
 
 logger = logging.getLogger(__name__)
@@ -72,6 +72,7 @@ class Recommender(Protocol):
         category: str | None = None,
         capacity_min: Decimal | None = None,
         budget_max: Decimal | None = None,
+        allow_secondary: bool = True,
     ) -> list[dict[str, object]]: ...
 
 
@@ -194,6 +195,7 @@ class RAGOrchestrator:
             category=request.category,
             capacity_min=request.capacity_min,
             budget_max=request.budget_max,
+            allow_secondary=not only_consulted_product(request.question),
         )
         return [{"event": "recommendations", "data": {"products": cards}}] if cards else []
 
