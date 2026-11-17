@@ -1,18 +1,38 @@
 """PostgreSQL + pgvector access (catalog reads, cosine search, ingestion writes)."""
 
 import json
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, Literal, cast
 from uuid import UUID
 
 import psycopg
 from psycopg.rows import dict_row
 
-from app.models.schemas import CatalogProduct, RetrievedChunk
+from app.models.schemas import CatalogProduct, ProductRelation, RetrievedChunk
+from app.recommendation.service import CrossSellRelation, RecommendationLookupError
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
+IngestionJobStatus = Literal["INDEXED", "FAILED", "NEEDS_INTERVENTION"]
+INGESTION_LOCK_KEY = 0x5353494E47455354  # stable database-local "SSINGEST" advisory lock
+
+
+class IngestionAlreadyRunningError(RuntimeError):
+    """A catalog-wide ingestion already owns the database's ingestion lock."""
+
+
+async def acquire_ingestion_lock(conn: psycopg.AsyncConnection[object]) -> None:
+    """Hold a session lock until connection close, including preparation and Redis bump.
+
+    The catalog, relation seed and deactivation step are global. Reject overlapping
+    runs before any write; per-source locks alone cannot keep these steps consistent.
+    """
+    cursor = await conn.execute("SELECT pg_try_advisory_lock(%s)", (INGESTION_LOCK_KEY,))
+    row = await cursor.fetchone()
+    if not row or not cast(tuple[bool], row)[0]:
+        raise IngestionAlreadyRunningError("Another ingestion is already running; retry later")
 
 _PRODUCT_COLUMNS = (
     "sku, name, category, subcategory, brand, price, stock_quantity, voltage, "
@@ -32,16 +52,21 @@ class ChunkRow:
     content: str
     embedding: list[float]
     manual_title: str
+    ingestion_fingerprint: str | None = None
 
 
 class PostgresCatalog:
     """Read side used by the RAG orchestrator.
 
-    shortcut: one connection per call; switch to psycopg_pool before load testing.
+    Retrieval uses one connection per call. Recommendations share a read-only
+    snapshot connection. Connection pooling remains a load-testing concern.
     """
 
-    def __init__(self, conninfo: str) -> None:
+    def __init__(
+        self, conninfo: str, *, read_connection: psycopg.AsyncConnection[object] | None = None
+    ) -> None:
         self._conninfo = conninfo
+        self._read_connection = read_connection
 
     async def get_product(self, sku: str) -> CatalogProduct | None:
         async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
@@ -68,6 +93,88 @@ class PostgresCatalog:
             )
             rows = await cursor.fetchall()
         return [RetrievedChunk.model_validate(row) for row in rows]
+
+    @asynccontextmanager
+    async def snapshot(self) -> AsyncIterator["PostgresCatalog"]:
+        """One committed revision for all prices, stock, relations and vectors."""
+        try:
+            async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
+                await conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+                yield PostgresCatalog(self._conninfo, read_connection=conn)
+        except psycopg.Error as error:
+            raise RecommendationLookupError("recommendation snapshot failed") from error
+
+    async def current_product(self, sku: str) -> CatalogProduct | None:
+        """The consulted product as it is now, for the PRIMARY card (RN01, RN06)."""
+        rows = await self._recommendation_rows(
+            f"SELECT {_PRODUCT_COLUMNS} FROM products WHERE sku = %s", (sku,)
+        )
+        return CatalogProduct.model_validate(rows[0]) if rows else None
+
+    async def upsell_candidates(self, base: CatalogProduct) -> list[CatalogProduct]:
+        """In-stock products of the base's subcategory; RN04 price/tier rules stay in the engine."""
+        rows = await self._recommendation_rows(
+            f"""
+            SELECT {_PRODUCT_COLUMNS} FROM products
+            WHERE is_active AND stock_quantity > 0 AND category = %s AND subcategory = %s
+              AND sku <> %s
+            ORDER BY sku
+            """,
+            (base.category, base.subcategory, base.sku),
+        )
+        return [CatalogProduct.model_validate(row) for row in rows]
+
+    async def cross_sell_relations(self, sku: str) -> list[CrossSellRelation]:
+        """CROSS_SELL rows of product_relations whose related product is in stock (RN01, RN05)."""
+        columns = ", ".join(f"related.{column.strip()}" for column in _PRODUCT_COLUMNS.split(","))
+        rows = await self._recommendation_rows(
+            f"""
+            SELECT {columns}, relation.affinity_weight, relation.justification_template
+            FROM product_relations relation
+            JOIN products base ON base.id = relation.base_product_id
+            JOIN products related ON related.id = relation.related_product_id
+            WHERE base.sku = %s AND relation.relation_type = 'CROSS_SELL'
+              AND related.is_active AND related.stock_quantity > 0
+            ORDER BY related.sku
+            """,
+            (sku,),
+        )
+        return [
+            CrossSellRelation(
+                affinity_weight=row.pop("affinity_weight"),
+                justification_template=row.pop("justification_template"),
+                product=CatalogProduct.model_validate(row),
+            )
+            for row in rows
+        ]
+
+    async def max_similarities(
+        self, skus: Sequence[str], embedding: Sequence[float]
+    ) -> dict[str, float]:
+        """Best cosine similarity between the query and each product's chunks (sim(q, u))."""
+        rows = await self._recommendation_rows(
+            """
+            SELECT sku, MAX(GREATEST(0, 1 - (embedding <=> %s::vector))) AS similarity
+            FROM manual_chunks WHERE sku = ANY(%s) GROUP BY sku
+            """,
+            (vector_literal(embedding), list(skus)),
+        )
+        return {row["sku"]: float(row["similarity"]) for row in rows}
+
+    async def _recommendation_rows(
+        self, query: str, parameters: Sequence[object]
+    ) -> list[dict[str, Any]]:
+        try:
+            if self._read_connection is not None:
+                cursor = self._read_connection.cursor(row_factory=dict_row)
+                await cursor.execute(query.encode(), parameters)
+                return await cursor.fetchall()
+            async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
+                cursor = conn.cursor(row_factory=dict_row)
+                await cursor.execute(query.encode(), parameters)
+                return await cursor.fetchall()
+        except psycopg.Error as error:
+            raise RecommendationLookupError("recommendation lookup failed") from error
 
 
 async def apply_schema(conn: psycopg.AsyncConnection[object]) -> None:
@@ -102,12 +209,15 @@ async def upsert_product(conn: psycopg.AsyncConnection[object], product: Catalog
 
 
 async def current_version(
-    conn: psycopg.AsyncConnection[object], product_id: UUID, manual_source: str
+    conn: psycopg.AsyncConnection[object], product_id: UUID, manual_source: str,
+    *, fingerprint: str | None = None,
 ) -> str | None:
     cursor = await conn.execute(
-        "SELECT manual_version FROM manual_chunks WHERE product_id = %s AND manual_source = %s "
-        "LIMIT 1",
-        (product_id, manual_source),
+        "SELECT MIN(manual_version) FROM manual_chunks "
+        "WHERE product_id = %s AND manual_source = %s "
+        "HAVING COUNT(DISTINCT manual_version) = 1 AND "
+        "(%s::text IS NULL OR BOOL_AND(COALESCE(metadata->>'ingestion_fingerprint' = %s, FALSE)))",
+        (product_id, manual_source, fingerprint, fingerprint),
     )
     row = await cursor.fetchone()
     return cast(str, cast(tuple[object, ...], row)[0]) if row else None
@@ -124,6 +234,10 @@ async def replace_manual_chunks(
 ) -> None:
     """Swap a manual's chunks atomically: the old version survives any failure."""
     async with conn.transaction():
+        # A concurrent DELETE can miss the rows inserted by the transaction it waited
+        # for. Serialize before DELETE so its statement snapshot sees the full version.
+        await conn.execute("SELECT id FROM products WHERE id = %s FOR UPDATE", (product_id,))
+        await retire_other_manual_sources(conn, product_id, sku, manual_source)
         await conn.execute(
             "DELETE FROM manual_chunks WHERE product_id = %s AND manual_source = %s",
             (product_id, manual_source),
@@ -132,8 +246,8 @@ async def replace_manual_chunks(
             await cursor.executemany(
                 """
                 INSERT INTO manual_chunks (product_id, sku, manual_title, page_number,
-                    chunk_index, manual_source, manual_version, content, embedding)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::vector)
+                    chunk_index, manual_source, manual_version, content, embedding, metadata)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::vector, %s::jsonb)
                 """,
                 [
                     (
@@ -146,10 +260,115 @@ async def replace_manual_chunks(
                         manual_version,
                         row.content,
                         vector_literal(row.embedding),
+                        json.dumps({"ingestion_fingerprint": row.ingestion_fingerprint}),
                     )
                     for row in rows
                 ],
             )
+
+
+async def retire_other_manual_sources(
+    conn: psycopg.AsyncConnection[object], product_id: UUID, sku: str, source: str,
+) -> None:
+    """A SKU has one active manual, even when its filename extension changes."""
+    if source.startswith("manual:"):
+        await conn.execute(
+            "DELETE FROM manual_chunks WHERE product_id = %s "
+            "AND manual_source LIKE 'manual:%%' AND manual_source <> %s", (product_id, source),
+        )
+        await conn.execute(
+            "DELETE FROM ingestion_jobs WHERE product_id = %s "
+            "AND source_file LIKE %s AND source_file <> %s AND status <> 'INDEXED'",
+            (product_id, f"{sku}/manual:%", f"{sku}/{source}"),
+        )
+
+
+async def ensure_indexed_job(
+    conn: psycopg.AsyncConnection[object], product_id: UUID, label: str, version: str,
+) -> None:
+    """Backfill bookkeeping for already committed chunks, preserving attempt history."""
+    await conn.execute(
+        "INSERT INTO ingestion_jobs (product_id, source_file, content_hash, status, attempts) "
+        "VALUES (%s, %s, %s, 'INDEXED', 0) ON CONFLICT (source_file, content_hash) DO NOTHING",
+        (product_id, label, version),
+    )
+    await finish_ingestion_job(conn, source_file=label, content_hash=version, status="INDEXED")
+
+
+async def start_ingestion_job(
+    conn: psycopg.AsyncConnection[object],
+    *,
+    product_id: UUID,
+    source_file: str,
+    content_hash: str,
+    attempt: int,
+) -> None:
+    """Open (or reopen) the job of this source version as RUNNING on the run's nth attempt."""
+    await conn.execute(
+        """
+        INSERT INTO ingestion_jobs (product_id, source_file, content_hash, status, attempts)
+        VALUES (%s, %s, %s, 'RUNNING', %s)
+        ON CONFLICT (source_file, content_hash) DO UPDATE SET
+            product_id = EXCLUDED.product_id, status = 'RUNNING',
+            attempts = EXCLUDED.attempts, last_error = NULL, updated_at = NOW()
+        """,
+        (product_id, source_file, content_hash, attempt),
+    )
+
+
+async def finish_ingestion_job(
+    conn: psycopg.AsyncConnection[object],
+    *,
+    source_file: str,
+    content_hash: str,
+    status: IngestionJobStatus,
+    last_error: str | None = None,
+) -> None:
+    await conn.execute(
+        "UPDATE ingestion_jobs SET status = %s, last_error = %s, updated_at = NOW() "
+        "WHERE source_file = %s AND content_hash = %s",
+        (status, last_error, source_file, content_hash),
+    )
+    if status == "INDEXED":
+        # Unfinished jobs of older versions of this source are settled by this one.
+        await conn.execute(
+            "DELETE FROM ingestion_jobs "
+            "WHERE source_file = %s AND content_hash <> %s AND status <> 'INDEXED'",
+            (source_file, content_hash),
+        )
+
+
+async def replace_product_relations(
+    conn: psycopg.AsyncConnection[object], relations: Sequence[ProductRelation]
+) -> int:
+    """The seed is the source of truth: relations absent from it stop being offered."""
+    async with conn.transaction():
+        # Serialize whole-table replacements before DELETE takes its READ COMMITTED
+        # snapshot. Readers keep seeing the committed seed; commit/rollback releases
+        # this writer lock, including for an explicit empty replacement seed.
+        await conn.execute("LOCK TABLE product_relations IN SHARE ROW EXCLUSIVE MODE")
+        await conn.execute("DELETE FROM product_relations")
+        async with conn.cursor() as cursor:
+            await cursor.executemany(
+                """
+                INSERT INTO product_relations (base_product_id, related_product_id,
+                    relation_type, affinity_weight, justification_template)
+                SELECT base.id, related.id, %s, %s, %s
+                FROM products base, products related
+                WHERE base.sku = %s AND related.sku = %s
+                """,
+                [
+                    (
+                        relation.relation_type,
+                        relation.affinity_weight,
+                        relation.justification_template,
+                        relation.base_sku,
+                        relation.related_sku,
+                    )
+                    for relation in relations
+                ],
+            )
+    return len(relations)
 
 
 async def deactivate_missing(conn: psycopg.AsyncConnection[object], skus: Sequence[str]) -> int:

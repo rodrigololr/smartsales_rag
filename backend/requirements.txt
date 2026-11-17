@@ -6,3 +6,4 @@ psycopg[binary]==3.3.8
 openai==3.46.0
 tiktoken==0.14.0
 pypdf==7.0.0
+redis==8.1.0

@@ -112,7 +112,7 @@ def test_citations_keep_only_the_pages_cited_in_the_published_answer() -> None:
 
     uncited_answer = run(Catalog(PRODUCT, [cited, uncited]), ChatModel(["O cesto suporta até 1,2 kg."]))
     pages = [c["page_number"] for c in uncited_answer[-2]["data"]["citations"]]  # type: ignore[index]
-    assert pages == [7, 3]
+    assert pages == [7]  # the verifier binds the uncited extract to its supporting page
 
 
 def test_no_chunk_above_threshold_falls_back_without_calling_the_llm() -> None:
@@ -143,7 +143,7 @@ def test_sentence_with_unsupported_voltage_is_never_published() -> None:
     events = run(Catalog(PRODUCT, [chunk()]), model)
     text = "".join(str(event["data"]["delta"]) for event in events if event["event"] == "token")  # type: ignore[index]
     assert "127V" not in text
-    assert text.startswith("O cesto suporta até 1,2 kg. ")
+    assert text.startswith("O cesto suporta até 1,2 kg [Fonte:")
     assert "não consta" in text
 
 
