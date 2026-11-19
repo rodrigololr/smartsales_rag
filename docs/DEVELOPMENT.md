@@ -86,12 +86,15 @@ em `http://localhost:8001/docs`.
 | backend | `INGESTION_MAX_ATTEMPTS`, `INGESTION_BACKOFF_SECONDS` | `3`, `1.0` | Tentativas por fonte (mínimo 1) e espera inicial (dobra a cada falha). |
 | backend | `HISTORY_MAX_MESSAGES` | `6` | Mensagens do histórico que entram no prompt. A janela de 10 é a que o gateway guarda e envia; o backend usa as 6 mais recentes. |
 | middleend | `BACKEND_INTERNAL_URL` | `http://localhost:8001` | Endereço do backend. |
-| middleend | `REDIS_URL` | não definida | Com ela, sessões e cache ficam no Redis. Sem ela, as sessões ficam na memória do processo e o cache fica desligado. |
+| middleend | `BACKEND_TIMEOUT_SECONDS`, `BACKEND_FIRST_EVENT_TIMEOUT_SECONDS` | `30.0`, `3.0` | Timeout de leitura do stream do backend e prazo máximo até o primeiro evento (com 1 nova tentativa automática antes de publicar tokens). |
+| middleend | `REDIS_URL` | não definida | Com ela (e `DATABASE_URL`), sessões têm projeção/lease no Redis e cache semântico ativo. Sem ela, as sessões ficam na memória do processo e o cache fica desligado. |
 | middleend | `REDIS_SOCKET_TIMEOUT_SECONDS`, `REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS` | `2.0`, `2.0` | Limite de cada chamada e da conexão ao Redis. |
-| middleend | `DATABASE_URL` | não definida | Leitura de `products` para revalidar o cache. O cache só liga com `REDIS_URL` e `DATABASE_URL`. |
-| middleend | `DATABASE_CONNECT_TIMEOUT_SECONDS` | `2` | Limite para conectar ao PostgreSQL na revalidação (inteiro, mínimo 2). |
+| middleend | `DATABASE_URL` | não definida | Persistência durável de sessões/turnos (`chat_sessions`, `chat_messages`, `chat_turn_requests`, requer `REDIS_URL`) e leitura de `products` para revalidar o cache e o *replay*. |
+| middleend | `DATABASE_CONNECT_TIMEOUT_SECONDS` | `2` | Limite para conectar ao PostgreSQL na revalidação do cache (inteiro, mínimo 2). |
+| middleend | `SESSION_DB_CONNECT_TIMEOUT_SECONDS`, `SESSION_DB_QUERY_TIMEOUT_MS` | `2`, `2000` | Limite de conexão e `statement_timeout` (ms) do repositório SQL de sessões. |
 | middleend | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Origens aceitas, separadas por vírgula. |
-| middleend | `SESSION_TTL_SECONDS`, `SESSION_HISTORY_MAX_MESSAGES`, `SESSION_LOCK_TTL_SECONDS` | `1800`, `10`, `60` | TTL da sessão, janela do histórico (número par, mínimo 2) e validade do lock de turno. |
+| middleend | `SESSION_TTL_SECONDS`, `SESSION_HISTORY_MAX_MESSAGES`, `SESSION_LOCK_TTL_SECONDS` | `1800`, `10`, `60` | TTL da sessão, janela do histórico (número par, mínimo 2) e validade do lease/lock de turno. |
+| middleend | `SESSION_HEARTBEAT_SECONDS`, `SESSION_MAINTENANCE_SECONDS`, `TURN_RETRY_AFTER_SECONDS` | `10.0`, `60.0`, `1` | Intervalo de renovação do lease durante o stream, intervalo de limpeza SQL de sessões/turnos expirados e cabeçalho `Retry-After` em `409 TURN_IN_PROGRESS`. |
 | middleend | `CACHE_TTL_SECONDS`, `CACHE_POLICY_VERSION` | `3600`, `p1` | TTL das respostas em cache; mude a versão ao alterar prompts, guardrails, ranking ou modelo. |
 
 ## Arquitetura implementada
@@ -100,58 +103,60 @@ em `http://localhost:8001/docs`.
 
 | Módulo | Pacote | O que faz |
 | --- | --- | --- |
-| `ingestion/` | `B01`, `B03` | CLI `python -m app.ingestion.run`: valida o catálogo, faz *upsert* em `products`, substitui `product_relations` pelo seed quando `--relations` é informado (sem a flag a tabela não é tocada; arquivo inexistente é erro), indexa a ficha técnica e o manual de cada produto em chunks de 500 tokens (sobreposição de 50). Cada fonte roda sob um registro em `ingestion_jobs` (`RUNNING` → `INDEXED`), com até 3 tentativas e *backoff* (`attempts` conta as tentativas da execução atual); esgotadas, ou em erro que repetir não resolve (PDF corrompido), fica `NEEDS_INTERVENTION`, a carga segue para a próxima fonte e a CLI termina com código 1. Os chunks novos e o `INDEXED` são gravados na mesma transação, então a versão anterior dos chunks é preservada em caso de falha; ao indexar, jobs não concluídos de versões antigas da mesma fonte são removidos. O `INCR catalog:version` roda ao final mesmo que a carga pare no meio; se o Redis falhar, o relatório traz `catalog_version_error` e a CLI termina com código 1. |
-| `db/` | `B01` | `schema.sql` (idempotente) com `products`, `manual_chunks` (HNSW), `product_relations` e `ingestion_jobs`; `repository.py` com as consultas. |
+| `ingestion/` | `B01`, `B03` | CLI `python -m app.ingestion.run`: adquire *advisory lock* de sessão no PostgreSQL (rejeitando execuções concorrentes com código 1), valida o catálogo, faz *upsert* em `products`, substitui `product_relations` sob lock de tabela quando `--relations` é informado (sem a flag a tabela não é tocada; arquivo inexistente é erro), e indexa a ficha técnica e o manual de cada produto em chunks de 500 tokens (sobreposição de 50) a partir de um *snapshot* único de bytes e de um *fingerprint* de configuração (contexto, título, modelo/provedor, dimensão e chunking). Cada fonte roda sob `ingestion_jobs` (`RUNNING` → `INDEXED`), com até 3 tentativas e *backoff* apenas para falhas transitórias (`LLMUnavailableError`, `psycopg.OperationalError`); esgotadas, ou em erro permanente (PDF corrompido/vazio, erro de leitura, `IntegrityError`), fica `NEEDS_INTERVENTION`, preserva a versão anterior sob `lock_product`, segue para a próxima fonte e a CLI termina com código 1. Troca de extensão aposenta a fonte antiga do SKU. O `INCR catalog:version` roda ao final em `finally`; se o Redis falhar, o relatório traz `catalog_version_error` e a CLI termina com código 1. |
+| `db/` | `B01`, `B03`, `B04` | `schema.sql` (idempotente) com `products`, `manual_chunks` (HNSW), `product_relations` e `ingestion_jobs`; `repository.py` com as consultas e snapshot `REPEATABLE READ READ ONLY` para recomendações. |
 | `clients/` | `B02`, `B03` | Cliente compatível com a API da OpenAI e `RedisCatalogVersion` (`INCR catalog:version`). |
-| `rag/orchestrator.py` | `B02`, `B03`, `B04` | Turno de um produto: G-IN, busca dos 5 chunks do SKU, limiar, geração com G-OUT por sentença, citações e cards. |
-| `guardrails/` | `B03` | Bloqueio de *prompt injection* e conferência de voltagem, potência, capacidade e preço antes de publicar cada sentença. |
-| `recommendation/` | `B04` | `engine.py` (regras `RN01`, `RN04`, `RN05` em `Decimal`), `service.py` (candidatos do SQL → motor → cards), `cards.py` (textos montados só com valores do SQL) e `intent.py` (palavras-chave que abrem o ramo de upsell). |
+| `rag/orchestrator.py` | `B02`, `B03`, `B04` | Turno de um produto: G-IN, busca dos 5 chunks do SKU, limiar, seleção SQL pré-prompt de recomendações, geração com G-OUT por sentença (`SentenceVerifier` / `ConsultativeVerifier`), releitura SQL dos cards e citações. |
+| `guardrails/` | `B03`, `B04` | Bloqueio de *prompt injection* (`input.py`) e verificação por sentença (`output.py`, `publication.py`): valida preço, voltagem, potência e capacidade contra o SQL do SKU (com normalização de `mL`/`L` e `kW`/`W`), exige trecho literal verificado e página real para fatos de manual, permite fatos SQL de alternativas em `<RECOMENDACOES_SQL>` quando prefixadas por `SKU <codigo>:`, e só emite o aviso *"não consta no manual"* quando a sentença bloqueada contém afirmação técnica (descartando saudações/paráfrases sem número silenciosamente). |
+| `recommendation/` | `B04` | `engine.py` (regras `RN01`, `RN04`, `RN05` em `Decimal`), `service.py` (snapshot SQL `REPEATABLE READ` → filtros de compra → motor → cards), `cards.py` (textos montados só com valores do SQL) e `intent.py` (intenção de upgrade com tratamento de negação e restrição `only_consulted_product`). |
 
 Contrato interno: o middle-end chama `POST /internal/rag/stream` com
-`{sku, question, history, preferred_voltage?}` e recebe NDJSON com `token` (só
-sentenças aprovadas pelo G-OUT), `citations`, `recommendations`, `error` e `end`.
+`{sku, question, history, preferred_voltage?, budget_max?, capacity_min?, category?}`
+e recebe NDJSON com `token` (só sentenças aprovadas pelo G-OUT), `citations`,
+`recommendations`, `error` e `end`.
 
 Quando o evento `recommendations` é emitido:
 
 | Situação do turno | Cards |
 | --- | --- |
-| Resposta com evidência | Produto consultado (se em estoque) e cross-sell. O upsell entra se a pergunta indica necessidade maior ou comparação, ou se o produto consultado está esgotado. |
-| `LOW_SIMILARITY_FALLBACK` ou `LLM_UNAVAILABLE` | Produto consultado, upsell e cross-sell, como alternativas em estoque. |
+| Resposta com evidência | Produto consultado (se em estoque e compatível com os filtros de compra) e cross-sell. O upsell entra se a pergunta indica necessidade maior ou comparação (sem negação de upgrade), ou se o produto consultado está esgotado, tem voltagem incompatível ou capacidade abaixo de `capacity_min`. Se o usuário pedir explicitamente apenas o produto consultado (`only_consulted_product`), `UPSELL` e `CROSS_SELL` são suprimidos. |
+| `LOW_SIMILARITY_FALLBACK` ou `LLM_UNAVAILABLE` | Produto consultado, upsell e cross-sell, como alternativas em estoque (respeitando `only_consulted_product` e os filtros de compra). |
 | `GUARDRAIL_BLOCKED` ou produto fora do catálogo ativo | Nenhum. |
 
-O produto consultado é relido do SQL na hora de montar os cards (card `PRIMARY` e
-teto de +35% do upsell). Se qualquer etapa das recomendações falhar, o turno segue
-sem cards. O prompt continua
-restrito ao produto consultado: os cards não entram no texto gerado.
+As opções elegíveis são lidas em snapshot `REPEATABLE READ READ ONLY` antes do prompt
+(entrando em `<RECOMENDACOES_SQL>` para comparação consultiva verificada por SKU) e
+relidas novamente antes de emitir o evento `recommendations`. Se qualquer etapa das
+recomendações falhar, o turno segue sem cards.
 
 ### Gateway (`middleend/app/`)
 
 | Módulo | Pacote | O que faz |
 | --- | --- | --- |
-| `routes/chat.py` | `M02`, `M03` | `POST /api/v1/sessions` (201 para sessão nova, 200 com o histórico quando o `session_id` enviado ainda está ativo), `DELETE /api/v1/sessions/{id}`, `POST /api/v1/chat/stream` e `GET /api/v1/health`. Redis indisponível nas rotas de sessão e chat responde 503 `SERVICE_UNAVAILABLE` no envelope de erro. |
-| `sessions/` | `M02` | `SessionStore` com dois adaptadores: `RedisSessionStore` e `InMemorySessionStore`. |
+| `routes/chat.py` | `M02`, `M03` | `POST /api/v1/sessions` (201 para sessão nova, 200 com o histórico quando o `session_id` enviado ainda está ativo), `DELETE /api/v1/sessions/{id}`, `POST /api/v1/chat/stream` e `GET /api/v1/health` (`backend`, `redis`, `postgres`). Indisponibilidade de Redis ou PostgreSQL responde 503 `SERVICE_UNAVAILABLE` no envelope de erro. |
+| `sessions/` e `db/` | `M02` | `PostgresSessionStore` (autoridade durável em `chat_sessions`, `chat_messages` e `chat_turn_requests`, migradas sob *advisory lock* em `middleend/app/db/schema.sql`), `SessionCache` (projeção e máquina de estados no Redis), `LeaseStream` (renovação de lease por *heartbeat* a cada 10 s e bloqueio de entrega caso a posse seja perdida), `replay.py` (revalidação SQL dos cards antes de entregar um *replay* idempotente) e `SessionStreamingResponse`, além dos adaptadores auxiliares `RedisSessionStore` e `InMemorySessionStore`. |
 | `cache/` | `M03` | `build_cache_key` (identidade canônica), `SemanticCacheService` e `RedisCacheStorage`. |
 | `repositories/products.py` | `M03` | Leitura de preço, estoque e status em `products` (ADR-06). |
-| `sse/` | `M02` | `sse_chat_generator`: protocolo público, ordem dos eventos, falhas e liberação do turno. |
-| `clients/backend.py` | `M02` | Adaptador NDJSON do backend e *replay* de turnos concluídos ou vindos do cache. |
+| `sse/` | `M02` | `sse_chat_generator`: protocolo público, transições de estado, ordem dos eventos, falhas e liberação do turno. |
+| `clients/backend.py` | `M02`, `B04` | Adaptador NDJSON do backend (encaminhando filtros de compra, com timeout de 3 s até o primeiro evento e 1 retry antes de publicar tokens) e `ReplayStream` para turnos concluídos ou vindos do cache. |
 
 Chaves no Redis:
 
 | Chave | Tipo | TTL | Conteúdo |
 | --- | --- | --- | --- |
-| `session:{id}:state` | HASH | 1800 s | `state`, `active_sku`, `updated_at`. |
+| `session:{id}:state` | HASH | 1800 s | `state` (`IDLE`, `VALIDATING_CACHE`, `STREAMING_TOKENS`, `EMITTING_CARDS_AND_CITATIONS`, `ERROR_CONTINGENCY`), `active_sku`, `updated_at`. |
 | `session:{id}:history` | LIST | 1800 s | Últimas 10 mensagens (`LPUSH` + `LTRIM 0 9`). |
-| `session:{id}:lock` | STRING | 60 s | Token do dono do turno em andamento, um por aquisição (`SET NX EX`). Só o dono libera o lock ou grava o turno. |
-| `session:{id}:turn:{client_request_id}` | STRING | 1800 s | Registro de idempotência do turno. |
-| `session:{id}:turns` | SET | 1800 s | Ids dos turnos, para o `DELETE` remover tudo. |
+| `session:{id}:lock` | STRING | 60 s | Token `uuid4` do dono do turno em andamento (`SET NX EX`), renovado a cada 10 s por *heartbeat*. Só o dono transita estado, libera o lock ou conclui o turno. |
+| `session:{id}:turn:{client_request_id}` | STRING | 1800 s | Registro de idempotência usado apenas no modo auxiliar Redis-only (sem `DATABASE_URL`); em produção a autoridade é `chat_turn_requests` no PostgreSQL (retenção de 24 h; `410 TURN_EXPIRED` após expirar). |
+| `session:{id}:turns` | SET | 1800 s | Ids dos turnos no modo auxiliar Redis-only, para o `DELETE` remover tudo. |
 | `cache:sem:v{versão}:{sha256}` | STRING | 3600 s | Texto, citações e cards de um turno respondido, mais `consulted` (SKU, preço e disponibilidade do produto consultado). |
 | `catalog:version` | STRING | sem expiração | Contador incrementado pela ingestão. |
 
 Regras do cache:
 
 - A chave inclui a versão do catálogo, a consulta normalizada (NFC e espaços), os
-  filtros resolvidos, o histórico da sessão e a versão de política. Com histórico,
-  a resposta só é reaproveitada por uma sessão com o mesmo histórico.
+  filtros resolvidos, o histórico da sessão (obtido sob a reserva do turno) e a versão
+  de política. Com histórico, a resposta só é reaproveitada por uma sessão com o mesmo
+  histórico.
 - Só entram no cache turnos concluídos com `finish_reason = "stop"` cujo produto
   consultado está ativo em `products`.
 - Antes de servir um *hit*, o gateway lê preço, estoque e status do produto
@@ -167,16 +172,11 @@ Regras do cache:
 
 - `GET /api/v1/sessions/{id}`, citado na issue do `M02`, não foi criado: o
   `openapi.yaml` define a restauração pelo `POST /api/v1/sessions` com `session_id`.
-- O histórico e a idempotência ficam no Redis; as tabelas `chat_sessions`,
-  `chat_messages` e `chat_turn_requests` das specs ainda não existem.
 - Em relação à seção 4 de `specs/architecture/02_database_pgvector_and_redis_schema.md`:
-  o HASH `session:{id}:state` não tem `voltage_pref`; `state` é gravado como `IDLE` na
-  criação e nunca muda (a máquina de estados da sessão não foi implementada); as
-  chaves `session:{id}:lock`, `session:{id}:turn:{client_request_id}` e
-  `session:{id}:turns` não constam na spec, que prevê a idempotência em
-  `chat_turn_requests`; `ratelimit:ip:{client_ip}` não existe (`M01`).
-- Um turno que dura mais que o TTL do lock (60 s) perde o lock: a resposta chega ao
-  cliente, mas não entra no histórico nem no registro de idempotência.
+  o HASH `session:{id}:state` não persiste `voltage_pref` separado (a preferência de
+  voltagem vem em `context_filters` por turno) e `ratelimit:ip:{client_ip}` ainda não
+  existe (`M01`).
 - Quando o backend está inacessível, a contingência do gateway não publica cards.
-- Os testes unitários não medem RAGAS, latência de rede nem *cache hit ratio*.
-  Essas medições pertencem ao `B05` e ao `F05`.
+- Os testes unitários não medem RAGAS com provedor externo, latência de rede real nem
+  *cache hit ratio* de produção. Essas medições pertencem à homologação viva do `B05` e
+  ao `F05`.
