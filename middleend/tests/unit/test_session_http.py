@@ -25,6 +25,20 @@ requires_stores = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(autouse=True)
+def clear_semantic_cache() -> None:
+    if not REDIS_URL:
+        return
+
+    async def flush() -> None:
+        async with Redis.from_url(REDIS_URL, decode_responses=True) as redis:
+            stale = [key async for key in redis.scan_iter("cache:sem:*")]
+            if stale:
+                await redis.delete(*stale)
+
+    asyncio.run(flush())
+
+
 def settings(**overrides: object) -> Settings:
     return Settings.model_validate(
         {

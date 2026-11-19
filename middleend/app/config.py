@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Bound every Redis call: a black-holed Redis must fail the request, not hang it.
     redis_socket_timeout_seconds: float = Field(default=2.0, gt=0)
     redis_socket_connect_timeout_seconds: float = Field(default=2.0, gt=0)
+    # libpq floors connect_timeout at 2 s; smaller values are raised to it.
+    database_connect_timeout_seconds: int = Field(default=2, ge=2)
+    cache_ttl_seconds: int = Field(default=3600, ge=1)
+    cache_policy_version: str = "p1"  # bump when prompts, guardrails, ranking or model change
     session_ttl_seconds: int = Field(default=1800, ge=1)
     # Sliding window kept per session; even, so it never starts with an orphan answer.
     session_history_max_messages: int = Field(default=10, ge=2, multiple_of=2)
