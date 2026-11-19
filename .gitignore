@@ -30,3 +30,7 @@ Thumbs.db
 
 # Local tooling artifacts
 .openchamber/
+
+# Playwright (F05)
+playwright-report/
+test-results/
