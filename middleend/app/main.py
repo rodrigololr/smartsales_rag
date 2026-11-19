@@ -15,8 +15,11 @@ from redis.asyncio.retry import Retry
 from redis.backoff import NoBackoff
 from redis.exceptions import RedisError
 
+from app.cache.redis_storage import RedisCacheStorage
+from app.cache.service import SemanticCacheService
 from app.clients.backend import BackendClient
 from app.config import Settings, get_settings
+from app.repositories.products import PostgresProductSnapshots
 from app.routes.chat import RagBackend, error_response, router
 from app.sessions.cache import SessionCache
 from app.sessions.postgres_store import PostgresSessionStore
@@ -87,10 +90,26 @@ def build_session_store(settings: Settings, redis: Redis | None) -> SessionStore
     )
 
 
+def build_cache(settings: Settings, redis: Redis | None) -> SemanticCacheService | None:
+    """The cache serves only what it can revalidate: it needs Redis and PostgreSQL."""
+    if redis is None or not settings.database_url:
+        return None
+    return SemanticCacheService(
+        RedisCacheStorage(redis),
+        PostgresProductSnapshots(
+            settings.database_url,
+            connect_timeout_seconds=settings.database_connect_timeout_seconds,
+        ),
+        ttl_seconds=settings.cache_ttl_seconds,
+        policy_version=settings.cache_policy_version,
+    )
+
+
 def create_app(
     settings: Settings | None = None,
     backend: RagBackend | None = None,
     store: SessionStore | None = None,
+    cache: SemanticCacheService | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
 
@@ -111,6 +130,7 @@ def create_app(
             if redis is not None:
                 resources.push_async_callback(redis.aclose)
             app.state.store = store or build_session_store(settings, redis)
+            app.state.cache = cache or build_cache(settings, redis)
             app.state.redis_enabled = redis is not None
             if isinstance(app.state.store, PostgresSessionStore):
                 await app.state.store.initialize()

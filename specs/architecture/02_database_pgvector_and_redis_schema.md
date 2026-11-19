@@ -309,7 +309,7 @@ LIMIT 5;
 | :--- | :---: | :---: | :--- | :---: |
 | `session:{session_id}:state` | `HASH` | `1800s` (30m) | `{ "state": "IDLE \| VALIDATING_CACHE \| STREAMING_TOKENS \| EMITTING_CARDS_AND_CITATIONS \| ERROR_CONTINGENCY", "active_sku": "AF-400-220V", "voltage_pref": "220V", "updated_at": "..." }` | `M02` |
 | `session:{session_id}:history` | `LIST` | `1800s` (30m) | Lista FIFO limitada às últimas `10` mensagens (5 turnos) (`LPUSH` + `LTRIM 0 9`) serializados em JSON. | `M02` |
-| `cache:sem:{catalog_ver}:{sha256_query}` | `STRING` | `3600s` (60m) | JSON contendo `{ "answer_text": "...", "citations": [...], "recommendations": [...] }`. | `M03` |
+| `cache:sem:{catalog_ver}:{sha256_query}` | `STRING` | `3600s` (60m) | JSON contendo `{ "answer_text": "...", "citations": [...], "recommendations": [...], "tokens_used": 0, "intent": "...", "consulted": { "sku": "...", "price": "649.90", "in_stock": true } }`. No *hit*, `consulted` (produto consultado) e os cards são relidos em `products`; divergência de preço, disponibilidade ou status descarta a entrada, assim como uma entrada ilegível. | `M03` |
 | `catalog:version` | `STRING` (`INCR`) | Sem expiração | Inteiro incremental (ex.: `42`, usado na chave como `v42`) incrementado pela CLI de ingestão (`B01`/`B03`) e pelo *mock checkout* quando o estoque zera ou o preço muda (`M05`), invalidando *caches* antigos (`RN09`). | `M03` / `B01` / `M05` |
 | `ratelimit:ip:{client_ip}` | `STRING` (`INCR`) | `60s` (1m) | Contador de requisições por minuto (limite padrão: `30 req/min` por IP/sessão). | `M01` |
 

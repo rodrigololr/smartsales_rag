@@ -11,6 +11,7 @@ import pytest
 from app.clients.backend import BackendClient
 from app.config import Settings
 from app.main import create_app
+from app.schemas import Filters
 from app.sessions.store import HistoryItem
 from fastapi.testclient import TestClient
 
@@ -65,8 +66,20 @@ class FakeBackend:
     def __init__(self, events: list[Mapping[str, object]]) -> None:
         self.events = events
         self.calls: list[tuple[str, str, list[HistoryItem]]] = []
+        self.voltages: list[str | None] = []
 
-    def open_stream(self, sku: str, question: str, history: list[HistoryItem], **kwargs: object) -> FakeStream:
+    def open_stream(
+        self,
+        sku: str,
+        question: str,
+        history: list[HistoryItem],
+        *,
+        filters: Filters | None = None,
+        preferred_voltage: str | None = None,
+    ) -> FakeStream:
+        self.voltages.append(
+            filters.preferred_voltage if filters is not None else preferred_voltage
+        )
         self.calls.append((sku, question, history))
         return FakeStream(self.events)
 
