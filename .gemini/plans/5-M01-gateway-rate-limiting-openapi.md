@@ -50,7 +50,7 @@
   - **Arquivos**: `middleend/app/ratelimit/limiter.py`, `middleend/app/main.py`
   - **Mensagem do Commit**: `feat(M01): enforce 30 req/min rate limiting and standard 422 error envelope`
 
-- [ ] **Task 4: Documentação Técnica e Cobertura (Gate)**
+- [x] **Task 4: Documentação Técnica e Cobertura (Gate)**
   - **Arquivos**: `docs/DEVELOPMENT.md`, `README.md`, `.gemini/plans/5-M01-gateway-rate-limiting-openapi.md`
   - **Mensagem do Commit**: `docs(M01): document rate limiting settings and ratelimit:ip Redis key`
 
