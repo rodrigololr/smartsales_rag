@@ -145,10 +145,11 @@ class ConsultativeVerifier:
         return self._base.cited_chunk_ids
 
     def approve(self, sentence: str) -> str | None:
-        anchored = re.fullmatch(r"\s*SKU ([A-Za-z0-9_-]+):\s*(.+)", sentence, re.DOTALL)
+        anchored = re.fullmatch(r"\s*SKU ([A-Za-z0-9_-]+):\s*(.+)", sentence, re.DOTALL | re.IGNORECASE)
         if anchored is None:
             return self._base.approve(sentence)
-        sku, statement = anchored.groups()
+        raw_sku, statement = anchored.groups()
+        sku = raw_sku.upper()
         verifier = self._options.get(sku)
         if verifier is None:
             return None

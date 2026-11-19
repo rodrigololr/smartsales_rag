@@ -39,7 +39,7 @@ flowchart LR
 ### 2.0. Execução da Ingestão do Catálogo Local (`UC08`)
 - Disparo pelo Operador/Lojista via CLI: `python -m app.ingestion.run --catalog data/catalog.json --manuals data/manuals/` (também usado no *seed* do `docker compose` e do CI).
 - Etapas: validação de *schema* do catálogo (`UT-B01-01`) → *upsert* em `products`/`product_relations` → para cada PDF novo ou alterado (`content_hash` SHA-256 diferente) cria/atualiza `ingestion_jobs` (`PENDING → RUNNING → INDEXED`) → extração, *chunking*, *embeddings* e substituição transacional dos chunks da versão anterior (seção 6) → ao final, `INCR catalog:version` no Redis (`RN09`).
-- Falhas: até `3` tentativas com *backoff* exponencial; esgotadas, o job vai para `NEEDS_INTERVENTION` e é listado na saída da CLI e no painel `/admin/metricas` (`UC09`). Produtos removidos do *seed* são marcados `is_active = FALSE` e seus *chunks* apagados.
+- Falhas: até `3` tentativas com *backoff* exponencial para falhas transitórias (indisponibilidade do provedor de embeddings, `psycopg.OperationalError`: conexão perdida, *deadlock*, serialização); erros permanentes (ex.: `IntegrityError`, PDF corrompido, chave de API rejeitada) vão direto para `NEEDS_INTERVENTION`. Esgotadas as tentativas, o job vai para `NEEDS_INTERVENTION` e é listado na saída da CLI e no painel `/admin/metricas` (`UC09`). Produtos removidos do *seed* são marcados `is_active = FALSE` e seus *chunks* apagados.
 
 Quando `--relations` é informado, o seed substitui integralmente `product_relations`
 em uma transação. Antes do DELETE, adquirir `LOCK TABLE product_relations IN SHARE
@@ -188,7 +188,10 @@ exigir extrato literal da evidência, preservando negações e restrições. Cit
 precisam sustentar a sentença na página indicada; se um extrato não vier com
 citação, vinculá-lo deterministicamente ao chunk de suporte. Emitir apenas seus
 IDs no evento citations, sem acrescentar páginas não utilizadas. Chunks de outro
-SKU não entram no prompt. O protocolo SSE permanece igual; nenhuma correção de
+SKU não entram no prompt. O aviso "Essa especificação específica não consta no manual" só
+é emitido quando a sentença bloqueada contém uma afirmação técnica (número com unidade,
+preço ou bivolt); cortesias e paráfrases sem dado técnico são descartadas em silêncio,
+sem sugerir ao cliente que falta uma especificação. O protocolo SSE permanece igual; nenhuma correção de
 fato incorreto depende de já tê-lo exposto ao usuário.
 
 Se não houver nenhuma sentença aprovada e a consulta não puder ser respondida com evidência, emitir error LOW_SIMILARITY_FALLBACK, recomendações determinísticas e end; o Gateway conclui com done(fallback). Nunca transmitir o rascunho rejeitado.
