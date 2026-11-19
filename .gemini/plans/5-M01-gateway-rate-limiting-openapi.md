@@ -46,7 +46,7 @@
   - **Arquivos**: `middleend/tests/unit/test_rate_limit_and_openapi.py`
   - **Mensagem do Commit**: `test(M01): add UT-M01-01 rate limit and CT-M01-01 OpenAPI contract tests`
 
-- [ ] **Task 3: Implementação TDD Green (RateLimitMiddleware, Redis/InMemory RateLimiter e Validação 422 no Envelope)**
+- [x] **Task 3: Implementação TDD Green (RateLimitMiddleware, Redis/InMemory RateLimiter e Validação 422 no Envelope)**
   - **Arquivos**: `middleend/app/ratelimit/limiter.py`, `middleend/app/main.py`
   - **Mensagem do Commit**: `feat(M01): enforce 30 req/min rate limiting and standard 422 error envelope`
 
