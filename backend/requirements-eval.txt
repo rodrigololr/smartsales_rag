@@ -1,0 +1,6 @@
+# Optional B05 judge/test environment; keep these out of the production image.
+-r requirements.txt
+ragas==0.3.0
+# 0.4 removed modules imported by this pinned RAGAS release.
+langchain-community==0.3.31
+Pillow==12.0.0
