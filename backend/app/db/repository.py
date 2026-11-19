@@ -148,7 +148,7 @@ async def replace_manual_chunks(
     async with conn.transaction():
         # A concurrent DELETE can miss the rows inserted by the transaction it waited
         # for. Serialize before DELETE so its statement snapshot sees the full version.
-        await conn.execute("SELECT id FROM products WHERE id = %s FOR UPDATE", (product_id,))
+        await lock_product(conn, product_id)
         await retire_other_manual_sources(conn, product_id, sku, manual_source)
         await conn.execute(
             "DELETE FROM manual_chunks WHERE product_id = %s AND manual_source = %s",
@@ -177,6 +177,14 @@ async def replace_manual_chunks(
                     for row in rows
                 ],
             )
+
+
+async def lock_product(conn: psycopg.AsyncConnection[object], product_id: UUID) -> None:
+    """Row lock that serializes every change to one product's manual chunks and jobs.
+
+    Call inside a transaction: the lock is released on commit or rollback.
+    """
+    await conn.execute("SELECT id FROM products WHERE id = %s FOR UPDATE", (product_id,))
 
 
 async def retire_other_manual_sources(

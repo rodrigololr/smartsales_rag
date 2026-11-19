@@ -178,6 +178,24 @@ def test_non_retryable_error_marks_the_job_and_the_run_goes_on() -> None:
     assert len(report.indexed_sources) > 1 and report.catalog_version == 1
 
 
+def test_transient_database_error_is_retried() -> None:
+    asyncio.run(reset_backend_tables())
+    report = _ingest(FlakyEmbedder(failures=1, error=psycopg.errors.DeadlockDetected("deadlock")))
+
+    assert report.needs_intervention == []
+    assert asyncio.run(_jobs(MANUAL_JOB)) == [("INDEXED", 2, None)]
+
+
+def test_permanent_database_error_goes_to_intervention_without_retries() -> None:
+    asyncio.run(reset_backend_tables())
+    error = psycopg.errors.IntegrityError("duplicate key")
+    report = _ingest(FlakyEmbedder(failures=99, error=error))
+
+    assert report.needs_intervention == [MANUAL_JOB]
+    ((status, attempts, last_error),) = asyncio.run(_jobs(MANUAL_JOB))
+    assert (status, attempts) == ("NEEDS_INTERVENTION", 1) and "IntegrityError" in str(last_error)
+
+
 def test_corrupted_pdf_becomes_a_job_needing_intervention(tmp_path: Path) -> None:
     asyncio.run(reset_backend_tables())
     (tmp_path / "AF-400-220V.pdf").write_bytes(b"not a pdf")

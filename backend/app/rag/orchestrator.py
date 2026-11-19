@@ -12,8 +12,8 @@ from app.clients.openai_client import LLMUnavailableError
 from app.config import Settings
 from app.generation.prompt import Message, build_messages
 from app.guardrails.input import is_prompt_injection
-from app.guardrails.output import SentenceBuffer
-from app.guardrails.publication import SentenceVerifier
+from app.guardrails.output import SentenceBuffer, technical_claims
+from app.guardrails.publication import CITATION_MARK, SentenceVerifier
 from app.models.schemas import CatalogProduct, RagRequest, RetrievedChunk
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ class RAGOrchestrator:
 
 
 class _PublicationGate:
-    """Publishes approved sentences; a blocked sentence becomes the missing-evidence
+    """Publishes approved sentences; a blocked technical claim becomes the missing-evidence
     notice, emitted only next to approved text so a fully rejected draft publishes nothing."""
 
     def __init__(self, verifier: SentenceVerifier, sku: str) -> None:
@@ -186,7 +186,10 @@ class _PublicationGate:
         approved = self._verifier.approve(sentence)
         if approved is None:
             logger.warning("gout_blocked_sentence", extra={"sku": self._sku})
-            self._notice_pending = True
+            # Only a dropped spec (number + unit, price, bivolt) is "missing from the
+            # manual"; a dropped courtesy or paraphrase is discarded silently.
+            if technical_claims(CITATION_MARK.sub("", sentence)):
+                self._notice_pending = True
             return []
         self.approved += 1
         return [*self._notice(), approved]
