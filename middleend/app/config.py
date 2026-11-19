@@ -35,6 +35,8 @@ class Settings(BaseSettings):
         default=60, ge=1
     )  # SET NX EX: one turn at a time per session
     turn_retry_after_seconds: int = 1
+    rate_limit_requests_per_minute: int = Field(default=30, ge=1)
+    rate_limit_window_seconds: int = Field(default=60, ge=1)
     app_version: str = "0.1.0-mvp"
 
     @model_validator(mode="after")
