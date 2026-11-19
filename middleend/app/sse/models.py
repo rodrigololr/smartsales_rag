@@ -73,6 +73,7 @@ class ErrorPayload(TypedDict):
 
 class EndPayload(TypedDict):
     tokens_used: int
+    finish_reason: NotRequired[Literal["error"]]
     intent: NotRequired[str]
 
 
@@ -116,7 +117,7 @@ class CompletedTurn:
     content: str
     citations: tuple[Citation, ...]
     products: tuple[ProductCard, ...]
-    finish_reason: Literal["stop", "fallback"]
+    finish_reason: FinishReason
     tokens_used: int
     intent: str | None
     cache_hit: bool

@@ -308,7 +308,7 @@ LIMIT 5;
 | Padrão da Chave (`Key Pattern`) | Tipo Redis | TTL Padrão | Conteúdo / Estrutura JSON | Responsável |
 | :--- | :---: | :---: | :--- | :---: |
 | `session:{session_id}:state` | `HASH` | `1800s` (30m) | `{ "state": "IDLE \| VALIDATING_CACHE \| STREAMING_TOKENS \| EMITTING_CARDS_AND_CITATIONS \| ERROR_CONTINGENCY", "active_sku": "AF-400-220V", "voltage_pref": "220V", "updated_at": "..." }` | `M02` |
-| `session:{session_id}:history` | `LIST` | `1800s` (30m) | Lista FIFO limitada aos últimos `10` turnos (`LPUSH` + `LTRIM 0 9`) serializados em JSON. | `M02` |
+| `session:{session_id}:history` | `LIST` | `1800s` (30m) | Lista FIFO limitada às últimas `10` mensagens (5 turnos) (`LPUSH` + `LTRIM 0 9`) serializados em JSON. | `M02` |
 | `cache:sem:{catalog_ver}:{sha256_query}` | `STRING` | `3600s` (60m) | JSON contendo `{ "answer_text": "...", "citations": [...], "recommendations": [...] }`. | `M03` |
 | `catalog:version` | `STRING` (`INCR`) | Sem expiração | Inteiro incremental (ex.: `42`, usado na chave como `v42`) incrementado pela CLI de ingestão (`B01`/`B03`) e pelo *mock checkout* quando o estoque zera ou o preço muda (`M05`), invalidando *caches* antigos (`RN09`). | `M03` / `B01` / `M05` |
 | `ratelimit:ip:{client_ip}` | `STRING` (`INCR`) | `60s` (1m) | Contador de requisições por minuto (limite padrão: `30 req/min` por IP/sessão). | `M01` |
@@ -325,9 +325,23 @@ CREATE TABLE chat_turn_requests (
     message_id UUID UNIQUE REFERENCES chat_messages(id),
     status VARCHAR(16) NOT NULL CHECK (status IN ('RUNNING','COMPLETED','FAILED','EXPIRED')),
     terminal_payload JSONB,
+    reserved_message_id UUID NOT NULL DEFAULT gen_random_uuid(),
+    user_message_id UUID REFERENCES chat_messages(id),
+    owner_token UUID,
+    lease_expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
     expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '24 hours'),
     PRIMARY KEY (session_id, client_request_id)
 );
 ```
 
 Adquirir por INSERT ON CONFLICT e ler estado sob lock; apenas o vencedor chama o Backend. Persistir mensagem, payload terminal e COMPLETED/FAILED na mesma transação antes de done. Reserva órfã RUNNING após falha do worker é reconciliada para FAILED, nunca dispara geração duplicada automaticamente; lease de execução com heartbeat é mantido pelo dono do turno. Expirar payload após 24h e preservar hash/ID como tombstone EXPIRED até o encerramento da sessão, respeitando limite de retenção de 90 dias.
+
+### Materialização M02
+
+`middleend/app/db/schema.sql` é a migração idempotente das tabelas do Gateway. `reserved_message_id` reserva o identificador antes de existir uma mensagem; `message_id` só referencia a mensagem terminal inserida na transação de conclusão. `user_message_id` identifica pares concluídos que entram na janela; falhas terminais seguras não entram no histórico enviado ao RAG. `owner_token` e `lease_expires_at` impedem gravação de workers antigos. Todas as mutações de um turno tomam primeiro o lock da linha `chat_sessions`, depois o registro do pedido.
+
+O modo durável requer `DATABASE_URL` e `REDIS_URL` no Gateway (configurados no Compose). Redis contém a projeção de estado/histórico e lock renovável; perda de Redis não elimina idempotência ou histórico SQL. Na restauração, a projeção é reconstruída. Banco indisponível resulta em 503 antes do SSE, sem downgrade para armazenamento volátil. Modos sem banco são auxiliares de desenvolvimento e não atendem a retenção normativa.
+
+Payloads expiram em 24h; o mesmo ID depois disso retorna 410 `TURN_EXPIRED`, sem geração nova. Sessão ociosa por 1800s é encerrada; IDs/hash permanecem até encerramento/retenção, com exclusão SQL em cascata após no máximo 90 dias. A manutenção roda no startup, na criação e periodicamente (60s por padrão); a validade é verificada também na requisição, sem depender da próxima manutenção. A exclusão física periódica pode atrasar até o intervalo configurado; sessões fora do prazo nunca são servidas.

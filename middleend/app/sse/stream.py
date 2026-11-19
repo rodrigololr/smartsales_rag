@@ -7,7 +7,7 @@ same protocol, including end. This generator never restarts generation.
 
 complete_turn atomically persists the approved snapshot/idempotency and updates
 history/cache before returning, including cache hits. It must be idempotent. It
-is never called for failed or incomplete turns. Domain fallbacks are completed
+is never called for incomplete turns. fail_turn records terminal errors separately. Domain fallbacks are completed
 snapshots; orchestration decides cache eligibility and records failed-turn audit.
 Cards originate in SQL; adapters serialize Decimal prices to JSON-ready numbers.
 No money arithmetic, HTTP, SQL or Redis lives in this module. HTTP adapters set
@@ -22,7 +22,11 @@ import logging
 import time
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Literal, cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from app.sessions.store import TurnState
+
 
 from .models import (
     BackendStream,
@@ -69,6 +73,7 @@ class _Turn:
     citations: list[Citation] = field(default_factory=list)
     products: list[ProductCard] = field(default_factory=list)
     ttft_ms: int = 0
+    check_delivery: Callable[[], Awaitable[None]] | None = None
 
     def elapsed(self) -> int:
         return max(0, int((self.clock() - self.start) * 1000))
@@ -77,6 +82,8 @@ class _Turn:
         if event == "end":
             require(self.stage > 0)
             self.received_end = True
+            if payload.get("finish_reason") == "error":
+                self.finish_reason = "error"
             self.tokens_used = cast(int, payload["tokens_used"])
             self.intent = cast(str | None, payload.get("intent"))
         elif event == "error":
@@ -120,14 +127,14 @@ class _Turn:
             self.stage = 6 if self.error_seen else 4
 
     def completed(self) -> CompletedTurn:
-        require(self.finish_reason != "error" and self.received_end)
+        require(self.finish_reason == "error" or self.received_end)
         return CompletedTurn(
             session_id=self.session_id,
             message_id=self.message_id,
             content="".join(self.content),
             citations=tuple(self.citations),
             products=tuple(self.products),
-            finish_reason=cast(Literal["stop", "fallback"], self.finish_reason),
+            finish_reason=self.finish_reason,
             tokens_used=self.tokens_used,
             intent=self.intent,
             cache_hit=self.cache_hit,
@@ -152,6 +159,8 @@ async def _frames(
 ) -> AsyncIterator[str]:
     if not await _connected(request, turn):
         return
+    if not turn.error_seen and turn.check_delivery is not None:
+        await turn.check_delivery()
     if not turn.metadata_sent:
         turn.ttft_ms = turn.elapsed()
         turn.metadata_sent = True
@@ -165,6 +174,8 @@ async def _frames(
             },
         )
     if await _connected(request, turn):
+        if not turn.error_seen and turn.check_delivery is not None:
+            await turn.check_delivery()
         yield format_sse(event, payload)
 
 
@@ -182,6 +193,12 @@ async def _failure_frames(
     )
     # Contract allows a single error per turn: keep the backend's if already published.
     if not turn.error_seen:
+        turn.error_seen = True
+        turn.error_code = cast(ErrorCode, code)
+        turn.recoverable = True
+        turn.content = [SAFE_FAILURE_MESSAGE]
+        turn.citations.clear()
+        turn.products.clear()
         async for frame in _frames(
             request,
             turn,
@@ -201,6 +218,7 @@ async def _failure_frames(
     except Exception:
         logger.exception("fallback_products_failed", extra={"session_id": turn.session_id})
         return
+    turn.products = fallback
     async for frame in _frames(request, turn, "recommendations", {"products": fallback}):
         yield frame
 
@@ -276,6 +294,9 @@ def sse_chat_generator(
     *,
     started_at: float | None = None,
     clock: Callable[[], float] = time.perf_counter,
+    fail_turn: Callable[[CompletedTurn], Awaitable[None]] | None = None,
+    transition: Callable[[TurnState], Awaitable[None]] | None = None,
+    check_delivery: Callable[[], Awaitable[None]] | None = None,
 ) -> SSEStream:
     """Emit ordered SSE, persist approved completion, release resources then done.
 
@@ -287,8 +308,9 @@ def sse_chat_generator(
     turn = _Turn(
         session_id, message_id, cache_hit, clock() if started_at is None else started_at, clock
     )
+    turn.check_delivery = check_delivery
     frames = _sse_frames(
-        request, turn, backend_stream, release_turn, fallback_products, complete_turn
+        request, turn, backend_stream, release_turn, fallback_products, complete_turn, fail_turn, transition
     )
     return SSEStream(frames, lambda: _finish_cleanup(backend_stream, release_turn, session_id))
 
@@ -300,6 +322,8 @@ async def _sse_frames(
     release_turn: Callable[[], Awaitable[None]],
     fallback_products: Callable[[], Awaitable[list[ProductCard]]],
     complete_turn: Callable[[CompletedTurn], Awaitable[None]],
+    fail_turn: Callable[[CompletedTurn], Awaitable[None]] | None,
+    transition: Callable[[TurnState], Awaitable[None]] | None,
 ) -> AsyncGenerator[str, None]:
     session_id, message_id = turn.session_id, turn.message_id
     try:
@@ -311,6 +335,11 @@ async def _sse_frames(
                     return
                 event, payload = parse(item)
                 turn.accept(event, payload)
+                if transition is not None:
+                    stage: TurnState = ("ERROR_CONTINGENCY" if event == "error" else
+                                        "STREAMING_TOKENS" if event == "token" else
+                                        "EMITTING_CARDS_AND_CITATIONS")
+                    await transition(stage)
                 if event == "end":
                     break
                 async for frame in _frames(request, turn, cast(PublicEventName, event), payload):
@@ -327,8 +356,18 @@ async def _sse_frames(
             logger.exception(
                 "stream_failed", extra={"session_id": session_id, "message_id": message_id}
             )
+            if transition is not None:
+                try:
+                    await transition("ERROR_CONTINGENCY")
+                except Exception:
+                    logger.warning("session_error_state_unavailable", extra={"session_id": session_id})
             async for frame in _failure_frames(request, turn, failure, fallback_products):
                 yield frame
+        if turn.finish_reason == "error" and fail_turn is not None and await _connected(request, turn):
+            try:
+                await fail_turn(turn.completed())
+            except Exception:
+                logger.exception("failed_turn_persistence_failed", extra={"session_id": session_id})
     finally:
         await _finish_cleanup(backend_stream, release_turn, session_id)
     if await _connected(request, turn):
