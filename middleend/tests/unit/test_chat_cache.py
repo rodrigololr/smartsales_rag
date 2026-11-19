@@ -109,7 +109,7 @@ def test_failure_while_opening_the_answer_frees_the_session_lock(
     with TestClient(app, raise_server_exceptions=False) as gateway:
         session_id = new_session(gateway)
         storage.failure = RuntimeError("unexpected")  # not a CacheUnavailableError
-        assert ask(gateway, session_id, str(uuid.uuid4())).status_code == 500
+        assert ask(gateway, session_id, str(uuid.uuid4())).status_code == 503
         storage.failure = None
         retry = ask(gateway, session_id, str(uuid.uuid4()))
     assert retry.status_code == 200 and event_names(retry.text)[-1] == "done"

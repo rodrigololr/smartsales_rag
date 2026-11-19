@@ -81,3 +81,20 @@ Onde $\text{PesoRelação}(\text{base}, c) \in [0, 1]$ é o peso de afinidade ca
 ### 3.3. Definição operacional do ranking
 
 `sim(q,u)` é o máximo cosseno entre a query e chunks ativos do candidato, limitado a [0,1]; zero se não há chunk. `gain(u) = min(1, max(0, (capacity_u-capacity_base)/capacity_base))` quando ambas capacidades são positivas; nos demais casos usa `min(1, max(0, (tier_u-tier_base)/4))`. `pricefit(u) = max(0, min(1, 1-(price_u-price_base)/(0.35*price_base)))`. Calcular com Decimal, sem arredondar intermediários; ordenar score decrescente, preço crescente e SKU lexicográfico crescente. `Sim_contexto` no cross-sell usa a mesma regra de sim; relação explícita fornece affinity_weight, compatibilidade por categoria comprovada sem relação recebe peso 0.5. Sem prova de compatibilidade, rejeitar. Não inferir ganho de litros para monitor. Base de preço deve ser positiva; nulos não satisfazem comparações de capacidade e a elegibilidade por tier permanece possível.
+
+
+### Integração B04 no turno
+
+O Gateway repassa `context_filters.preferred_voltage` ao worker, inclusive em fallback, sem restringir a recuperação do SKU consultado. A preferência elétrica incompatível e o estoque esgotado abrem a busca de alternativas mesmo em dúvida técnica. Esta decisão usa o produto relido no momento de montar cards.
+
+Base, candidatos, relações e similaridades são lidos em uma única transação somente leitura REPEATABLE READ; não misturar preços de revisões distintas para calcular os tetos. O snapshot vale para a emissão, e o checkout continua revalidando no clique. Preservar precisão do cosseno convertido para Decimal até a ordenação, sem truncá-lo previamente. Pedidos explicitamente negativos de upgrade não abrem upsell; recusas de capacidade ("não atende 5 pessoas") podem abrir alternativas.
+
+Filtros resolvidos de categoria, capacidade mínima e orçamento também chegam ao worker. Categoria e capacidade mínima restringem PRIMARY/UPSELL antes do ranking; acessórios não são rejeitados por terem outra categoria ou não possuírem litros, pois sua elegibilidade vem da relação explícita. O orçamento máximo limita cada card, inclusive acessórios, e não representa um orçamento de carrinho. Necessidade estruturada acima da capacidade base abre upsell sem estimar litros por pessoa. Não filtrar as evidências do SKU explícito por essas restrições de compra.
+
+O prompt consultivo recebe os cards SQL selecionados antes da geração. Cada sentença sobre outra opção deve identificar explicitamente `SKU <código>:` e usar uma estrutura verificável por atributo. O G-OUT valida essa sentença contra os valores daquele SKU; números pertencentes a outro produto não a autorizam. Não inferir número de pessoas, tempo de preparo ou compatibilidade física a partir de litros/tier. Fatos de manuais continuam limitados aos chunks do SKU consultado; para opções recomendadas sem evidência de manual, só publicar dados SQL estruturados. Os cards são relidos ao término da geração, antes de emitir o evento de recomendações.
+
+Uma restrição explícita de compra/exibição somente do produto consultado (por
+exemplo, "comprar somente essa cafeteira") desabilita UPSELL e CROSS_SELL, inclusive
+em fallback ou estoque zero. Ela nunca autoriza emitir PRIMARY esgotado ou
+incompatível; nesse caso a seleção pode ficar vazia. A palavra "somente" em uma
+pergunta técnica, sozinha, não configura essa restrição comercial.

@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 from app.sessions.redis_store import RedisSessionStore
-from app.sessions.store import InMemorySessionStore, SessionStore, TurnDecision
+from app.sessions.store import InMemorySessionStore, SessionStore, TurnDecision, TurnLost
 from app.sse.models import CompletedTurn
 from redis.asyncio import Redis
 
@@ -170,12 +170,13 @@ def test_history_keeps_only_the_last_ten_messages(kind: str) -> None:
 
 
 @pytest.mark.parametrize("kind", STORES)
-def test_released_unfinished_turn_can_be_retried_with_the_same_id(kind: str) -> None:
+def test_released_unfinished_turn_replays_failure_and_allows_a_new_explicit_id(kind: str) -> None:
     async def scenario(store: SessionStore) -> None:
         session_id = (await store.create("AF-400-220V")).session_id
         turn = await store.begin_turn(session_id, "req-1", "hash-a")
         await store.release(session_id, "req-1", turn.lock_token)
-        assert (await store.begin_turn(session_id, "req-1", "hash-a")).kind == TurnDecision.NEW
+        assert (await store.begin_turn(session_id, "req-1", "hash-a")).kind == TurnDecision.REPLAY
+        assert (await store.begin_turn(session_id, "req-2", "hash-b")).kind == TurnDecision.NEW
 
     run(kind, scenario)
 
@@ -189,7 +190,8 @@ def test_only_the_lock_owner_releases_or_completes_the_turn(kind: str) -> None:
 
         # Same client_request_id, but not the token of this acquisition (a stale owner).
         await store.release(session_id, "req-1", "stale-token")
-        await store.complete(session_id, "req-1", "stale-token", "Pergunta?", completed("stale"))
+        with pytest.raises(TurnLost):
+            await store.complete(session_id, "req-1", "stale-token", "Pergunta?", completed("stale"))
         assert (await store.begin_turn(session_id, "req-2", "hash-b")).kind == TurnDecision.IN_PROGRESS
         assert (await store.get(session_id)).history == ()  # type: ignore[union-attr]
 
@@ -275,16 +277,18 @@ def test_redis_turn_outliving_its_lock_cannot_touch_the_retry() -> None:
             session_id = (await store.create("AF-400-220V")).session_id
             slow = await store.begin_turn(session_id, "req-1", "hash-a")
             await asyncio.sleep(1.2)  # the lock expires while the slow turn still runs
-            retry = await store.begin_turn(session_id, "req-1", "hash-a")
+            assert (await store.begin_turn(session_id, "req-1", "hash-a")).kind == TurnDecision.REPLAY
+            retry = await store.begin_turn(session_id, "req-fresh", "hash-fresh")
             assert retry.kind == TurnDecision.NEW and retry.lock_token != slow.lock_token
 
-            await store.complete(session_id, "req-1", slow.lock_token, "Pergunta?", completed("slow"))
+            with pytest.raises(TurnLost):
+                await store.complete(session_id, "req-1", slow.lock_token, "Pergunta?", completed("slow"))
             await store.release(session_id, "req-1", slow.lock_token)
             assert (await store.get(session_id)).history == ()  # type: ignore[union-attr]
             assert (await store.begin_turn(session_id, "req-2", "hash-b")).kind == TurnDecision.IN_PROGRESS
 
             await store.complete(
-                session_id, "req-1", retry.lock_token, "Pergunta?", completed(retry.message_id)
+                session_id, "req-fresh", retry.lock_token, "Pergunta?", completed(retry.message_id)
             )
             history = (await store.get(session_id)).history  # type: ignore[union-attr]
             assert [item.message_id for item in history][1:] == [retry.message_id]
@@ -319,11 +323,10 @@ def test_redis_release_of_a_failed_turn_keeps_the_retry_that_raced_it() -> None:
             await store.release(session_id, "req-1", failed.lock_token)
 
             retry = retries[0]
-            assert retry.kind == TurnDecision.NEW
-            await store.complete(
-                session_id, "req-1", retry.lock_token, "Pergunta?", completed(retry.message_id)
-            )
-            assert len((await store.get(session_id)).history) == 2  # type: ignore[union-attr]
+            assert retry.kind == TurnDecision.REPLAY
+            assert retry.message_id == failed.message_id
+            assert retry.completed is not None and retry.completed.finish_reason == "error"
+            assert (await store.get(session_id)).history == ()
 
     asyncio.run(scenario())
 
@@ -342,18 +345,13 @@ def test_redis_retry_racing_the_completion_replays_instead_of_regenerating() -> 
             )
             session_id = (await store.create("AF-400-220V")).session_id
             running = await store.begin_turn(session_id, "req-1", "hash-a")
-            read = client.get
-
-            async def read_then_finish_running_turn(key: str) -> object:
-                found = await read(key)
-                client.get = read  # type: ignore[method-assign]
-                await store.complete(
-                    session_id, "req-1", running.lock_token, "Pergunta?", completed(running.message_id)
-                )
+            async def finish() -> None:
+                await store.complete(session_id, "req-1", running.lock_token,
+                                     "Pergunta?", completed(running.message_id))
                 await store.release(session_id, "req-1", running.lock_token)
-                return found
 
-            client.get = read_then_finish_running_turn  # type: ignore[method-assign,assignment]
+            _, raced = await asyncio.gather(finish(), store.begin_turn(session_id, "req-1", "hash-a"))
+            assert raced.kind in (TurnDecision.IN_PROGRESS, TurnDecision.REPLAY)
             retry = await store.begin_turn(session_id, "req-1", "hash-a")
 
             assert retry.kind == TurnDecision.REPLAY and retry.message_id == running.message_id
@@ -377,3 +375,25 @@ def test_redis_ping_reports_an_unreachable_server() -> None:
             await client.aclose()
 
     assert asyncio.run(scenario()) is False
+
+
+@pytest.mark.parametrize("kind", STORES)
+def test_deleted_session_cannot_acquire_a_new_turn(kind: str) -> None:
+    async def scenario(store: SessionStore) -> None:
+        session_id = (await store.create("AF-400-220V")).session_id
+        await store.delete(session_id)
+        assert (await store.begin_turn(session_id, "late", "hash")).kind.value == "NOT_FOUND"
+    run(kind, scenario)
+
+
+@pytest.mark.parametrize("kind", STORES)
+def test_abandoned_request_is_terminal_and_never_regenerated(kind: str) -> None:
+    async def scenario(store: SessionStore) -> None:
+        session_id = (await store.create("AF-400-220V")).session_id
+        first = await store.begin_turn(session_id, "req-1", "hash")
+        await store.release(session_id, "req-1", first.lock_token)
+        retry = await store.begin_turn(session_id, "req-1", "hash")
+        assert retry.kind == TurnDecision.REPLAY
+        assert retry.completed is not None and retry.completed.finish_reason == "error"
+        assert (await store.get(session_id)).history == ()
+    run(kind, scenario)
