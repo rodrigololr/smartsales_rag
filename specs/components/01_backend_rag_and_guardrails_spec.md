@@ -39,7 +39,15 @@ flowchart LR
 ### 2.0. Execução da Ingestão do Catálogo Local (`UC08`)
 - Disparo pelo Operador/Lojista via CLI: `python -m app.ingestion.run --catalog data/catalog.json --manuals data/manuals/` (também usado no *seed* do `docker compose` e do CI).
 - Etapas: validação de *schema* do catálogo (`UT-B01-01`) → *upsert* em `products`/`product_relations` → para cada PDF novo ou alterado (`content_hash` SHA-256 diferente) cria/atualiza `ingestion_jobs` (`PENDING → RUNNING → INDEXED`) → extração, *chunking*, *embeddings* e substituição transacional dos chunks da versão anterior (seção 6) → ao final, `INCR catalog:version` no Redis (`RN09`).
-- Falhas: até `3` tentativas com *backoff* exponencial; esgotadas, o job vai para `NEEDS_INTERVENTION` e é listado na saída da CLI e no painel `/admin/metricas` (`UC09`). Produtos removidos do *seed* são marcados `is_active = FALSE` e seus *chunks* apagados.
+- Falhas: até `3` tentativas com *backoff* exponencial para falhas transitórias (indisponibilidade do provedor de embeddings, `psycopg.OperationalError`: conexão perdida, *deadlock*, serialização); erros permanentes (ex.: `IntegrityError`, PDF corrompido, chave de API rejeitada) vão direto para `NEEDS_INTERVENTION`. Esgotadas as tentativas, o job vai para `NEEDS_INTERVENTION` e é listado na saída da CLI e no painel `/admin/metricas` (`UC09`). Produtos removidos do *seed* são marcados `is_active = FALSE` e seus *chunks* apagados.
+
+Quando `--relations` é informado, o seed substitui integralmente `product_relations`
+em uma transação. Antes do DELETE, adquirir `LOCK TABLE product_relations IN SHARE
+ROW EXCLUSIVE MODE` para serializar escritores, inclusive ao publicar `[]`; leituras
+continuam vendo o último seed confirmado. Commit ou rollback libera o bloqueio.
+Sem `--relations`, preservar as relações existentes; arquivo informado e inexistente
+é erro. Este bloqueio protege a substituição da tabela e complementa o lock global
+de ingestão de B03, responsável pelos demais passos da carga.
 
 ### 2.1. Regras de Processamento de Manuais Técnicos (`EAP 4.2`)
 1. **Extração por Página com Preservação de Tabelas**:
@@ -149,4 +157,57 @@ O evento `correction` fica reservado à substituição por conteúdo seguro apó
 
 Cada manual possui `manual_source` estável e `manual_version` (SHA-256 do PDF). A extração e os embeddings são preparados fora da transação. Sob lock do produto, uma única transação apaga todos os chunks do `manual_source` substituído e insere o conjunto completo da nova versão; apenas depois marca o job INDEXED. Falha faz rollback e preserva integralmente a versão anterior. PDF menor não deixa páginas antigas. `INCR catalog:version` ocorre após commit; falha no Redis bloqueia leitura/escrita do cache até reconciliar a versão. Uma revisão nunca mistura versões na mesma busca.
 
+O hash e a extração usam o mesmo snapshot de bytes do arquivo. Um manual sem texto
+extraível exige intervenção (por exemplo, OCR para PDF digitalizado) e preserva a versão
+anterior. A CLI adquire um advisory lock de sessão no PostgreSQL antes de qualquer escrita:
+como catálogo, relações e desativação são globais, uma segunda ingestão simultânea é
+recusada com saída 1 e `ingestion_error`, sem alterar dados nem incrementar a versão.
+O lock termina quando a conexão fecha, inclusive em falhas. A troca dos chunks também
+trava a linha do produto antes do DELETE, protegendo chamadas diretas ao repositório.
+O cliente Redis limita conexão e leitura por `REDIS_CONNECT_TIMEOUT_SECONDS` (> 0),
+sem repetir automaticamente `INCR` após uma resposta perdida.
+
+O SHA-256 do arquivo permanece em `manual_version`. O campo JSON
+`metadata.ingestion_fingerprint` identifica adicionalmente título, cabeçalho de
+contexto, modelo/provedor de embeddings, dimensões e parâmetros de chunking.
+Só pular a fonte se todos os chunks tiverem o mesmo hash e fingerprint atual;
+mudança de contexto ou configuração reconstrói o índice. Chunks anteriores sem
+fingerprint são reindexados uma vez. Se os chunks atuais já estiverem completos,
+reconciliar jobs ausentes como INDEXED sem chamar embeddings (attempts=0 para o
+registro reconstruído). Uma troca de extensão aposenta os chunks do manual
+anterior do SKU somente na transação que confirma a nova versão.
+
+Erro de leitura que impede obter os bytes/hash é listado em `source_read_errors`
+e `needs_intervention`, preservando a versão anterior e processando as demais
+fontes. Não inventar um content_hash para um arquivo que não pôde ser lido.
+
+Na publicação, preço e valores elétricos/capacidade são conferidos contra o SQL
+do SKU consultado. Sentenças SQL usam estruturas simples que vinculam atributo
+e unidade; afirmações não verificáveis caem no fallback. Para outros fatos,
+exigir extrato literal da evidência, preservando negações e restrições. Citações
+precisam sustentar a sentença na página indicada; se um extrato não vier com
+citação, vinculá-lo deterministicamente ao chunk de suporte. Emitir apenas seus
+IDs no evento citations, sem acrescentar páginas não utilizadas. Chunks de outro
+SKU não entram no prompt. O aviso "Essa especificação específica não consta no manual" só
+é emitido quando a sentença bloqueada contém uma afirmação técnica (número com unidade,
+preço ou bivolt); cortesias e paráfrases sem dado técnico são descartadas em silêncio,
+sem sugerir ao cliente que falta uma especificação. O protocolo SSE permanece igual; nenhuma correção de
+fato incorreto depende de já tê-lo exposto ao usuário.
+
 Se não houver nenhuma sentença aprovada e a consulta não puder ser respondida com evidência, emitir error LOW_SIMILARITY_FALLBACK, recomendações determinísticas e end; o Gateway conclui com done(fallback). Nunca transmitir o rascunho rejeitado.
+
+## 7. Integração consultiva B04
+
+Aplicar as regras de integração de `product/03_business_rules_upsell_cross_sell.md`:
+propagar filtros resolvidos, ler cada conjunto de cards em snapshot SQL somente
+leitura REPEATABLE READ e manter precisão do ranking até a seleção. Há uma seleção
+antes do prompt (`RECOMENDACOES_SQL`) e outra após a geração, para emissão dos
+cards atuais. O texto de uma opção exige prefixo `SKU <código>:` e validação de
+seus próprios atributos SQL. Os chunks do SKU consultado não justificam afirmações
+sobre outra opção. Sem manual daquela opção, o texto se limita aos atributos SQL;
+quantidade de pessoas/porções não é inferida a partir da capacidade em litros.
+
+A seleção adicional antes da geração afeta o caminho até o primeiro token;
+TTFT, precisão/relevância e recusas excessivas exigem medição B05/F05. A issue #13
+usa uma fórmula ilustrativa antiga: os pesos normativos desta baseline são os
+especificados em product/03, incluindo 0,50/0,30/0,20 para upsell.
