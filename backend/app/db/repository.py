@@ -1,16 +1,18 @@
 """PostgreSQL + pgvector access (catalog reads, cosine search, ingestion writes)."""
 
 import json
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 from uuid import UUID
 
 import psycopg
 from psycopg.rows import dict_row
 
 from app.models.schemas import CatalogProduct, ProductRelation, RetrievedChunk
+from app.recommendation.service import CrossSellRelation, RecommendationLookupError
 
 SCHEMA_SQL = Path(__file__).with_name("schema.sql")
 IngestionJobStatus = Literal["INDEXED", "FAILED", "NEEDS_INTERVENTION"]
@@ -56,11 +58,15 @@ class ChunkRow:
 class PostgresCatalog:
     """Read side used by the RAG orchestrator.
 
-    shortcut: one connection per call; switch to psycopg_pool before load testing.
+    Retrieval uses one connection per call. Recommendations share a read-only
+    snapshot connection. Connection pooling remains a load-testing concern.
     """
 
-    def __init__(self, conninfo: str) -> None:
+    def __init__(
+        self, conninfo: str, *, read_connection: psycopg.AsyncConnection[object] | None = None
+    ) -> None:
         self._conninfo = conninfo
+        self._read_connection = read_connection
 
     async def get_product(self, sku: str) -> CatalogProduct | None:
         async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
@@ -87,6 +93,88 @@ class PostgresCatalog:
             )
             rows = await cursor.fetchall()
         return [RetrievedChunk.model_validate(row) for row in rows]
+
+    @asynccontextmanager
+    async def snapshot(self) -> AsyncIterator["PostgresCatalog"]:
+        """One committed revision for all prices, stock, relations and vectors."""
+        try:
+            async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
+                await conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+                yield PostgresCatalog(self._conninfo, read_connection=conn)
+        except psycopg.Error as error:
+            raise RecommendationLookupError("recommendation snapshot failed") from error
+
+    async def current_product(self, sku: str) -> CatalogProduct | None:
+        """The consulted product as it is now, for the PRIMARY card (RN01, RN06)."""
+        rows = await self._recommendation_rows(
+            f"SELECT {_PRODUCT_COLUMNS} FROM products WHERE sku = %s", (sku,)
+        )
+        return CatalogProduct.model_validate(rows[0]) if rows else None
+
+    async def upsell_candidates(self, base: CatalogProduct) -> list[CatalogProduct]:
+        """In-stock products of the base's subcategory; RN04 price/tier rules stay in the engine."""
+        rows = await self._recommendation_rows(
+            f"""
+            SELECT {_PRODUCT_COLUMNS} FROM products
+            WHERE is_active AND stock_quantity > 0 AND category = %s AND subcategory = %s
+              AND sku <> %s
+            ORDER BY sku
+            """,
+            (base.category, base.subcategory, base.sku),
+        )
+        return [CatalogProduct.model_validate(row) for row in rows]
+
+    async def cross_sell_relations(self, sku: str) -> list[CrossSellRelation]:
+        """CROSS_SELL rows of product_relations whose related product is in stock (RN01, RN05)."""
+        columns = ", ".join(f"related.{column.strip()}" for column in _PRODUCT_COLUMNS.split(","))
+        rows = await self._recommendation_rows(
+            f"""
+            SELECT {columns}, relation.affinity_weight, relation.justification_template
+            FROM product_relations relation
+            JOIN products base ON base.id = relation.base_product_id
+            JOIN products related ON related.id = relation.related_product_id
+            WHERE base.sku = %s AND relation.relation_type = 'CROSS_SELL'
+              AND related.is_active AND related.stock_quantity > 0
+            ORDER BY related.sku
+            """,
+            (sku,),
+        )
+        return [
+            CrossSellRelation(
+                affinity_weight=row.pop("affinity_weight"),
+                justification_template=row.pop("justification_template"),
+                product=CatalogProduct.model_validate(row),
+            )
+            for row in rows
+        ]
+
+    async def max_similarities(
+        self, skus: Sequence[str], embedding: Sequence[float]
+    ) -> dict[str, float]:
+        """Best cosine similarity between the query and each product's chunks (sim(q, u))."""
+        rows = await self._recommendation_rows(
+            """
+            SELECT sku, MAX(GREATEST(0, 1 - (embedding <=> %s::vector))) AS similarity
+            FROM manual_chunks WHERE sku = ANY(%s) GROUP BY sku
+            """,
+            (vector_literal(embedding), list(skus)),
+        )
+        return {row["sku"]: float(row["similarity"]) for row in rows}
+
+    async def _recommendation_rows(
+        self, query: str, parameters: Sequence[object]
+    ) -> list[dict[str, Any]]:
+        try:
+            if self._read_connection is not None:
+                cursor = self._read_connection.cursor(row_factory=dict_row)
+                await cursor.execute(query.encode(), parameters)
+                return await cursor.fetchall()
+            async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
+                cursor = conn.cursor(row_factory=dict_row)
+                await cursor.execute(query.encode(), parameters)
+                return await cursor.fetchall()
+        except psycopg.Error as error:
+            raise RecommendationLookupError("recommendation lookup failed") from error
 
 
 async def apply_schema(conn: psycopg.AsyncConnection[object]) -> None:

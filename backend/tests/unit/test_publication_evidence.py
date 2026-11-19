@@ -70,3 +70,24 @@ def test_citations_contain_only_supporting_chunk_ids_even_on_the_same_page() -> 
     events = run(Catalog(PRODUCT, [supporting, unrelated]), ChatModel([answer]))
     citations = events[-2]["data"]["citations"]  # type: ignore[index]
     assert [citation["chunk_id"] for citation in citations] == [str(supporting.chunk_id)]
+
+
+def test_consultative_facts_never_borrow_values_or_manuals_from_another_sku() -> None:
+    from app.guardrails.publication import ConsultativeVerifier
+    from app.models.schemas import ProductRecommendation
+    from test_recommendation_service import FAMILY
+
+    card = ProductRecommendation(
+        sku=FAMILY.sku, name=FAMILY.name, price=FAMILY.price,
+        stock_quantity=5, voltage=FAMILY.voltage,
+        capacity_liters=FAMILY.capacity_liters, power_watts=FAMILY.power_watts,
+        recommendation_type='UPSELL',
+    )
+    verifier = ConsultativeVerifier(PRODUCT, [chunk()], [card])
+    assert verifier.approve(f'SKU {FAMILY.sku}: Voltagem: 220V.') is not None
+    assert verifier.approve(f'SKU {FAMILY.sku}: Preço atual: R$ 499,90.') is None
+    assert verifier.approve(f'SKU {FAMILY.sku}: Possui capacidade de 4 L.') is None
+    assert verifier.approve(f'SKU {FAMILY.sku}: O cesto suporta até 1,2 kg.') is None
+    assert verifier.approve('SKU AF-UNKNOWN-220V: Voltagem: 220V.') is None
+    assert verifier.approve(f'SKU {FAMILY.sku}: Possui capacidade de 5,5 L e {PRODUCT.sku} tem 4 L.') is None
+    assert verifier.cited_chunk_ids == set()

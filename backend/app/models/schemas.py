@@ -72,3 +72,21 @@ class RagRequest(BaseModel):
     sku: str = Field(min_length=1, max_length=64)
     question: str = Field(min_length=1, max_length=1000)
     history: list[ChatTurn] = Field(default_factory=list)
+    # Outlet of the customer: restricts which cards are eligible, never the evidence.
+    preferred_voltage: Literal["127V", "220V"] | None = None
+    category: str | None = None
+    capacity_min: Decimal | None = Field(default=None, allow_inf_nan=False)
+    budget_max: Decimal | None = Field(default=None, gt=0, decimal_places=2)
+
+
+class ProductRecommendation(BaseModel):
+    """Validated SQL card facts available to the consultative publication guard."""
+
+    sku: str = Field(min_length=1, max_length=64)
+    name: str
+    price: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
+    stock_quantity: int = Field(gt=0)
+    voltage: Voltage
+    capacity_liters: Decimal | None = Field(default=None, gt=0)
+    power_watts: int | None = Field(default=None, gt=0)
+    recommendation_type: Literal["PRIMARY", "UPSELL", "CROSS_SELL"]

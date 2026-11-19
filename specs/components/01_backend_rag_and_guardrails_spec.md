@@ -195,3 +195,19 @@ sem sugerir ao cliente que falta uma especificação. O protocolo SSE permanece 
 fato incorreto depende de já tê-lo exposto ao usuário.
 
 Se não houver nenhuma sentença aprovada e a consulta não puder ser respondida com evidência, emitir error LOW_SIMILARITY_FALLBACK, recomendações determinísticas e end; o Gateway conclui com done(fallback). Nunca transmitir o rascunho rejeitado.
+
+## 7. Integração consultiva B04
+
+Aplicar as regras de integração de `product/03_business_rules_upsell_cross_sell.md`:
+propagar filtros resolvidos, ler cada conjunto de cards em snapshot SQL somente
+leitura REPEATABLE READ e manter precisão do ranking até a seleção. Há uma seleção
+antes do prompt (`RECOMENDACOES_SQL`) e outra após a geração, para emissão dos
+cards atuais. O texto de uma opção exige prefixo `SKU <código>:` e validação de
+seus próprios atributos SQL. Os chunks do SKU consultado não justificam afirmações
+sobre outra opção. Sem manual daquela opção, o texto se limita aos atributos SQL;
+quantidade de pessoas/porções não é inferida a partir da capacidade em litros.
+
+A seleção adicional antes da geração afeta o caminho até o primeiro token;
+TTFT, precisão/relevância e recusas excessivas exigem medição B05/F05. A issue #13
+usa uma fórmula ilustrativa antiga: os pesos normativos desta baseline são os
+especificados em product/03, incluindo 0,50/0,30/0,20 para upsell.

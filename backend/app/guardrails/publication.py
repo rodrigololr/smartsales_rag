@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from uuid import UUID
 
 from app.guardrails.output import Claim, technical_claims
-from app.models.schemas import CatalogProduct, RetrievedChunk
+from app.models.schemas import CatalogProduct, ProductRecommendation, RetrievedChunk
 
 CITATION_MARK = re.compile(r"\[Fonte:\s*(.+?),\s*p\.\s*(\d+)\]")
 _SKU = re.compile(r"\b[A-Z0-9]+(?:-[A-Z0-9]+)+\b", re.IGNORECASE)
@@ -56,7 +56,7 @@ def _literal_support(sentence: str, chunk: RetrievedChunk) -> bool:
 
 
 class SentenceVerifier:
-    def __init__(self, product: CatalogProduct, chunks: Sequence[RetrievedChunk]) -> None:
+    def __init__(self, product: CatalogProduct | ProductRecommendation, chunks: Sequence[RetrievedChunk]) -> None:
         self._product = product
         self._chunks = [chunk for chunk in chunks if chunk.sku == product.sku]
         self.cited_chunk_ids: set[UUID] = set()
@@ -122,3 +122,36 @@ class SentenceVerifier:
         trailing = sentence[len(sentence.rstrip()):]
         plain = sentence.strip().rstrip(".!? ")
         return f"{plain} [Fonte: {chunk.manual_title}, p. {chunk.page_number}].{trailing}"
+
+
+class ConsultativeVerifier:
+    """Each explicitly named SQL recommendation has an isolated fact verifier.
+
+    No manual evidence is borrowed between products. Multi-product compound
+    claims are refused; one SKU and one verified attribute per sentence.
+    """
+
+    def __init__(
+        self, product: CatalogProduct, chunks: Sequence[RetrievedChunk],
+        recommendations: Sequence[ProductRecommendation],
+    ) -> None:
+        self._base = SentenceVerifier(product, chunks)
+        self._options = {card.sku: SentenceVerifier(card, []) for card in recommendations
+                         if card.sku != product.sku}
+        self._options[product.sku] = self._base
+
+    @property
+    def cited_chunk_ids(self) -> set[UUID]:
+        return self._base.cited_chunk_ids
+
+    def approve(self, sentence: str) -> str | None:
+        anchored = re.fullmatch(r"\s*SKU ([A-Za-z0-9_-]+):\s*(.+)", sentence, re.DOTALL | re.IGNORECASE)
+        if anchored is None:
+            return self._base.approve(sentence)
+        raw_sku, statement = anchored.groups()
+        sku = raw_sku.upper()
+        verifier = self._options.get(sku)
+        if verifier is None:
+            return None
+        approved = verifier.approve(statement)
+        return f"SKU {sku}: {approved}" if approved is not None else None

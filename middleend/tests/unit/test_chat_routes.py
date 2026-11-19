@@ -64,7 +64,7 @@ class FakeBackend:
         self.events = events
         self.calls: list[tuple[str, str, list[HistoryItem]]] = []
 
-    def open_stream(self, sku: str, question: str, history: list[HistoryItem]) -> FakeStream:
+    def open_stream(self, sku: str, question: str, history: list[HistoryItem], **kwargs: object) -> FakeStream:
         self.calls.append((sku, question, history))
         return FakeStream(self.events)
 
@@ -264,3 +264,25 @@ def test_backend_http_error_is_a_connection_error() -> None:
     http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
     with pytest.raises(ConnectionError):
         _collect(BackendClient(http, "http://backend:8001"))
+
+
+@pytest.mark.parametrize("voltage", ["127V", "220V"])
+def test_gateway_forwards_the_voltage_preference_to_the_worker(voltage: str) -> None:
+    seen: list[dict[str, object]] = []
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, text="\n".join(json.dumps(e) for e in (TOKEN, END)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    with TestClient(create_app(Settings(), BackendClient(http, "http://worker"))) as client:
+        session = new_session(client)
+        response = client.post("/api/v1/chat/stream", json={
+            "session_id": session, "client_request_id": str(uuid.uuid4()),
+            "message": "Qual a potência?",
+            "context_filters": {"preferred_voltage": voltage, "budget_max": 600, "capacity_min": 5, "category": "Eletroportáteis"},
+        })
+    assert sse_events(response.text)[-1][1]["finish_reason"] == "stop"
+    assert seen[0]["sku"] == "AF-400-220V"
+    assert seen[0]["preferred_voltage"] == voltage
+    assert seen[0]["budget_max"] == 600
+    assert seen[0]["capacity_min"] == 5
+    assert seen[0]["category"] == "Eletroportáteis"

@@ -7,6 +7,7 @@ from typing import cast
 
 import httpx
 
+from app.schemas import Filters
 from app.sessions.store import HistoryItem
 from app.sse.models import CompletedTurn
 
@@ -61,13 +62,20 @@ class BackendClient:
         self._url = base_url.rstrip("/") + "/internal/rag/stream"
 
     def open_stream(
-        self, sku: str, question: str, history: Sequence[HistoryItem]
+        self, sku: str, question: str, history: Sequence[HistoryItem],
+        *, filters: Filters | None = None,
     ) -> NdjsonBackendStream:
-        payload = {
+        payload: dict[str, object] = {
             "sku": sku,
             "question": question,
             "history": [{"role": item.role, "content": item.content} for item in history],
         }
+        if filters is not None:
+            payload.update(filters.model_dump(mode="json", exclude_none=True,
+                                              exclude={"current_product_sku"}))
+            if filters.budget_max is not None:
+                # JSON number at the transport boundary; money arithmetic stays Decimal.
+                payload["budget_max"] = float(filters.budget_max)
         return NdjsonBackendStream(self._client, self._url, payload)
 
 
