@@ -40,6 +40,7 @@ from app.db.repository import (
     deactivate_missing,
     ensure_indexed_job,
     finish_ingestion_job,
+    lock_product,
     replace_manual_chunks,
     replace_product_relations,
     retire_other_manual_sources,
@@ -55,8 +56,10 @@ from app.rag.orchestrator import Embedder
 logger = logging.getLogger(__name__)
 CHUNK_ENCODING = "cl100k_base"
 SPEC_SHEET_SOURCE = "catalog:spec_sheet"
-# Provider outage or database error: retried with backoff, never swallowed.
-RETRYABLE_INGESTION_ERRORS = (LLMUnavailableError, psycopg.Error)
+# Provider outage or transient database failure (lost connection, deadlock,
+# serialization): retried with backoff. Permanent database errors (IntegrityError,
+# DataError...) cannot be fixed by retrying and go straight to NEEDS_INTERVENTION.
+RETRYABLE_INGESTION_ERRORS = (LLMUnavailableError, psycopg.OperationalError)
 
 
 @dataclass(frozen=True)
@@ -159,7 +162,10 @@ async def ingest(
             report.deactivated = await deactivate_missing(conn, [p.sku for p in products])
         finally:
             # Autocommit: even a run that dies midway already changed the catalog, so caches
-            # built on the old one must die too (spec 01, section 6).
+            # built on the old one must die too (spec 01, section 6). Deliberately bumped on
+            # every run, including one where every source was skipped: upsert_product does
+            # not report whether price or stock changed, so skipping the bump could leave
+            # the semantic cache serving stale prices.
             if catalog_version is not None:
                 await _bump_catalog_version(catalog_version, report)
     return report
@@ -200,7 +206,7 @@ class _SourceIndexer:
             self._conn, product_id, source.source, fingerprint=fingerprint,
         ) == source.version:
             async with self._conn.transaction():
-                await self._conn.execute("SELECT id FROM products WHERE id = %s FOR UPDATE", (product_id,))
+                await lock_product(self._conn, product_id)
                 await retire_other_manual_sources(self._conn, product_id, product.sku, source.source)
                 await ensure_indexed_job(self._conn, product_id, label, source.version)
             self._report.skipped_sources.append(label)
@@ -245,6 +251,7 @@ class _SourceIndexer:
         self, product: CatalogProduct, product_id: UUID, source: ManualSource, label: str
     ) -> None:
         rows = _chunk_rows(product, source, self._encoding, self._settings)
+        fingerprint = self._fingerprint(product, source)
         if not rows:
             raise ValueError("Manual contains no extractable text; previous version preserved")
         embeddings = await self._embedder.embed([row.content for row in rows])
@@ -256,7 +263,7 @@ class _SourceIndexer:
                 sku=product.sku,
                 manual_source=source.source,
                 manual_version=source.version,
-                rows=[replace(row, embedding=v, ingestion_fingerprint=self._fingerprint(product, source))
+                rows=[replace(row, embedding=v, ingestion_fingerprint=fingerprint)
                       for row, v in zip(rows, embeddings, strict=True)],
             )
             await self._finish(label, source, "INDEXED")
