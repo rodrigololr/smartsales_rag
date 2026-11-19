@@ -32,13 +32,18 @@ from app.clients.openai_client import LLMUnavailableError, OpenAIEmbedder, make_
 from app.config import Settings, get_settings
 from app.db.repository import (
     ChunkRow,
+    IngestionAlreadyRunningError,
     IngestionJobStatus,
+    acquire_ingestion_lock,
     apply_schema,
     current_version,
     deactivate_missing,
+    ensure_indexed_job,
     finish_ingestion_job,
+    lock_product,
     replace_manual_chunks,
     replace_product_relations,
+    retire_other_manual_sources,
     start_ingestion_job,
     upsert_product,
 )
@@ -51,8 +56,10 @@ from app.rag.orchestrator import Embedder
 logger = logging.getLogger(__name__)
 CHUNK_ENCODING = "cl100k_base"
 SPEC_SHEET_SOURCE = "catalog:spec_sheet"
-# Provider outage or database error: retried with backoff, never swallowed.
-RETRYABLE_INGESTION_ERRORS = (LLMUnavailableError, psycopg.Error)
+# Provider outage or transient database failure (lost connection, deadlock,
+# serialization): retried with backoff. Permanent database errors (IntegrityError,
+# DataError...) cannot be fixed by retrying and go straight to NEEDS_INTERVENTION.
+RETRYABLE_INGESTION_ERRORS = (LLMUnavailableError, psycopg.OperationalError)
 
 
 @dataclass(frozen=True)
@@ -74,6 +81,7 @@ class IngestionReport:
     needs_intervention: list[str] = field(default_factory=list)
     catalog_version: int | None = None
     catalog_version_error: str | None = None
+    source_read_errors: dict[str, str] = field(default_factory=dict)
 
 
 def load_catalog(path: Path) -> list[CatalogProduct]:
@@ -84,7 +92,9 @@ def load_catalog(path: Path) -> list[CatalogProduct]:
     return products
 
 
-def sources_for(product: CatalogProduct, manuals_dir: Path) -> list[ManualSource]:
+def sources_for(
+    product: CatalogProduct, manuals_dir: Path, *, read_errors: dict[str, str] | None = None,
+) -> list[ManualSource]:
     sheet = spec_sheet(product)
     sources = [
         ManualSource(
@@ -96,12 +106,19 @@ def sources_for(product: CatalogProduct, manuals_dir: Path) -> list[ManualSource
     ]
     manual = find_manual(manuals_dir, product.sku)
     if manual is not None:
+        try:
+            snapshot = manual.read_bytes()
+        except OSError as error:
+            if read_errors is None:
+                raise
+            read_errors[f"{product.sku}/manual:{manual.name}"] = repr(error)
+            return sources
         sources.append(
             ManualSource(
                 source=f"manual:{manual.name}",
                 title=product.manual_title or f"Manual {product.name}",
-                version=hashlib.sha256(manual.read_bytes()).hexdigest(),
-                load_pages=partial(read_manual_pages, manual),
+                version=hashlib.sha256(snapshot).hexdigest(),
+                load_pages=partial(read_manual_pages, manual, content=snapshot),
             )
         )
     return sources
@@ -126,13 +143,17 @@ async def ingest(
     )
     report = IngestionReport(products=len(products))
     async with await psycopg.AsyncConnection.connect(conninfo, autocommit=True) as conn:
+        await acquire_ingestion_lock(conn)
         try:
             await apply_schema(conn)
             indexer = _SourceIndexer(conn, embedder, settings, report, sleep)
             for product in products:
                 product_id = await upsert_product(conn, product)
-                sources = sources_for(product, manuals_dir)
-                if len(sources) == 1:
+                read_errors: dict[str, str] = {}
+                sources = sources_for(product, manuals_dir, read_errors=read_errors)
+                report.source_read_errors.update(read_errors)
+                report.needs_intervention.extend(read_errors)
+                if len(sources) == 1 and not read_errors:
                     report.products_without_manual.append(product.sku)
                 for source in sources:
                     await indexer.index(product, product_id, source)
@@ -141,7 +162,10 @@ async def ingest(
             report.deactivated = await deactivate_missing(conn, [p.sku for p in products])
         finally:
             # Autocommit: even a run that dies midway already changed the catalog, so caches
-            # built on the old one must die too (spec 01, section 6).
+            # built on the old one must die too (spec 01, section 6). Deliberately bumped on
+            # every run, including one where every source was skipped: upsert_product does
+            # not report whether price or stock changed, so skipping the bump could leave
+            # the semantic cache serving stale prices.
             if catalog_version is not None:
                 await _bump_catalog_version(catalog_version, report)
     return report
@@ -177,7 +201,14 @@ class _SourceIndexer:
 
     async def index(self, product: CatalogProduct, product_id: UUID, source: ManualSource) -> None:
         label = f"{product.sku}/{source.source}"
-        if await current_version(self._conn, product_id, source.source) == source.version:
+        fingerprint = self._fingerprint(product, source)
+        if await current_version(
+            self._conn, product_id, source.source, fingerprint=fingerprint,
+        ) == source.version:
+            async with self._conn.transaction():
+                await lock_product(self._conn, product_id)
+                await retire_other_manual_sources(self._conn, product_id, product.sku, source.source)
+                await ensure_indexed_job(self._conn, product_id, label, source.version)
             self._report.skipped_sources.append(label)
             return
         for attempt in range(1, self._settings.ingestion_max_attempts + 1):
@@ -203,10 +234,26 @@ class _SourceIndexer:
             self._report.indexed_sources.append(label)
             return
 
+    def _fingerprint(self, product: CatalogProduct, source: ManualSource) -> str:
+        policy = {
+            "version": source.version, "title": source.title,
+            "context": context_header(product, page_number=1),
+            "embedding_model": self._settings.embedding_model,
+            "embedding_base_url": self._settings.llm_base_url,
+            "dimensions": self._settings.embedding_dimensions,
+            "chunk_size": self._settings.chunk_size_tokens,
+            "chunk_overlap": self._settings.chunk_overlap_tokens,
+            "policy": "ingestion-v2",
+        }
+        return hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()
+
     async def _replace_chunks(
         self, product: CatalogProduct, product_id: UUID, source: ManualSource, label: str
     ) -> None:
         rows = _chunk_rows(product, source, self._encoding, self._settings)
+        fingerprint = self._fingerprint(product, source)
+        if not rows:
+            raise ValueError("Manual contains no extractable text; previous version preserved")
         embeddings = await self._embedder.embed([row.content for row in rows])
         # One transaction: a crash can never leave new chunks under a job still RUNNING.
         async with self._conn.transaction():
@@ -216,7 +263,8 @@ class _SourceIndexer:
                 sku=product.sku,
                 manual_source=source.source,
                 manual_version=source.version,
-                rows=[replace(row, embedding=v) for row, v in zip(rows, embeddings, strict=True)],
+                rows=[replace(row, embedding=v, ingestion_fingerprint=fingerprint)
+                      for row, v in zip(rows, embeddings, strict=True)],
             )
             await self._finish(label, source, "INDEXED")
 
@@ -305,24 +353,28 @@ def main(argv: list[str] | None = None) -> int:
     )
     if settings.redis_url is None:
         logger.warning("REDIS_URL não definido: catalog:version não será incrementada")
-    report = asyncio.run(
-        ingest(
-            settings.database_url,
-            args.catalog,
-            args.manuals,
-            embedder,
-            settings,
-            relations_path=args.relations,
-            catalog_version=(
-                RedisCatalogVersion(
-                    settings.redis_url,
-                    connect_timeout_seconds=settings.redis_connect_timeout_seconds,
-                )
-                if settings.redis_url
-                else None
+    try:
+        report = asyncio.run(
+            ingest(
+                settings.database_url,
+                args.catalog,
+                args.manuals,
+                embedder,
+                settings,
+                relations_path=args.relations,
+                catalog_version=(
+                    RedisCatalogVersion(
+                        settings.redis_url,
+                        connect_timeout_seconds=settings.redis_connect_timeout_seconds,
+                    )
+                    if settings.redis_url
+                    else None
+                ),
             ),
         )
-    )
+    except IngestionAlreadyRunningError as error:
+        print(json.dumps({"ingestion_error": str(error)}, ensure_ascii=False, indent=2))
+        return 1
     print(json.dumps(report.__dict__, ensure_ascii=False, indent=2))
     # Sources needing the operator or a cache left stale: fail the seed job.
     return 1 if report.needs_intervention or report.catalog_version_error else 0

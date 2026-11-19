@@ -1,7 +1,8 @@
 """B04 wiring: SQL candidates -> RecommendationEngine -> Product Cards (RN01, RN04-RN06)."""
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from decimal import Decimal
 
 import pytest
@@ -89,6 +90,10 @@ class FakeCatalog:
         self.relations = list(relations)
         self.failure = failure
         self.similarity_skus: list[str] = []
+
+    @asynccontextmanager
+    async def snapshot(self) -> AsyncIterator["FakeCatalog"]:
+        yield self
 
     async def current_product(self, sku: str) -> CatalogProduct | None:
         return self.current.get(sku)
@@ -284,3 +289,98 @@ def test_capacity_or_comparison_questions_ask_for_an_upgrade(question: str) -> N
 )
 def test_plain_technical_questions_do_not_ask_for_an_upgrade(question: str) -> None:
     assert not wants_upgrade(question)
+
+
+@pytest.mark.parametrize("question", [
+    "Não quero um modelo maior, só saber a voltagem.",
+    "Não preciso de mais capacidade.",
+    "Sem upgrade, por favor.",
+    "Não quero comparar modelos.",
+    "A alça protege as pessoas de queimaduras?",
+])
+def test_explicitly_declined_upgrade_and_incidental_people_do_not_trigger(question: str) -> None:
+    assert not wants_upgrade(question)
+
+
+def test_stock_refresh_opens_alternatives_even_when_initial_turn_did_not() -> None:
+    current = BASE.model_copy(update={"stock_quantity": 0})
+    assert ("UPSELL", FAMILY.sku) in roles(cards(FakeCatalog(current=current), allow_upsell=False))
+
+
+def test_voltage_incompatibility_opens_alternatives_without_a_capacity_request() -> None:
+    compatible = FAMILY.model_copy(update={"voltage": "127V"})
+    catalog = FakeCatalog(upsells=[compatible], current=BASE)
+    found = asyncio.run(RecommendationService(catalog).cards(
+        BASE, query_embedding=None, allow_upsell=False, requested_voltage="127V",
+    ))
+    assert ("UPSELL", FAMILY.sku) in roles(found)
+    assert all(card["voltage"] in {"127V", "BIVOLT", "N/A"} for card in found)
+
+
+def test_ranking_does_not_round_similarity_before_selecting() -> None:
+    class CloseScores(FakeCatalog):
+        async def max_similarities(self, skus: Sequence[str], embedding: Sequence[float]) -> dict[str, float]:
+            return {"A": 0.9000001, "Z": 0.9000002}
+    lower = FAMILY.model_copy(update={"sku": "A"})
+    higher = FAMILY.model_copy(update={"sku": "Z"})
+    found = cards(CloseScores(upsells=[lower, higher], relations=[]))
+    assert next(card for card in found if card["recommendation_type"] == "UPSELL")["sku"] == "Z"
+
+
+@pytest.mark.parametrize("constraints, expected", [
+    ({"budget_max": Decimal("600.00")}, [("PRIMARY", BASE.sku), ("CROSS_SELL", KIT.sku)]),
+    ({"capacity_min": Decimal("5")}, [("UPSELL", FAMILY.sku), ("CROSS_SELL", KIT.sku)]),
+    ({"category": "Cosméticos"}, []),
+])
+def test_resolved_purchase_constraints_filter_before_ranking(
+    constraints: dict[str, object], expected: list[tuple[str, str]],
+) -> None:
+    catalog = FakeCatalog(current=BASE)
+    found = asyncio.run(RecommendationService(catalog).cards(
+        BASE, query_embedding=None, allow_upsell=False, **constraints,  # type: ignore[arg-type]
+    ))
+    assert roles(found) == expected
+
+
+def test_minimum_capacity_filters_out_the_best_but_insufficient_upsell() -> None:
+    big = FAMILY.model_copy(update={"sku": "BIG", "capacity_liters": Decimal("6")})
+    catalog = FakeCatalog(upsells=[FAMILY, big], current=BASE)
+    found = asyncio.run(RecommendationService(catalog).cards(
+        BASE, query_embedding=None, allow_upsell=True, capacity_min=Decimal("6"),
+    ))
+    assert ("UPSELL", "BIG") in roles(found)
+    assert all(card['sku'] != BASE.sku for card in found)
+
+
+@pytest.mark.parametrize('question', [
+    'Não atende 5 pessoas, tem uma maior?',
+    'Não quero mais potência, mas preciso de mais capacidade.',
+])
+def test_decline_in_one_clause_does_not_hide_a_positive_need_in_another(question: str) -> None:
+    assert wants_upgrade(question)
+
+
+def test_budget_applies_to_each_accessory_and_the_primary() -> None:
+    found = asyncio.run(RecommendationService(FakeCatalog(current=BASE)).cards(
+        BASE, query_embedding=None, allow_upsell=True, budget_max=Decimal('70'),
+    ))
+    assert found == []
+
+
+def test_restocked_base_does_not_force_an_unrequested_upgrade() -> None:
+    old = BASE.model_copy(update={"stock_quantity": 0})
+    catalog = FakeCatalog(current=BASE)
+    assert ("UPSELL", FAMILY.sku) not in roles(cards(catalog, old, allow_upsell=False))
+
+
+def test_explicit_primary_only_request_never_emits_secondary_offers() -> None:
+    found = asyncio.run(RecommendationService(FakeCatalog(current=BASE)).cards(
+        BASE, query_embedding=None, allow_upsell=True, allow_secondary=False,
+    ))
+    assert roles(found) == [('PRIMARY', BASE.sku)]
+
+
+def test_technical_only_word_does_not_suppress_secondary_cards() -> None:
+    from app.recommendation.intent import only_consulted_product
+    assert not only_consulted_product('Somente o cesto pode ser lavado?')
+    assert only_consulted_product('Mostre apenas o produto consultado.')

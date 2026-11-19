@@ -112,7 +112,7 @@ def test_citations_keep_only_the_pages_cited_in_the_published_answer() -> None:
 
     uncited_answer = run(Catalog(PRODUCT, [cited, uncited]), ChatModel(["O cesto suporta até 1,2 kg."]))
     pages = [c["page_number"] for c in uncited_answer[-2]["data"]["citations"]]  # type: ignore[index]
-    assert pages == [7, 3]
+    assert pages == [7]  # the verifier binds the uncited extract to its supporting page
 
 
 def test_no_chunk_above_threshold_falls_back_without_calling_the_llm() -> None:
@@ -143,8 +143,19 @@ def test_sentence_with_unsupported_voltage_is_never_published() -> None:
     events = run(Catalog(PRODUCT, [chunk()]), model)
     text = "".join(str(event["data"]["delta"]) for event in events if event["event"] == "token")  # type: ignore[index]
     assert "127V" not in text
-    assert text.startswith("O cesto suporta até 1,2 kg. ")
+    assert text.startswith("O cesto suporta até 1,2 kg [Fonte:")
     assert "não consta" in text
+
+
+def test_blocked_sentence_without_technical_claim_does_not_raise_missing_evidence_notice() -> None:
+    # A courtesy or paraphrase carries no spec: dropping it must not tell the customer
+    # that a specification is missing from the manual.
+    model = ChatModel(["Claro! ", "O cesto suporta até 1,2 kg. ", "Ótima escolha para a sua cozinha."])
+    events = run(Catalog(PRODUCT, [chunk()]), model)
+    text = "".join(str(event["data"]["delta"]) for event in events if event["event"] == "token")  # type: ignore[index]
+    assert "não consta" not in text
+    assert text.startswith("O cesto suporta até 1,2 kg [Fonte:")
+    assert names(events)[-2:] == ["citations", "end"]
 
 
 def test_answer_with_no_approved_sentence_becomes_fallback() -> None:
