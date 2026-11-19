@@ -7,12 +7,7 @@ TEST_DATABASE_URL=postgresql://smartsales:smartsales@localhost:5544/smartsales
 """
 
 import asyncio
-import hashlib
 import json
-import math
-import os
-import re
-from collections.abc import Sequence
 from decimal import Decimal
 from pathlib import Path
 
@@ -21,38 +16,10 @@ import pytest
 from app.config import Settings
 from app.db.repository import PostgresCatalog
 from app.ingestion.run import ingest
-
-DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
-DATA_DIR = Path(__file__).resolve().parents[3] / "data"
-DIMENSIONS = 1536
+from ingestion_support import DATA_DIR, DATABASE_URL, HashingEmbedder
+from ingestion_support import reset_backend_tables as _reset
 
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="TEST_DATABASE_URL not set")
-
-
-class HashingEmbedder:
-    """Deterministic bag-of-words vectors: shared words => higher cosine similarity."""
-
-    def __init__(self) -> None:
-        self.calls = 0
-
-    async def embed(self, texts: Sequence[str]) -> list[list[float]]:
-        self.calls += 1
-        return [self._vector(text) for text in texts]
-
-    @staticmethod
-    def _vector(text: str) -> list[float]:
-        vector = [0.0] * DIMENSIONS
-        for word in re.findall(r"\w+", text.lower()):
-            vector[int(hashlib.md5(word.encode()).hexdigest(), 16) % DIMENSIONS] += 1.0
-        norm = math.sqrt(sum(value * value for value in vector)) or 1.0
-        return [value / norm for value in vector]
-
-
-async def _reset() -> None:
-    async with await psycopg.AsyncConnection.connect(DATABASE_URL, autocommit=True) as conn:
-        await conn.execute(
-            "DROP TABLE IF EXISTS ingestion_jobs, product_relations, manual_chunks, products CASCADE"
-        )
 
 
 async def _relation_rows() -> list[tuple[str, str, str, Decimal]]:
