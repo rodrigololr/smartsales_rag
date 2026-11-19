@@ -65,3 +65,44 @@ def test_live_factory_constructs_real_ragas_metrics_without_network() -> None:
     )
     assert isinstance(judge.faithfulness, Faithfulness)
     assert isinstance(judge.relevance, ResponseRelevancy)
+
+
+def _embeddings_client(judge: RagasJudge) -> object:
+    return judge.relevance.embeddings.embeddings  # type: ignore[attr-defined]
+
+
+def test_judge_embeddings_reuse_the_judge_endpoint_by_default() -> None:
+    settings = JudgeSettings(
+        judge_api_key=SecretStr("judge-key"),
+        judge_model="judge-model",
+        judge_base_url="https://judge.example/v1",
+    )
+    assert settings.embedding_endpoint() == ("judge-key", "https://judge.example/v1")
+    client = _embeddings_client(RagasJudge.from_settings(settings))
+    assert client.openai_api_base == "https://judge.example/v1"  # type: ignore[attr-defined]
+
+
+def test_judge_without_embeddings_api_can_use_a_separate_embedding_provider() -> None:
+    # e.g. a DeepSeek judge (chat only) with OpenAI-compatible embeddings elsewhere.
+    settings = JudgeSettings(
+        judge_api_key=SecretStr("judge-key"),
+        judge_model="deepseek-chat",
+        judge_base_url="https://api.deepseek.com/v1",
+        embedding_api_key=SecretStr("embedding-key"),
+        embedding_base_url="https://embeddings.example/v1",
+    )
+    assert settings.embedding_endpoint() == ("embedding-key", "https://embeddings.example/v1")
+    client = _embeddings_client(RagasJudge.from_settings(settings))
+    assert client.openai_api_base == "https://embeddings.example/v1"  # type: ignore[attr-defined]
+    assert client.openai_api_key.get_secret_value() == "embedding-key"  # type: ignore[attr-defined]
+
+
+def test_separate_embedding_key_never_falls_back_to_the_judge_endpoint() -> None:
+    settings = JudgeSettings(
+        judge_api_key=SecretStr("judge-key"),
+        judge_model="deepseek-chat",
+        judge_base_url="https://api.deepseek.com/v1",
+        embedding_api_key=SecretStr("openai-key"),
+    )
+    # A dedicated key without a URL targets the OpenAI default, not the judge's host.
+    assert settings.embedding_endpoint() == ("openai-key", None)

@@ -73,3 +73,20 @@ def test_identity_never_serializes_redis_credentials(corpus: Corpus) -> None:
     settings = Settings(redis_url="redis://user:PRIVATE_REDIS_PASSWORD@localhost:6379/0")
     identity = make_identity(ROOT, DEFAULT_FIXTURE_PATH, corpus, settings, None, mode="validate")
     assert "PRIVATE_REDIS_PASSWORD" not in identity.model_dump_json()
+
+
+def test_identity_tracks_the_embedding_endpoint_without_its_credentials(corpus: Corpus) -> None:
+    settings = Settings(llm_api_key="SECRET_GENERATOR")
+    shared = JudgeSettings(judge_api_key=SecretStr("SECRET_JUDGE"), judge_model="independent-model")
+    separate = shared.model_copy(
+        update={
+            "embedding_api_key": SecretStr("SECRET_EMBEDDING"),
+            "embedding_base_url": "https://user:pw@embeddings.example/v1?token=SECRET_URL",
+        }
+    )
+    first = make_identity(ROOT, DEFAULT_FIXTURE_PATH, corpus, settings, shared, mode="live")
+    second = make_identity(ROOT, DEFAULT_FIXTURE_PATH, corpus, settings, separate, mode="live")
+    assert first.fingerprint != second.fingerprint
+    dumped = second.model_dump_json()
+    assert "SECRET_" not in dumped
+    assert "https://embeddings.example/v1" in dumped

@@ -120,11 +120,16 @@ def make_identity(
             {
                 f"judge_{key}": value
                 for key, value in judge.model_dump().items()
-                if key not in {"judge_api_key", "judge_base_url"}
+                if key
+                not in {"judge_api_key", "judge_base_url", "embedding_api_key", "embedding_base_url"}
             }
         )
         configuration["judge_endpoint"] = safe_endpoint(judge.judge_base_url)
         configuration["judge_endpoint_sha256"] = digest((judge.judge_base_url or "").encode())
+        embedding_url = judge.embedding_endpoint()[1]
+        configuration["judge_embedding_endpoint"] = safe_endpoint(embedding_url)
+        configuration["judge_embedding_endpoint_sha256"] = digest((embedding_url or "").encode())
+        configuration["judge_embedding_dedicated_key"] = judge.embedding_api_key is not None
     for package in ("ragas", "openai", "pydantic", "langchain-community", "langchain-openai"):
         try:
             configuration[f"version:{package}"] = importlib.metadata.version(package)

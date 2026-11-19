@@ -15,8 +15,24 @@ class JudgeSettings(BaseSettings):
     judge_base_url: str | None = None
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
+    # Answer Relevance needs an embeddings API. Chat-only judges (e.g. DeepSeek) point
+    # these at another OpenAI-compatible provider; unset, the judge endpoint is reused.
+    embedding_api_key: SecretStr | None = None
+    embedding_base_url: str | None = None
     metric_timeout_seconds: float = Field(default=120.0, gt=0)
     request_timeout_seconds: float = Field(default=30.0, gt=0)
+
+    def embedding_endpoint(self) -> tuple[str, str | None]:
+        """(api_key, base_url) for judge embeddings.
+
+        A dedicated key never inherits the judge URL: that would send it to the judge host.
+        """
+        if self.embedding_api_key is not None:
+            return self.embedding_api_key.get_secret_value(), self.embedding_base_url or None
+        return (
+            self.judge_api_key.get_secret_value(),
+            self.embedding_base_url or self.judge_base_url or None,
+        )
 
 
 class CognitiveJudge(Protocol):
@@ -62,10 +78,11 @@ class RagasJudge:
             timeout=settings.request_timeout_seconds,
             max_retries=1,
         )
+        embedding_key, embedding_url = settings.embedding_endpoint()
         embeddings = OpenAIEmbeddings(
             model=settings.embedding_model,
-            api_key=settings.judge_api_key,
-            base_url=settings.judge_base_url or None,
+            api_key=SecretStr(embedding_key),
+            base_url=embedding_url,
             dimensions=settings.embedding_dimensions,
             timeout=settings.request_timeout_seconds,
             max_retries=1,

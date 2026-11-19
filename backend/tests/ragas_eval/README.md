@@ -36,10 +36,15 @@ Configure localmente, sem versionar valores secretos:
 - `EVAL_JUDGE_API_KEY`, `EVAL_JUDGE_MODEL` (distinto do gerador),
   `EVAL_JUDGE_BASE_URL` (opcional).
 - `EVAL_EMBEDDING_MODEL`: embeddings do juiz para Answer Relevance.
+- `EVAL_EMBEDDING_API_KEY`, `EVAL_EMBEDDING_BASE_URL` (opcionais): provedor
+  separado para esses embeddings. Necessário quando o juiz só oferece chat, como a
+  API da DeepSeek. Sem `EVAL_EMBEDDING_API_KEY`, a chave e a URL do juiz são
+  reutilizadas; com ela, a URL do juiz nunca é herdada (sem `EVAL_EMBEDDING_BASE_URL`,
+  vale o endpoint padrão da OpenAI).
 
 O gerador e seu modelo de embeddings usam o mesmo endpoint compatível com OpenAI,
-conforme os adaptadores atuais de produção. O endpoint do juiz precisa oferecer
-chat e embeddings compatíveis. Os parâmetros de chunking/geração e limiar devem
+conforme os adaptadores atuais de produção. O juiz precisa de chat compatível com
+OpenAI; os embeddings vêm do mesmo endpoint ou do provedor configurado acima. Os parâmetros de chunking/geração e limiar devem
 corresponder à versão que será homologada; a identidade inclui esses valores.
 `JudgeSettings` lê variáveis de ambiente `EVAL_*`; exporte-as no shell. Chaves não
 entram no relatório/checkpoint. URLs são sanitizadas e endpoints participam do hash.
