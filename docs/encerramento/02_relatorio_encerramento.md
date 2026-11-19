@@ -24,7 +24,7 @@ de encerramento.
 | :---: | :--- | :--- | :---: |
 | `G01`, `G03` | Specs SDD/TDD e baseline de gestão | Concluído (PR #1). | **[PREENCHER]** |
 | `F01`, `F02` | Protótipos, setup e chat com SSE | Concluídos (PRs #23 e #24). | **[PREENCHER]** |
-| `B01` | Docker, pgvector, ingestão do catálogo | Em andamento: Redis no compose, `product_relations` e `ingestion_jobs` implementados no PR #27. | **[PREENCHER]** |
+| `B01` | Docker, pgvector, ingestão do catálogo | Concluído e mesclado na `develop` (PR #27). | **[PREENCHER]** |
 | `B02` | Busca híbrida e orquestração LLM | Implementado (PR #25). Falta comprovar o TTFT com medição. | **[PREENCHER]** |
 | `B03` | Ingestão de manuais e guardrails | Implementado (PR #25); controle por `ingestion_jobs` e `catalog:version` no PR #28. | **[PREENCHER]** |
 | `B04` | Motor de recomendação | Motor mesclado (PR #22); ligação ao fluxo do RAG no PR #29. | **[PREENCHER]** |
