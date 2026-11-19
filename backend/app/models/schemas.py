@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 Voltage = Literal["127V", "220V", "BIVOLT", "N/A"]
 Marketplace = Literal["AMAZON", "MERCADO_LIVRE", "SHOPEE", "LOJA_OFICIAL"]
+RelationType = Literal["UPSELL", "CROSS_SELL"]
 SpecValue = str | int | float | bool
 
 
@@ -34,6 +35,20 @@ class CatalogProduct(BaseModel):
     specs_json: dict[str, SpecValue] = Field(default_factory=dict)
     manual_title: str | None = None
     is_active: bool = True
+
+
+class ProductRelation(BaseModel):
+    """One row of data/product_relations.json; mirrors the product_relations DDL checks."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    base_sku: str = Field(min_length=1, max_length=64)
+    related_sku: str = Field(min_length=1, max_length=64)
+    relation_type: RelationType
+    affinity_weight: Decimal = Field(
+        default=Decimal("0.800"), ge=0, le=1, max_digits=4, decimal_places=3
+    )
+    justification_template: str = Field(min_length=1)
 
 
 class RetrievedChunk(BaseModel):
