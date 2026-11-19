@@ -42,7 +42,7 @@
   - **Arquivos**: `middleend/app/config.py`, `middleend/.env.example`, `middleend/app/ratelimit/__init__.py`, `middleend/app/ratelimit/limiter.py`
   - **Mensagem do Commit**: `feat(M01): add rate limit settings and RateLimiter protocol`
 
-- [ ] **Task 2: Testes TDD Red (`UT-M01-01` e `CT-M01-01`)**
+- [x] **Task 2: Testes TDD Red (`UT-M01-01` e `CT-M01-01`)**
   - **Arquivos**: `middleend/tests/unit/test_rate_limit_and_openapi.py`
   - **Mensagem do Commit**: `test(M01): add UT-M01-01 rate limit and CT-M01-01 OpenAPI contract tests`
 
