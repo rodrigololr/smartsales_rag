@@ -1,8 +1,8 @@
 """Chat sessions: TTL, sliding history window, one active turn and client_request_id idempotency.
 
 `SessionStore` is the port used by the routes. `InMemorySessionStore` serves a single
-replica without Redis (REDIS_URL unset); `RedisSessionStore` (redis_store.py) is the M02
-design of specs/architecture/02, section 4.
+replica without Redis (REDIS_URL unset); Redis-only is also a development adapter.
+Production uses PostgresSessionStore for durable sessions, turns and messages.
 """
 
 import time
@@ -10,9 +10,21 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Protocol
+from typing import Literal, Protocol
 
 from app.sse.models import CompletedTurn
+
+TurnState = Literal[
+    "IDLE",
+    "VALIDATING_CACHE",
+    "STREAMING_TOKENS",
+    "EMITTING_CARDS_AND_CITATIONS",
+    "ERROR_CONTINGENCY",
+]
+
+
+class TurnLost(RuntimeError):
+    """The session/lease was lost; no success may be acknowledged."""
 
 
 @dataclass(frozen=True)
@@ -29,6 +41,7 @@ class SessionSnapshot:
     session_id: str
     current_product_sku: str | None
     history: tuple[HistoryItem, ...] = ()
+    state: TurnState = "IDLE"
 
 
 class TurnDecision(Enum):
@@ -36,6 +49,8 @@ class TurnDecision(Enum):
     REPLAY = "REPLAY"
     IN_PROGRESS = "IN_PROGRESS"
     CONFLICT = "CONFLICT"
+    NOT_FOUND = "NOT_FOUND"
+    EXPIRED = "EXPIRED"
 
 
 @dataclass(frozen=True)
@@ -46,6 +61,7 @@ class TurnStart:
     # Set only for NEW: proves ownership of this acquisition of the session lock, so a
     # stale owner with the same client_request_id cannot complete or release the retry.
     lock_token: str = ""
+    snapshot: SessionSnapshot | None = None
 
 
 class SessionStore(Protocol):
@@ -78,10 +94,34 @@ class SessionStore(Protocol):
         ...
 
     async def release(self, session_id: str, client_request_id: str, lock_token: str) -> None:
-        """Free the lock if `lock_token` still owns it; its unfinished turn may be retried."""
+        """Free the lock if `lock_token` still owns it; its unfinished turn becomes a terminal failure."""
         ...
 
+    async def renew(self, session_id: str, client_request_id: str, lock_token: str) -> bool: ...
+
+    async def transition(self, session_id: str, lock_token: str, state: TurnState) -> None: ...
+
     async def ping(self) -> bool: ...
+
+    async def database_ping(self) -> bool | None: ...
+
+
+def abandoned_turn(session_id: str, message_id: str) -> CompletedTurn:
+    return CompletedTurn(
+        session_id,
+        message_id,
+        "A resposta foi interrompida. Envie uma nova pergunta para continuar.",
+        (),
+        (),
+        "error",
+        0,
+        None,
+        False,
+        0,
+        0,
+        "INTERNAL_ERROR",
+        True,
+    )
 
 
 def turn_messages(question: str, turn: CompletedTurn) -> tuple[HistoryItem, HistoryItem]:
@@ -107,6 +147,9 @@ class _Session:
     history: list[HistoryItem] = field(default_factory=list)
     turns: dict[str, _TurnRecord] = field(default_factory=dict)
     running_lock_token: str | None = None
+    running_request_id: str | None = None
+    lock_expires_at: float = 0
+    state: TurnState = "IDLE"
 
 
 class InMemorySessionStore:
@@ -118,10 +161,12 @@ class InMemorySessionStore:
         ttl_seconds: int,
         history_max_messages: int,
         clock: Callable[[], float] = time.monotonic,
+        lock_ttl_seconds: int = 60,
     ) -> None:
         self._ttl_seconds = ttl_seconds
         self._history_max_messages = history_max_messages
         self._clock = clock
+        self._lock_ttl_seconds = lock_ttl_seconds
         self._sessions: dict[str, _Session] = {}
 
     async def create(self, current_product_sku: str | None) -> SessionSnapshot:
@@ -143,7 +188,13 @@ class InMemorySessionStore:
     async def begin_turn(
         self, session_id: str, client_request_id: str, payload_hash: str
     ) -> TurnStart:
-        session = self._sessions[session_id]
+        session = self._active(session_id)
+        if session is None:
+            return TurnStart(TurnDecision.NOT_FOUND)
+        if session.running_lock_token and session.lock_expires_at <= self._clock():
+            await self.release(
+                session_id, session.running_request_id or "", session.running_lock_token
+            )
         record = session.turns.get(client_request_id)
         if record is not None and record.payload_hash != payload_hash:
             return TurnStart(TurnDecision.CONFLICT)
@@ -154,7 +205,12 @@ class InMemorySessionStore:
         message_id, lock_token = str(uuid.uuid4()), str(uuid.uuid4())
         session.turns[client_request_id] = _TurnRecord(payload_hash, message_id)
         session.running_lock_token = lock_token
-        return TurnStart(TurnDecision.NEW, message_id, lock_token=lock_token)
+        session.running_request_id = client_request_id
+        session.lock_expires_at = self._clock() + self._lock_ttl_seconds
+        session.state = "VALIDATING_CACHE"
+        return TurnStart(
+            TurnDecision.NEW, message_id, lock_token=lock_token, snapshot=self._snapshot(session)
+        )
 
     async def complete(
         self,
@@ -164,13 +220,21 @@ class InMemorySessionStore:
         question: str,
         turn: CompletedTurn,
     ) -> None:
-        session = self._sessions.get(session_id)
-        if session is None or session.running_lock_token != lock_token:
-            return  # replays and stale owners hold no lock; history must not grow twice
+        if not lock_token:
+            return
+        session = self._active(session_id)
+        if (
+            session is None
+            or session.running_lock_token != lock_token
+            or session.lock_expires_at <= self._clock()
+        ):
+            raise TurnLost("Session lease lost")
         record = session.turns.get(client_request_id)
         if record is None or record.completed is not None:
             return
         record.completed = turn
+        if turn.finish_reason == "error":
+            return
         session.history = [*session.history, *turn_messages(question, turn)][
             -self._history_max_messages :
         ]
@@ -180,13 +244,38 @@ class InMemorySessionStore:
         if session is None or session.running_lock_token != lock_token:
             return
         session.running_lock_token = None
+        session.running_request_id = None
+        session.state = "IDLE"
         record = session.turns.get(client_request_id)
         if record is not None and record.completed is None:
-            # Unfinished turns are forgotten so the browser's reconnect regenerates them.
-            del session.turns[client_request_id]
+            record.completed = abandoned_turn(session_id, record.message_id)
+
+    async def renew(self, session_id: str, client_request_id: str, lock_token: str) -> bool:
+        session = self._active(session_id)
+        if (
+            session is None
+            or session.running_lock_token != lock_token
+            or session.lock_expires_at <= self._clock()
+        ):
+            return False
+        session.lock_expires_at = self._clock() + self._lock_ttl_seconds
+        return True
+
+    async def transition(self, session_id: str, lock_token: str, state: TurnState) -> None:
+        session = self._active(session_id)
+        if (
+            session is None
+            or session.running_lock_token != lock_token
+            or session.lock_expires_at <= self._clock()
+        ):
+            raise TurnLost("Session lease lost")
+        session.state = state
 
     async def ping(self) -> bool:
         return True
+
+    async def database_ping(self) -> bool | None:
+        return None
 
     def _active(self, session_id: str) -> _Session | None:
         session = self._sessions.get(session_id)
@@ -201,5 +290,5 @@ class InMemorySessionStore:
     @staticmethod
     def _snapshot(session: _Session) -> SessionSnapshot:
         return SessionSnapshot(
-            session.session_id, session.current_product_sku, tuple(session.history)
+            session.session_id, session.current_product_sku, tuple(session.history), session.state
         )

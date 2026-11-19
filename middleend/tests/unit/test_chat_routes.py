@@ -11,6 +11,7 @@ import pytest
 from app.clients.backend import BackendClient
 from app.config import Settings
 from app.main import create_app
+from app.schemas import Filters
 from app.sessions.store import HistoryItem
 from fastapi.testclient import TestClient
 
@@ -73,9 +74,12 @@ class FakeBackend:
         question: str,
         history: list[HistoryItem],
         *,
+        filters: Filters | None = None,
         preferred_voltage: str | None = None,
     ) -> FakeStream:
-        self.voltages.append(preferred_voltage)
+        self.voltages.append(
+            filters.preferred_voltage if filters is not None else preferred_voltage
+        )
         self.calls.append((sku, question, history))
         return FakeStream(self.events)
 
@@ -274,7 +278,7 @@ def test_gateway_on_redis_frees_the_lock_when_the_stream_fails(backend: FakeBack
     settings = Settings(backend_internal_url="http://127.0.0.1:9", redis_url=REDIS_URL)
     with TestClient(create_app(settings, backend)) as gateway:
         session_id = new_session(gateway)
-        backend.open_stream = lambda *_, **__: BrokenStream([TOKEN])  # type: ignore[method-assign]
+        backend.open_stream = lambda *_, **kwargs: BrokenStream([TOKEN])  # type: ignore[method-assign]
         request_id = str(uuid.uuid4())
         failed = sse_events(ask(gateway, session_id, request_id).text)
         assert [name for name, _ in failed] == ["metadata", "token", "error", "recommendations", "done"]
@@ -282,7 +286,10 @@ def test_gateway_on_redis_frees_the_lock_when_the_stream_fails(backend: FakeBack
 
         del backend.open_stream  # type: ignore[attr-defined]
         retried = sse_events(ask(gateway, session_id, request_id).text)  # no 409: lock was freed
-        assert retried[-1][1]["finish_reason"] == "stop"
+        assert retried[-1][1]["finish_reason"] == "error"
+        assert len(backend.calls) == 0
+        fresh = sse_events(ask(gateway, session_id, str(uuid.uuid4())).text)
+        assert fresh[-1][1]["finish_reason"] == "stop"
         history = gateway.post("/api/v1/sessions", json={"session_id": session_id}).json()["history"]
         assert [message["content"] for message in history] == ["Qual a voltagem?", "Opera em 220V. "]
 
@@ -388,3 +395,25 @@ def test_backend_http_error_is_a_connection_error() -> None:
     http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))
     with pytest.raises(ConnectionError):
         _collect(BackendClient(http, "http://backend:8001"))
+
+
+@pytest.mark.parametrize("voltage", ["127V", "220V"])
+def test_gateway_forwards_the_voltage_preference_to_the_worker(voltage: str) -> None:
+    seen: list[dict[str, object]] = []
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, text="\n".join(json.dumps(e) for e in (TOKEN, END)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    with TestClient(create_app(Settings(), BackendClient(http, "http://worker"))) as client:
+        session = new_session(client)
+        response = client.post("/api/v1/chat/stream", json={
+            "session_id": session, "client_request_id": str(uuid.uuid4()),
+            "message": "Qual a potência?",
+            "context_filters": {"preferred_voltage": voltage, "budget_max": 600, "capacity_min": 5, "category": "Eletroportáteis"},
+        })
+    assert sse_events(response.text)[-1][1]["finish_reason"] == "stop"
+    assert seen[0]["sku"] == "AF-400-220V"
+    assert seen[0]["preferred_voltage"] == voltage
+    assert seen[0]["budget_max"] == 600
+    assert seen[0]["capacity_min"] == 5
+    assert seen[0]["category"] == "Eletroportáteis"

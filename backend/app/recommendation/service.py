@@ -7,6 +7,7 @@ Any failure yields no cards: recommendations never break a technical answer.
 
 import logging
 from collections.abc import Sequence
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
@@ -26,7 +27,6 @@ from app.recommendation.models import (
 )
 
 logger = logging.getLogger(__name__)
-SIMILARITY_DECIMAL_PLACES = 6
 
 
 class RecommendationLookupError(Exception):
@@ -43,6 +43,8 @@ class CrossSellRelation:
 
 
 class RecommendationCatalog(Protocol):
+    def snapshot(self) -> AbstractAsyncContextManager["RecommendationCatalog"]: ...
+
     async def current_product(self, sku: str) -> CatalogProduct | None: ...
 
     async def upsell_candidates(self, base: CatalogProduct) -> list[CatalogProduct]: ...
@@ -71,7 +73,15 @@ def _engine_product(product: CatalogProduct) -> Product:
 def _similarity(similarities: dict[str, float], sku: str) -> tuple[Decimal, ...]:
     if sku not in similarities:
         return ()
-    return (Decimal(str(round(similarities[sku], SIMILARITY_DECIMAL_PLACES))),)
+    return (Decimal(str(similarities[sku])),)
+
+
+def _fits(product: CatalogProduct, capacity_min: Decimal | None, budget_max: Decimal | None) -> bool:
+    within_budget = budget_max is None or product.price <= budget_max
+    enough_capacity = capacity_min is None or (
+        product.capacity_liters is not None and product.capacity_liters >= capacity_min
+    )
+    return within_budget and enough_capacity
 
 
 class RecommendationService:
@@ -88,32 +98,56 @@ class RecommendationService:
         query_embedding: Sequence[float] | None,
         allow_upsell: bool,
         requested_voltage: Voltage | None = None,
+        category: str | None = None,
+        capacity_min: Decimal | None = None,
+        budget_max: Decimal | None = None,
+        allow_secondary: bool = True,
     ) -> list[ProductCard]:
         """At most 3 cards (PRIMARY, UPSELL, CROSS_SELL), all in stock at this instant.
 
         `base` only names the consulted product; its row is read again here.
         """
         try:
-            return await self._current_cards(
-                base.sku, query_embedding, allow_upsell, requested_voltage
-            )
+            async with self._catalog.snapshot() as catalog:
+                return await self._current_cards(
+                    catalog, base.sku, query_embedding, allow_upsell, requested_voltage,
+                    category, capacity_min, budget_max, allow_secondary
+                )
         except (RecommendationLookupError, DomainInputError, ValidationError):
             logger.exception("recommendation_failed", extra={"sku": base.sku})
             return []
 
     async def _current_cards(
         self,
+        catalog: RecommendationCatalog,
         sku: str,
         query_embedding: Sequence[float] | None,
         allow_upsell: bool,
         requested_voltage: Voltage | None,
+        category: str | None,
+        capacity_min: Decimal | None,
+        budget_max: Decimal | None,
+        allow_secondary: bool,
     ) -> list[ProductCard]:
-        base = await self._catalog.current_product(sku)
+        base = await catalog.current_product(sku)
         if base is None or not base.is_active:
             return []
-        upsells = await self._catalog.upsell_candidates(base)
-        relations = await self._catalog.cross_sell_relations(base.sku)
-        similarities = await self._similarities(upsells, relations, query_embedding)
+        incompatible = requested_voltage is not None and base.voltage not in (
+            requested_voltage, "BIVOLT", "N/A"
+        )
+        if category is not None and base.category != category:
+            return []
+        insufficient = capacity_min is not None and (
+            base.capacity_liters is None or base.capacity_liters < capacity_min
+        )
+        allow_upsell = allow_secondary and (
+            allow_upsell or base.stock_quantity <= 0 or incompatible or insufficient
+        )
+        upsells = await catalog.upsell_candidates(base) if allow_upsell else []
+        upsells = [p for p in upsells if _fits(p, capacity_min, budget_max)]
+        relations = [r for r in await catalog.cross_sell_relations(base.sku)
+                     if _fits(r.product, None, budget_max)] if allow_secondary else []
+        similarities = await self._similarities(catalog, upsells, relations, query_embedding)
         selected = self._engine.recommend(
             _engine_product(base),
             [
@@ -126,10 +160,12 @@ class RecommendationService:
         )
         rows = {p.sku: p for p in [base, *upsells, *(r.product for r in relations)]}
         templates = {r.product.sku: r.justification_template for r in relations}
-        return [self._card(base, rows[item.product.sku], item, templates) for item in selected]
+        return [self._card(base, rows[item.product.sku], item, templates) for item in selected
+                if item.recommendation_type != "PRIMARY" or _fits(base, capacity_min, budget_max)]
 
     async def _similarities(
         self,
+        catalog: RecommendationCatalog,
         upsells: Sequence[CatalogProduct],
         relations: Sequence[CrossSellRelation],
         query_embedding: Sequence[float] | None,
@@ -137,7 +173,7 @@ class RecommendationService:
         skus = [p.sku for p in upsells] + [r.product.sku for r in relations]
         if query_embedding is None or not skus:
             return {}
-        return await self._catalog.max_similarities(skus, query_embedding)
+        return await catalog.max_similarities(skus, query_embedding)
 
     @staticmethod
     def _cross_candidate(
