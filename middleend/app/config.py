@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     backend_internal_url: str = "http://localhost:8001"
+    database_url: str = ""
+    redis_url: str = ""
+    checkout_decrement_stock: bool = True
     backend_timeout_seconds: float = 30.0
     cors_allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
     session_ttl_seconds: int = 1800

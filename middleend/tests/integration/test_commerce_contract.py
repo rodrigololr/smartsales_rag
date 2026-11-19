@@ -1,0 +1,304 @@
+"""Validate the four public endpoints against OpenAPI on a real PostgreSQL."""
+
+import asyncio
+import json
+import os
+from collections.abc import AsyncIterator, Iterator, Mapping
+from contextlib import asynccontextmanager
+from decimal import Decimal
+from pathlib import Path
+from uuid import uuid4
+
+import httpx
+import psycopg
+import pytest
+from app.config import Settings
+from app.main import create_app
+from app.sessions.store import HistoryItem
+from app.sse.models import BackendStream
+from jsonschema import Draft202012Validator, FormatChecker
+from psycopg import sql
+from psycopg.conninfo import make_conninfo
+
+ROOT = Path(__file__).resolve().parents[3]
+OPENAPI = json.loads((ROOT / "openapi.yaml").read_text(encoding="utf-8"))
+SKU = "AF-400-220V"
+PRODUCT_URL = "https://example.com/airfryer"
+
+
+def assert_contract(response: httpx.Response, path: str, status: int) -> dict:
+    assert response.status_code == status, response.text
+    operation = OPENAPI["paths"]["/api/v1" + path][response.request.method.lower()]
+    schema = operation["responses"][str(status)]["content"]["application/json"]["schema"]
+    payload = response.json()
+    # Use decimal arithmetic for OpenAPI's multipleOf: 0.01 checks.
+    Draft202012Validator(
+        json.loads(
+            json.dumps({**schema, "components": OPENAPI["components"]}), parse_float=Decimal
+        ),
+        format_checker=FormatChecker(),
+    ).validate(json.loads(response.text, parse_float=Decimal))
+    return payload
+
+
+@pytest.fixture
+def database_url() -> Iterator[str]:
+    base_url = os.environ.get("TEST_DATABASE_URL")
+    if not base_url:
+        pytest.skip("TEST_DATABASE_URL not set")
+    schema_name = "commerce_test_" + uuid4().hex
+    schema = sql.Identifier(schema_name)
+    with psycopg.connect(base_url, autocommit=True) as admin:
+        admin.execute(sql.SQL("CREATE SCHEMA {}").format(schema))
+        try:
+            url = make_conninfo(base_url, options=f"-csearch_path={schema_name},public")
+            products_ddl = (ROOT / "backend/app/db/schema.sql").read_text(encoding="utf-8")
+            with psycopg.connect(url) as connection:
+                connection.execute(products_ddl)
+                connection.execute(
+                    """
+                    INSERT INTO products
+                        (sku, name, category, subcategory, brand, price, stock_quantity,
+                         voltage, image_url, checkout_url, is_active)
+                    VALUES
+                        (%s, 'Airfryer', 'Kitchen', 'Airfryers', 'SmartChef', 499.90, 1,
+                         '220V', '/airfryer.svg', %s, true),
+                        ('KIT', 'Airfryer Kit', 'Kitchen', 'Accessories', 'SmartChef', 50, 2,
+                         'N/A', '/kit.svg', %s, true),
+                        ('AF-127V', 'Airfryer 127V', 'Kitchen', 'Airfryers', 'SmartChef', 400, 1,
+                         '127V', '/airfryer.svg', %s, true),
+                        ('EMPTY', 'Out of stock', 'Kitchen', 'Airfryers', 'SmartChef', 300, 0,
+                         '220V', '/airfryer.svg', %s, true),
+                        ('INACTIVE', 'Inactive', 'Kitchen', 'Airfryers', 'SmartChef', 300, 4,
+                         '220V', '/airfryer.svg', %s, false)
+                    """,
+                    (SKU, PRODUCT_URL, PRODUCT_URL, PRODUCT_URL, PRODUCT_URL, PRODUCT_URL),
+                )
+            yield url
+        finally:
+            admin.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(schema))
+
+
+class StubBackend:
+    def __init__(self, fallback: bool) -> None:
+        if fallback:
+            self.events = [
+                {
+                    "event": "error",
+                    "data": {
+                        "code": "LOW_SIMILARITY_FALLBACK",
+                        "recoverable": True,
+                        "fallback_message": "O manual não informa.",
+                    },
+                },
+                {"event": "end", "data": {"tokens_used": 0, "intent": "LOW_SIMILARITY"}},
+            ]
+        else:
+            self.events = [
+                {"event": "token", "data": {"delta": "O modelo é 220V."}},
+                {"event": "end", "data": {"tokens_used": 4, "intent": "TECHNICAL_QA"}},
+            ]
+
+    def open_stream(self, sku: str, question: str, history: list[HistoryItem]) -> BackendStream:
+        events = iter(self.events)
+
+        class Stream:
+            def __aiter__(self) -> "Stream":
+                return self
+
+            async def __anext__(self) -> Mapping[str, object]:
+                event = next(events, None)
+                if event is None:
+                    raise StopAsyncIteration
+                return event
+
+            async def aclose(self) -> None:
+                pass
+
+        return Stream()
+
+
+@asynccontextmanager
+async def client_for(
+    database_url: str, *, fallback: bool = False, decrement_stock: bool = True
+) -> AsyncIterator[httpx.AsyncClient]:
+    settings = Settings(database_url=database_url, checkout_decrement_stock=decrement_stock)
+    app = create_app(settings, StubBackend(fallback))
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://gateway/api/v1"
+        ) as client,
+    ):
+        yield client
+
+
+async def new_turn(client: httpx.AsyncClient, expected_reason: str = "stop") -> dict[str, str]:
+    session = await client.post("sessions", json={"current_product_sku": SKU})
+    assert session.status_code == 201
+    session_id = session.json()["session_id"]
+    answer = await client.post(
+        "chat/stream",
+        json={
+            "session_id": session_id,
+            "client_request_id": str(uuid4()),
+            "message": "Qual a voltagem?",
+        },
+    )
+    events = [
+        json.loads(line[6:]) for line in answer.text.splitlines() if line.startswith("data: ")
+    ]
+    assert events[-1]["finish_reason"] == expected_reason, answer.text
+    return {"session_id": session_id, "message_id": events[0]["message_id"]}
+
+
+def test_catalog_reads_active_in_stock_products_with_stable_paging(database_url: str) -> None:
+    async def scenario() -> None:
+        async with client_for(database_url) as client:
+            params = {"q": "AIRFRYER", "category": "Kitchen", "voltage": "220V", "page_size": 1}
+            for page, skus in [(1, [SKU]), (2, ["KIT"]), (3, [])]:
+                response = await client.get("products", params={**params, "page": page})
+                catalog = assert_contract(response, "/products", 200)
+                assert [item["sku"] for item in catalog["items"]] == skus
+                assert (catalog["total"], catalog["page"], catalog["page_size"]) == (2, page, 1)
+            assert_contract(await client.get("products?page_size=101"), "/products", 422)
+            assert_contract(await client.get("products?voltage=BIVOLT"), "/products", 422)
+
+    asyncio.run(scenario())
+
+
+def test_product_detail_includes_current_price_even_when_out_of_stock(database_url: str) -> None:
+    async def scenario() -> None:
+        async with client_for(database_url) as client:
+            product = assert_contract(await client.get("products/EMPTY"), "/products/{sku}", 200)
+            assert product["stock_quantity"] == 0
+            assert product["price"] == 300
+            for sku in ("INACTIVE", "UNKNOWN"):
+                assert_contract(await client.get(f"products/{sku}"), "/products/{sku}", 404)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("rating,reason", [("LIKE", None), ("DISLIKE", "WRONG_VOLTAGE")])
+def test_feedback_belongs_to_the_chat_message(
+    database_url: str, rating: str, reason: str | None
+) -> None:
+    async def scenario() -> None:
+        async with client_for(database_url) as client:
+            turn = await new_turn(client)
+            request = {**turn, "rating": rating, "reason_category": reason, "comment": "Teste"}
+            wrong_session = await client.post("sessions", json={"current_product_sku": SKU})
+            assert_contract(
+                await client.post(
+                    "feedback", json={**request, "session_id": wrong_session.json()["session_id"]}
+                ),
+                "/feedback",
+                404,
+            )
+            assert_contract(
+                await client.post(
+                    "feedback", json={**request, "rating": "DISLIKE", "reason_category": None}
+                ),
+                "/feedback",
+                422,
+            )
+            saved = assert_contract(await client.post("feedback", json=request), "/feedback", 201)
+            assert_contract(await client.post("feedback", json=request), "/feedback", 409)
+            with psycopg.connect(database_url) as connection:
+                rows = connection.execute(
+                    "SELECT id::text, message_id::text, rating, reason_category, comment FROM feedback_logs"
+                ).fetchall()
+            assert rows == [(saved["feedback_id"], turn["message_id"], rating, reason, "Teste")]
+
+    asyncio.run(scenario())
+
+
+def test_checkout_revalidates_price_and_serializes_purchases_of_last_unit(
+    database_url: str,
+) -> None:
+    async def scenario() -> None:
+        async with client_for(database_url) as client:
+            turn = await new_turn(client)
+            request = {
+                **turn,
+                "sku": SKU,
+                "quantity": 1,
+                "recommendation_type": "PRIMARY",
+                "displayed_price": 499.90,
+            }
+            with psycopg.connect(database_url) as connection:
+                connection.execute("UPDATE products SET price = 519.90 WHERE sku = %s", (SKU,))
+            stale = assert_contract(
+                await client.post("checkout/mock", json=request), "/checkout/mock", 409
+            )
+            assert (stale["status"], stale["current_price"], stale["current_stock"]) == (
+                "PRICE_CHANGED",
+                519.90,
+                1,
+            )
+            assert stale["redirect_checkout_url"] is None
+            invalid = await client.post("checkout/mock", json={**request, "quantity": 0})
+            assert_contract(invalid, "/checkout/mock", 422)
+            current = {**request, "displayed_price": 519.90}
+            responses = await asyncio.gather(
+                *(client.post("checkout/mock", json=current) for _ in range(2))
+            )
+            success, failure = sorted(responses, key=lambda response: response.status_code)
+            confirmed = assert_contract(success, "/checkout/mock", 200)
+            assert confirmed["confirmed_unit_price"] == 519.90
+            assert confirmed["total_amount"] == 519.90
+            assert confirmed["remaining_stock"] == 0
+            assert confirmed["redirect_checkout_url"] == PRODUCT_URL
+            rejected = assert_contract(failure, "/checkout/mock", 409)
+            assert (
+                rejected["status"],
+                rejected["current_stock"],
+                rejected["redirect_checkout_url"],
+            ) == (
+                "OUT_OF_STOCK",
+                0,
+                None,
+            )
+            with psycopg.connect(database_url) as connection:
+                attempts = connection.execute(
+                    "SELECT status FROM checkout_events ORDER BY status"
+                ).fetchall()
+            assert attempts == [("CONFIRMED",), ("OUT_OF_STOCK",), ("PRICE_CHANGED",)]
+
+    asyncio.run(scenario())
+
+
+def test_catalog_checkout_can_record_conversion_without_decrementing_stock(
+    database_url: str,
+) -> None:
+    async def scenario() -> None:
+        async with client_for(database_url, decrement_stock=False) as client:
+            request = {
+                **await new_turn(client),
+                "sku": "KIT",
+                "quantity": 2,
+                "recommendation_type": "CROSS_SELL",
+                "displayed_price": 50,
+            }
+            checkout = assert_contract(
+                await client.post("checkout/mock", json=request), "/checkout/mock", 200
+            )
+            assert checkout["total_amount"] == 100
+            assert checkout["remaining_stock"] == 2
+            product = assert_contract(await client.get("products/KIT"), "/products/{sku}", 200)
+            assert product["stock_quantity"] == 2
+
+    asyncio.run(scenario())
+
+
+def test_fallback_with_diagnostic_intent_still_completes_with_database(database_url: str) -> None:
+    async def scenario() -> None:
+        async with client_for(database_url, fallback=True) as client:
+            turn = await new_turn(client, expected_reason="fallback")
+            with psycopg.connect(database_url) as connection:
+                message = connection.execute(
+                    "SELECT role, intent FROM chat_messages WHERE id = %s", (turn["message_id"],)
+                ).fetchone()
+            assert message == ("assistant", None)
+
+    asyncio.run(scenario())

@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.clients.backend import ReplayStream
 from app.config import Settings
+from app.repositories.commerce import PostgresCommerce
 from app.schemas import ChatStreamRequest, SessionCreate
 from app.sessions.store import HistoryItem, SessionStore, TurnDecision
 from app.sse import sse_chat_generator
@@ -108,6 +109,9 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
         store.release(session, request_id)
 
     async def complete_turn(completed: CompletedTurn) -> None:
+        commerce: PostgresCommerce | None = request.app.state.commerce
+        if commerce is not None:
+            await commerce.persist_turn(completed)
         store.complete(session, request_id, body.message, completed)
 
     frames = sse_chat_generator(

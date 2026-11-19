@@ -35,8 +35,9 @@ uv run --no-project python -m ruff check app tests
 uv run --no-project python -m mypy app
 ```
 
-O teste de integração do backend (`tests/integration`) usa um PostgreSQL com
-pgvector descartável e só roda com `TEST_DATABASE_URL` definido:
+Os testes de integração do backend e os testes de contrato do gateway
+(`tests/integration` de cada serviço) usam um PostgreSQL descartável com pgvector
+e só rodam com `TEST_DATABASE_URL` definido:
 
 ```bash
 docker run -d --name smartsales-pgvector-test -p 5544:5432 -e POSTGRES_USER=smartsales \
@@ -55,7 +56,7 @@ validando a documentação e o OpenAPI.
 # 1. backend (:8001) — precisa de DATABASE_URL e LLM_API_KEY (veja backend/.env.example)
 cd backend && uv run --no-project python -m app.ingestion.run --catalog ../data/catalog.json --manuals ../data/manuals/
 cd backend && uv run --no-project uvicorn app.main:app --port 8001
-# 2. middleend (:8000)
+# 2. middleend (:8000) — configure o mesmo DATABASE_URL (veja middleend/.env.example)
 cd middleend && uv run --no-project uvicorn app.main:app --port 8000
 # 3. frontend (:3000) apontando para o gateway
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 pnpm -C frontend dev
@@ -64,6 +65,13 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 pnpm -C frontend dev
 Contrato interno: o middle-end chama `POST /internal/rag/stream` do backend com
 `{sku, question, history}` e recebe NDJSON com os eventos internos do M02
 (`token` só com sentenças aprovadas pelo G-OUT, `citations`, `error`, `end`).
+
+Com `DATABASE_URL` configurado, o gateway cria suas tabelas após a ingestão
+inicial. Use o `session_id` e o `message_id` do evento SSE `metadata` após o turno
+terminar para enviar feedback ou confirmar o checkout. O checkout simulado
+consome estoque por padrão. Defina `CHECKOUT_DECREMENT_STOCK=false` para apenas
+registrar a conversão. Com `REDIS_URL` configurado, divergências de preço e a
+venda da última unidade incrementam `catalog:version`.
 
 ## Frentes paralelas e limites
 
