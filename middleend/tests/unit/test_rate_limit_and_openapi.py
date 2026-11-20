@@ -9,9 +9,10 @@ from pathlib import Path
 import pytest
 from app.config import Settings
 from app.main import create_app
-from app.ratelimit import InMemoryRateLimiter, RedisRateLimiter
+from app.ratelimit import InMemoryRateLimiter, RedisRateLimiter, client_ip_from_request
 from fastapi.testclient import TestClient
 from redis.asyncio import Redis
+from starlette.requests import Request
 from test_chat_routes import END, TOKEN, FakeBackend, ask, new_session
 
 REDIS_URL = os.environ.get("TEST_REDIS_URL", "")
@@ -38,11 +39,10 @@ def test_ut_m01_01_thirty_first_request_within_one_minute_returns_429_with_retry
 
         # Another IP has its own bucket; health probe is exempt from rate limiting.
         assert client.get("/api/v1/health").status_code == 200
-        other_ip = client.post(
-            "/api/v1/sessions",
-            json={"current_product_sku": "AF-400-220V"},
-            headers={"X-Forwarded-For": "203.0.113.9"},
-        )
+        with TestClient(app, client=("203.0.113.9", 50000)) as other_client:
+            other_ip = other_client.post(
+                "/api/v1/sessions", json={"current_product_sku": "AF-400-220V"}
+            )
         assert other_ip.status_code == 201
 
         # After the 60s window expires, the original IP is allowed again.
@@ -128,3 +128,98 @@ def test_ct_m01_01_runtime_openapi_matches_normative_session_and_chat_contracts(
     runtime_stream_req = runtime["components"]["schemas"]["ChatStreamRequest"]
     assert set(normative_stream_req["required"]) == set(runtime_stream_req["required"])
     assert set(normative_stream_req["properties"]) == set(runtime_stream_req["properties"])
+
+
+def _limited_app(limit: int) -> TestClient:
+    limiter = InMemoryRateLimiter(limit=limit, window_seconds=60)
+    settings = Settings(backend_internal_url="http://127.0.0.1:9")
+    return TestClient(create_app(settings, FakeBackend([TOKEN, END]), rate_limiter=limiter))
+
+
+def test_forged_x_forwarded_for_cannot_bypass_the_limit() -> None:
+    with _limited_app(limit=3) as client:
+        statuses = [
+            client.get("/api/v1/sessions/unknown", headers={"X-Forwarded-For": f"10.0.0.{i}"})
+            .status_code
+            for i in range(5)
+        ]
+    assert statuses[3:] == [429, 429]
+
+
+def test_forged_x_forwarded_for_cannot_lock_out_another_client() -> None:
+    victim = "203.0.113.7"
+    limiter = InMemoryRateLimiter(limit=3, window_seconds=60)
+    app = create_app(
+        Settings(backend_internal_url="http://127.0.0.1:9"),
+        FakeBackend([TOKEN, END]),
+        rate_limiter=limiter,
+    )
+    with TestClient(app) as attacker:
+        for _ in range(5):
+            attacker.get("/api/v1/health/x", headers={"X-Forwarded-For": victim})
+    with TestClient(app, client=(victim, 50000)) as real_victim:
+        response = real_victim.post("/api/v1/sessions", json={"current_product_sku": "AF-400-220V"})
+    assert response.status_code == 201
+
+
+def _request(client_host: str, forwarded_for: str | None) -> Request:
+    headers = [] if forwarded_for is None else [(b"x-forwarded-for", forwarded_for.encode())]
+    return Request({"type": "http", "headers": headers, "client": (client_host, 1234)})
+
+
+@pytest.mark.parametrize(
+    ("hops", "forwarded_for", "expected"),
+    [
+        (0, "198.51.100.1", "10.0.0.2"),  # no trusted proxy: the header is ignored
+        (1, "198.51.100.1", "198.51.100.1"),  # one proxy appended the real client
+        (1, "6.6.6.6, 198.51.100.1", "198.51.100.1"),  # client-forged prefix is skipped
+        (2, "6.6.6.6, 198.51.100.1, 10.0.0.9", "198.51.100.1"),
+        (2, "198.51.100.1", "198.51.100.1"),  # shorter chain than configured
+        (1, None, "10.0.0.2"),
+    ],
+)
+def test_client_ip_only_trusts_hops_appended_by_configured_proxies(
+    hops: int, forwarded_for: str | None, expected: str
+) -> None:
+    request = _request("10.0.0.2", forwarded_for)
+    assert client_ip_from_request(request, trusted_proxy_hops=hops) == expected
+
+
+def test_trusted_proxy_hops_setting_is_used_by_the_middleware() -> None:
+    limiter = InMemoryRateLimiter(limit=1, window_seconds=60)
+    settings = Settings(backend_internal_url="http://127.0.0.1:9", rate_limit_trusted_proxy_hops=1)
+    app = create_app(settings, FakeBackend([TOKEN, END]), rate_limiter=limiter)
+    with TestClient(app) as proxy:
+        first = proxy.get("/api/v1/sessions/x", headers={"X-Forwarded-For": "198.51.100.1"})
+        second = proxy.get("/api/v1/sessions/x", headers={"X-Forwarded-For": "198.51.100.2"})
+    assert first.status_code != 429 and second.status_code != 429
+
+
+def test_validation_error_with_decimal_constraint_stays_422_without_echoing_input() -> None:
+    settings = Settings(backend_internal_url="http://127.0.0.1:9")
+    with TestClient(create_app(settings, FakeBackend([TOKEN, END]))) as client:
+        response = client.post(
+            "/api/v1/chat/stream",
+            json={
+                "session_id": str(uuid.uuid4()),
+                "client_request_id": str(uuid.uuid4()),
+                "message": "pergunta-secreta-do-cliente",
+                "context_filters": {"current_product_sku": "AF-400-220V", "budget_max": -5},
+            },
+        )
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == "VALIDATION_ERROR"
+    assert error["details"]["errors"][0]["loc"][-1] == "budget_max"
+    assert "pergunta-secreta-do-cliente" not in response.text
+    assert all("input" not in item for item in error["details"]["errors"])
+
+
+def test_in_memory_limiter_forgets_expired_windows() -> None:
+    clock = [0.0]
+    limiter = InMemoryRateLimiter(limit=30, window_seconds=60, clock=lambda: clock[0])
+    for index in range(100):
+        asyncio.run(limiter.check(f"198.51.100.{index}"))
+    clock[0] += 61
+    asyncio.run(limiter.check("203.0.113.1"))
+    assert limiter.tracked_clients == 1

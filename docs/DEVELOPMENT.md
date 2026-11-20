@@ -96,6 +96,7 @@ em `http://localhost:8001/docs`.
 | middleend | `SESSION_TTL_SECONDS`, `SESSION_HISTORY_MAX_MESSAGES`, `SESSION_LOCK_TTL_SECONDS` | `1800`, `10`, `60` | TTL da sessão, janela do histórico (número par, mínimo 2) e validade do lease/lock de turno. |
 | middleend | `SESSION_HEARTBEAT_SECONDS`, `SESSION_MAINTENANCE_SECONDS`, `TURN_RETRY_AFTER_SECONDS` | `10.0`, `60.0`, `1` | Intervalo de renovação do lease durante o stream, intervalo de limpeza SQL de sessões/turnos expirados e cabeçalho `Retry-After` em `409 TURN_IN_PROGRESS`. |
 | middleend | `RATE_LIMIT_REQUESTS_PER_MINUTE`, `RATE_LIMIT_WINDOW_SECONDS` | `30`, `60` | Limite de requisições por minuto por IP (`ratelimit:ip:{client_ip}`) e janela em segundos (`429 RATE_LIMITED` com cabeçalho `Retry-After`). |
+| middleend | `RATE_LIMIT_TRUSTED_PROXY_HOPS` | `0` | Quantos proxies reversos confiáveis ficam na frente do gateway. Com `0`, o `X-Forwarded-For` é ignorado e o IP é o da conexão; com `N`, usa o endereço anexado pelo proxy mais externo (o cliente não consegue forjar o próprio IP). |
 | middleend | `CACHE_TTL_SECONDS`, `CACHE_POLICY_VERSION` | `3600`, `p1` | TTL das respostas em cache; mude a versão ao alterar prompts, guardrails, ranking ou modelo. |
 
 ## Arquitetura implementada

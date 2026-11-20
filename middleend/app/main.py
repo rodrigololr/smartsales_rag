@@ -8,6 +8,7 @@ from contextlib import AsyncExitStack, asynccontextmanager, suppress
 
 import httpx
 from fastapi import FastAPI, Request, Response
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -60,7 +61,16 @@ async def storage_unavailable(request: Request, failure: Exception) -> JSONRespo
 
 
 async def validation_failed(request: Request, failure: Exception) -> JSONResponse:
-    errors = failure.errors() if isinstance(failure, RequestValidationError) else []
+    # jsonable_encoder: Pydantic puts non-JSON values (e.g. Decimal limits) in `ctx`.
+    # `input` is dropped so the envelope never echoes the customer's message back.
+    errors = (
+        [
+            {key: value for key, value in error.items() if key != "input"}
+            for error in jsonable_encoder(failure.errors())
+        ]
+        if isinstance(failure, RequestValidationError)
+        else []
+    )
     body = {
         "error": {
             "code": "VALIDATION_ERROR",
@@ -197,7 +207,10 @@ def create_app(
     ) -> Response:
         if request.method != "OPTIONS" and request.url.path not in _EXEMPT_RATE_LIMIT_PATHS:
             limiter: RateLimiter = request.app.state.rate_limiter
-            decision = await limiter.check(client_ip_from_request(request))
+            client_ip = client_ip_from_request(
+                request, trusted_proxy_hops=settings.rate_limit_trusted_proxy_hops
+            )
+            decision = await limiter.check(client_ip)
             if not decision.allowed:
                 limit = settings.rate_limit_requests_per_minute
                 return error_response(

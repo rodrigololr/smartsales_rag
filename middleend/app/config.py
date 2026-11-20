@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     turn_retry_after_seconds: int = 1
     rate_limit_requests_per_minute: int = Field(default=30, ge=1)
     rate_limit_window_seconds: int = Field(default=60, ge=1)
+    # Reverse proxies in front of the gateway that append to X-Forwarded-For. With 0 the
+    # header is ignored: a client could otherwise forge it to dodge or exhaust a bucket.
+    rate_limit_trusted_proxy_hops: int = Field(default=0, ge=0)
     app_version: str = "0.1.0-mvp"
 
     @model_validator(mode="after")

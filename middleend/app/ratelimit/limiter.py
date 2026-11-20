@@ -39,15 +39,21 @@ class RateLimiter(Protocol):
     async def check(self, client_ip: str) -> RateDecision: ...
 
 
-def client_ip_from_request(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        first_hop = forwarded.split(",", 1)[0].strip()
-        if first_hop:
-            return first_hop
-    if request.client and request.client.host:
-        return request.client.host
-    return "127.0.0.1"
+def client_ip_from_request(request: Request, *, trusted_proxy_hops: int = 0) -> str:
+    """Address of the client as seen by the first trusted hop.
+
+    Each trusted proxy appends the address it received the request from, so only the
+    last `trusted_proxy_hops` entries of X-Forwarded-For can be believed; anything to
+    their left was written by the client itself.
+    """
+    peer = request.client.host if request.client and request.client.host else "127.0.0.1"
+    if trusted_proxy_hops <= 0:
+        return peer
+    forwarded = [
+        hop.strip() for hop in request.headers.get("x-forwarded-for", "").split(",") if hop.strip()
+    ]
+    chain = [*forwarded, peer]
+    return chain[max(0, len(chain) - 1 - trusted_proxy_hops)]
 
 
 class InMemoryRateLimiter:
@@ -65,8 +71,14 @@ class InMemoryRateLimiter:
         self._clock = clock
         self._windows: dict[str, tuple[int, float]] = {}
 
+    @property
+    def tracked_clients(self) -> int:
+        return len(self._windows)
+
     async def check(self, client_ip: str) -> RateDecision:
         now = self._clock()
+        # Forget closed windows so the table stays bounded by the clients of one window.
+        self._windows = {ip: entry for ip, entry in self._windows.items() if entry[1] > now}
         entry = self._windows.get(client_ip)
         if entry is None or now >= entry[1]:
             expires_at = now + self._window_seconds
