@@ -63,7 +63,7 @@ def test_ingestion_creates_backend_tables_and_replaces_relations_from_the_seed(
     )
     assert asyncio.run(_table_exists("ingestion_jobs"))
     rows = asyncio.run(_relation_rows())
-    assert report.relations == len(rows) == 5
+    assert report.relations == len(rows) == 15
     assert ("AF-400-220V", "KIT-SIL-01", "CROSS_SELL", Decimal("0.950")) in rows
 
     only_one = tmp_path / "product_relations.json"
@@ -117,7 +117,7 @@ def test_ingestion_indexes_catalog_and_manuals_then_search_stays_on_the_product(
     report = asyncio.run(
         ingest(DATABASE_URL, catalog_path, DATA_DIR / "manuals", embedder, Settings())
     )
-    assert report.products == 7
+    assert report.products == 32
     assert "AF-400-220V/manual:AF-400-220V.txt" in report.indexed_sources
     assert "AF-400-220V/catalog:spec_sheet" in report.indexed_sources
     assert "KIT-SIL-01" in report.products_without_manual

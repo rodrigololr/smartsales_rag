@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-label="Aspirador Robô Varrix R300 Mapeamento">
+<title>Aspirador Robô Varrix R300 Mapeamento</title>
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef0f4"/></radialGradient>
+<linearGradient id="body" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1f2329"/><stop offset=".55" stop-color="#3a3f47"/><stop offset="1" stop-color="#1a1d22"/></linearGradient>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9aa1ab"/><stop offset=".5" stop-color="#e9ecf0"/><stop offset="1" stop-color="#8b929c"/></linearGradient>
+<linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d1014"/><stop offset="1" stop-color="#262b33"/></linearGradient>
+<radialGradient id="shadow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="800" height="800" fill="url(#bg)"/>
+<ellipse cx="400" cy="700" rx="220.0" ry="26" fill="url(#shadow)"/>
+<ellipse cx="400" cy="520" rx="250" ry="120" fill="url(#body)"/>
+<ellipse cx="400" cy="500" rx="236" ry="104" fill="#2a2f36"/>
+<circle cx="400" cy="450" r="44" fill="url(#steel)"/><circle cx="400" cy="450" r="14" fill="#0ea5e9"/>
+<rect x="330" y="540" width="140" height="16" rx="8" fill="#4b525c"/>
+<path d="M190 560 Q400 650 610 560" fill="none" stroke="#4b525c" stroke-width="6"/>
+<g stroke="#9aa1ab" stroke-width="3"><line x1="180" y1="600" x2="140" y2="640"/><line x1="180" y1="600" x2="130" y2="620"/><line x1="180" y1="600" x2="160" y2="650"/></g>
+<text x="400" y="520" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="22" fill="#9aa1ab">R300</text>
+</svg>

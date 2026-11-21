@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "corpus_sha256": "722d338f4147e9e5b4147d89182cf81ee99e977e6cff2e77bde34e9229e3838e",
+  "corpus_sha256": "72a6f5dc8e9fcea520fd16bf5b4f7b1d7a3763bca2158b9496c0f30bee513038",
   "description": "Synthetic demonstration seed; source verification is not PO/manufacturer audit.",
   "entries": [
     {
@@ -298,6 +298,1638 @@
       "page_number": 1,
       "chunk_index": 0,
       "quote": "Ficha técnica oficial do catálogo: Kit de Limpeza e Descalcificação\nMarca: AromaTech\nCategoria: Acessórios / Acessórios para Cafeteira\nVoltagem: N/A\nSolução descalcificante e escova de limpeza para cafeteiras expresso."
+    },
+    {
+      "sku": "LQ-900-127V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "b4413a86e7647017aeb5b3eea9c6e3f5439b826b47daccb2356d760deadf96df",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Liquidificador SmartChef Power 900W\nMarca: SmartChef\nCategoria: Eletroportáteis / Liquidificadores\nVoltagem: 127V\nPotência: 900 W\nCapacidade: 2.0 L\nvelocidades: 5\nfuncao_pulsar: True\nmaterial_jarra: acrílico\nfrequencia_hz: 60\nLiquidificador com jarra de 2 Litros, 5 velocidades, função pulsar e lâminas de aço inox."
+    },
+    {
+      "sku": "LQ-900-127V",
+      "source": "manual:LQ-900-127V.txt",
+      "source_sha256": "aa02960cd4ee1f863d95983ca35e15e4f32045df0af63612cc8bd049129f2f78",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Liquidificador SmartChef Power 900W\nModelo LQ-900-127V\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "LQ-900-127V",
+      "source": "manual:LQ-900-127V.txt",
+      "source_sha256": "aa02960cd4ee1f863d95983ca35e15e4f32045df0af63612cc8bd049129f2f78",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão mergulhe o corpo do aparelho, o cabo ou o plugue em água ou outros líquidos.\nMantenha o aparelho fora do alcance de crianças.\nUse o aparelho apenas sobre superfície plana, seca e estável.\nNunca coloque as mãos ou utensílios dentro da jarra com o aparelho ligado."
+    },
+    {
+      "sku": "LQ-900-127V",
+      "source": "manual:LQ-900-127V.txt",
+      "source_sha256": "aa02960cd4ee1f863d95983ca35e15e4f32045df0af63612cc8bd049129f2f78",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Tampa com sobretampa dosadora\n2. Jarra de acrílico graduada\n3. Conjunto de lâminas de aço inox\n4. Base do motor com seletor de 5 velocidades\n5. Botão pulsar"
+    },
+    {
+      "sku": "LQ-900-127V",
+      "source": "manual:LQ-900-127V.txt",
+      "source_sha256": "aa02960cd4ee1f863d95983ca35e15e4f32045df0af63612cc8bd049129f2f78",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo opera exclusivamente em 127V / 60 Hz, com potência nominal de 900 W.\nNão utilize extensões ou adaptadores.\nLigar o aparelho em tensão diferente da indicada danifica o produto e anula a garantia.\nCapacidade: 2 L."
+    },
+    {
+      "sku": "LQ-900-127V",
+      "source": "manual:LQ-900-127V.txt",
+      "source_sha256": "aa02960cd4ee1f863d95983ca35e15e4f32045df0af63612cc8bd049129f2f78",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Encaixe a jarra na base até ouvir o clique da trava.\n2. Coloque os ingredientes sem ultrapassar a marca MAX.\n3. Comece na velocidade 1 e aumente gradualmente.\n4. Use o botão pulsar para picar alimentos sólidos.\nNão opere o aparelho por mais de 3 minutos contínuos; aguarde 1 minuto antes de religar."
+    },
+    {
+      "sku": "LQ-900-127V",
+      "source": "manual:LQ-900-127V.txt",
+      "source_sha256": "aa02960cd4ee1f863d95983ca35e15e4f32045df0af63612cc8bd049129f2f78",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue o aparelho da tomada antes de limpar.\nA jarra e a tampa podem ser lavadas com água morna e detergente neutro.\nLimpe a base do motor apenas com pano úmido."
+    },
+    {
+      "sku": "LQ-900-127V",
+      "source": "manual:LQ-900-127V.txt",
+      "source_sha256": "aa02960cd4ee1f863d95983ca35e15e4f32045df0af63612cc8bd049129f2f78",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "LQ-1200-127V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "584fd9f4bddeb16abbba4bf3b17b6aa3aadcda9bbace16cc18def4b1c833b8ef",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Liquidificador SmartChef Power Max 1200W\nMarca: SmartChef\nCategoria: Eletroportáteis / Liquidificadores\nVoltagem: 127V\nPotência: 1200 W\nCapacidade: 3.0 L\nvelocidades: 12\nfuncao_pulsar: True\nfuncao_gelo: True\nmaterial_jarra: acrílico\nfrequencia_hz: 60\nVersão superior com jarra de 3 Litros, 12 velocidades, função gelo e filtro removível."
+    },
+    {
+      "sku": "LQ-1200-127V",
+      "source": "manual:LQ-1200-127V.txt",
+      "source_sha256": "7698804d525174cbeb53b9c49afaaf6a601158b776f54019fec786426eaca331",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Liquidificador SmartChef Power Max 1200W\nModelo LQ-1200-127V\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "LQ-1200-127V",
+      "source": "manual:LQ-1200-127V.txt",
+      "source_sha256": "7698804d525174cbeb53b9c49afaaf6a601158b776f54019fec786426eaca331",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão mergulhe o corpo do aparelho, o cabo ou o plugue em água ou outros líquidos.\nMantenha o aparelho fora do alcance de crianças.\nUse o aparelho apenas sobre superfície plana, seca e estável.\nNunca coloque as mãos ou utensílios dentro da jarra com o aparelho ligado."
+    },
+    {
+      "sku": "LQ-1200-127V",
+      "source": "manual:LQ-1200-127V.txt",
+      "source_sha256": "7698804d525174cbeb53b9c49afaaf6a601158b776f54019fec786426eaca331",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Tampa com sobretampa dosadora\n2. Jarra de acrílico graduada\n3. Filtro removível para sucos\n4. Conjunto de 6 lâminas de aço inox\n5. Base do motor com seletor de 12 velocidades e botão gelo"
+    },
+    {
+      "sku": "LQ-1200-127V",
+      "source": "manual:LQ-1200-127V.txt",
+      "source_sha256": "7698804d525174cbeb53b9c49afaaf6a601158b776f54019fec786426eaca331",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo opera exclusivamente em 127V / 60 Hz, com potência nominal de 1200 W.\nNão utilize extensões ou adaptadores.\nLigar o aparelho em tensão diferente da indicada danifica o produto e anula a garantia.\nCapacidade: 3 L."
+    },
+    {
+      "sku": "LQ-1200-127V",
+      "source": "manual:LQ-1200-127V.txt",
+      "source_sha256": "7698804d525174cbeb53b9c49afaaf6a601158b776f54019fec786426eaca331",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Encaixe a jarra na base até ouvir o clique da trava.\n2. Coloque os ingredientes sem ultrapassar a marca MAX.\n3. Escolha a velocidade no seletor ou use o botão gelo para triturar gelo em cubos.\n4. Para sucos com bagaço, encaixe o filtro antes de bater.\nNão opere o aparelho por mais de 3 minutos contínuos; aguarde 1 minuto antes de religar."
+    },
+    {
+      "sku": "LQ-1200-127V",
+      "source": "manual:LQ-1200-127V.txt",
+      "source_sha256": "7698804d525174cbeb53b9c49afaaf6a601158b776f54019fec786426eaca331",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue o aparelho da tomada antes de limpar.\nA jarra, a tampa e o filtro podem ser lavados com água morna e detergente neutro.\nLimpe a base do motor apenas com pano úmido."
+    },
+    {
+      "sku": "LQ-1200-127V",
+      "source": "manual:LQ-1200-127V.txt",
+      "source_sha256": "7698804d525174cbeb53b9c49afaaf6a601158b776f54019fec786426eaca331",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "CH-17-BIV",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "4f6a4f18ba02515d2af49bb4f26bf88e240e7d5b58f11e121abae186274be2fd",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Chaleira Elétrica SmartChef 1.7L\nMarca: SmartChef\nCategoria: Eletroportáteis / Chaleiras Elétricas\nVoltagem: BIVOLT\nPotência: 1500 W\nCapacidade: 1.7 L\nmaterial: aço inox\nbase_giratoria: True\ndesligamento_automatico: True\nChaleira bivolt de aço inox com desligamento automático e base giratória 360°."
+    },
+    {
+      "sku": "CH-17-BIV",
+      "source": "manual:CH-17-BIV.txt",
+      "source_sha256": "90febca60da252e725792fa2bada532cdff02592acd8e5750b1e2422dca3e68d",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Chaleira Elétrica SmartChef 1.7L\nModelo CH-17-BIV\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "CH-17-BIV",
+      "source": "manual:CH-17-BIV.txt",
+      "source_sha256": "90febca60da252e725792fa2bada532cdff02592acd8e5750b1e2422dca3e68d",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão mergulhe o corpo do aparelho, o cabo ou o plugue em água ou outros líquidos.\nMantenha o aparelho fora do alcance de crianças.\nUse o aparelho apenas sobre superfície plana, seca e estável.\nNão abra a tampa enquanto a água estiver fervendo.\nNão ligue a chaleira vazia."
+    },
+    {
+      "sku": "CH-17-BIV",
+      "source": "manual:CH-17-BIV.txt",
+      "source_sha256": "90febca60da252e725792fa2bada532cdff02592acd8e5750b1e2422dca3e68d",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Tampa com botão de abertura\n2. Corpo de aço inox com visor de nível\n3. Alça com interruptor liga/desliga\n4. Base giratória 360° com cabo"
+    },
+    {
+      "sku": "CH-17-BIV",
+      "source": "manual:CH-17-BIV.txt",
+      "source_sha256": "90febca60da252e725792fa2bada532cdff02592acd8e5750b1e2422dca3e68d",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo é bivolt: funciona em 127V ou 220V / 60 Hz, com seleção automática de tensão.\nA potência nominal é de 1500 W.\nNão utilize extensões ou adaptadores.\nCapacidade: 1,7 L."
+    },
+    {
+      "sku": "CH-17-BIV",
+      "source": "manual:CH-17-BIV.txt",
+      "source_sha256": "90febca60da252e725792fa2bada532cdff02592acd8e5750b1e2422dca3e68d",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Encha a chaleira entre as marcas MIN e MAX do visor.\n2. Encaixe a chaleira na base e acione o interruptor.\n3. A chaleira desliga automaticamente ao atingir a fervura.\n4. Retire a chaleira da base para servir."
+    },
+    {
+      "sku": "CH-17-BIV",
+      "source": "manual:CH-17-BIV.txt",
+      "source_sha256": "90febca60da252e725792fa2bada532cdff02592acd8e5750b1e2422dca3e68d",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue a base da tomada antes de limpar.\nRemova o calcário a cada 30 dias com uma mistura de água e vinagre branco, fervendo e descartando a solução.\nLimpe o corpo externo com pano úmido."
+    },
+    {
+      "sku": "CH-17-BIV",
+      "source": "manual:CH-17-BIV.txt",
+      "source_sha256": "90febca60da252e725792fa2bada532cdff02592acd8e5750b1e2422dca3e68d",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "CH-17T-BIV",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "16d82ba8fae9149386f546a044d3d5c9292884d2610c58d0822923bb9c9e5be9",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Chaleira Elétrica SmartChef 1.7L Temperatura Controlada\nMarca: SmartChef\nCategoria: Eletroportáteis / Chaleiras Elétricas\nVoltagem: BIVOLT\nPotência: 1500 W\nCapacidade: 1.7 L\nmaterial: aço inox\ntemperaturas_c: 70/80/85/90/100\nmanter_aquecido_min: 30\nbase_giratoria: True\nVersão superior com 5 temperaturas pré-definidas para chás e café e função manter aquecido."
+    },
+    {
+      "sku": "CH-17T-BIV",
+      "source": "manual:CH-17T-BIV.txt",
+      "source_sha256": "6f19c3cd332c8c1d8d3a7caffec2019462c62b1ff3ab619e576f83d19a766b90",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Chaleira Elétrica SmartChef 1.7L Temperatura Controlada\nModelo CH-17T-BIV\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "CH-17T-BIV",
+      "source": "manual:CH-17T-BIV.txt",
+      "source_sha256": "6f19c3cd332c8c1d8d3a7caffec2019462c62b1ff3ab619e576f83d19a766b90",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão mergulhe o corpo do aparelho, o cabo ou o plugue em água ou outros líquidos.\nMantenha o aparelho fora do alcance de crianças.\nUse o aparelho apenas sobre superfície plana, seca e estável.\nNão abra a tampa enquanto a água estiver fervendo.\nNão ligue a chaleira vazia."
+    },
+    {
+      "sku": "CH-17T-BIV",
+      "source": "manual:CH-17T-BIV.txt",
+      "source_sha256": "6f19c3cd332c8c1d8d3a7caffec2019462c62b1ff3ab619e576f83d19a766b90",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Tampa com botão de abertura\n2. Corpo de aço inox com visor de nível\n3. Painel na base com 5 temperaturas e botão manter aquecido\n4. Base giratória 360° com cabo"
+    },
+    {
+      "sku": "CH-17T-BIV",
+      "source": "manual:CH-17T-BIV.txt",
+      "source_sha256": "6f19c3cd332c8c1d8d3a7caffec2019462c62b1ff3ab619e576f83d19a766b90",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo é bivolt: funciona em 127V ou 220V / 60 Hz, com seleção automática de tensão.\nA potência nominal é de 1500 W.\nNão utilize extensões ou adaptadores.\nCapacidade: 1,7 L."
+    },
+    {
+      "sku": "CH-17T-BIV",
+      "source": "manual:CH-17T-BIV.txt",
+      "source_sha256": "6f19c3cd332c8c1d8d3a7caffec2019462c62b1ff3ab619e576f83d19a766b90",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Painel de temperatura\nAs temperaturas pré-definidas são 70 °C, 80 °C, 85 °C, 90 °C e 100 °C.\nIndicações de uso: 70 °C para chá branco, 80 °C para chá verde, 85 °C para chá oolong, 90 °C para café coado e 100 °C para chá preto e infusões.\nA função manter aquecido conserva a temperatura escolhida por até 30 minutos."
+    },
+    {
+      "sku": "CH-17T-BIV",
+      "source": "manual:CH-17T-BIV.txt",
+      "source_sha256": "6f19c3cd332c8c1d8d3a7caffec2019462c62b1ff3ab619e576f83d19a766b90",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Encha a chaleira entre as marcas MIN e MAX do visor.\n2. Encaixe a chaleira na base e escolha a temperatura no painel.\n3. Um sinal sonoro avisa quando a temperatura é atingida.\n4. Retire a chaleira da base para servir."
+    },
+    {
+      "sku": "CH-17T-BIV",
+      "source": "manual:CH-17T-BIV.txt",
+      "source_sha256": "6f19c3cd332c8c1d8d3a7caffec2019462c62b1ff3ab619e576f83d19a766b90",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue a base da tomada antes de limpar.\nRemova o calcário a cada 30 dias com uma mistura de água e vinagre branco, fervendo e descartando a solução.\nLimpe o corpo externo com pano úmido."
+    },
+    {
+      "sku": "CH-17T-BIV",
+      "source": "manual:CH-17T-BIV.txt",
+      "source_sha256": "6f19c3cd332c8c1d8d3a7caffec2019462c62b1ff3ab619e576f83d19a766b90",
+      "page_number": 8,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "PA-5X-127V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "0b270a948c77cb5bc2a6bccac34ced1ca2586ab22e9e958c54c2941bd3cf51e9",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Panela de Arroz Elétrica SmartChef 5 Xícaras\nMarca: SmartChef\nCategoria: Eletroportáteis / Panelas Elétricas\nVoltagem: 127V\nPotência: 400 W\nCapacidade: 1.0 L\nxicaras_arroz_cru: 5\ncesto_vapor: True\nrevestimento: antiaderente\nfrequencia_hz: 60\nPanela de arroz para até 5 xícaras de arroz cru, com cesto para cozimento a vapor e função manter aquecido."
+    },
+    {
+      "sku": "PA-5X-127V",
+      "source": "manual:PA-5X-127V.txt",
+      "source_sha256": "bc38412335619c54ceecc6a7ef3cc19b594c4ce9ce901d40e094bd1d48451964",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Panela de Arroz Elétrica SmartChef 5 Xícaras\nModelo PA-5X-127V\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "PA-5X-127V",
+      "source": "manual:PA-5X-127V.txt",
+      "source_sha256": "bc38412335619c54ceecc6a7ef3cc19b594c4ce9ce901d40e094bd1d48451964",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão mergulhe o corpo do aparelho, o cabo ou o plugue em água ou outros líquidos.\nMantenha o aparelho fora do alcance de crianças.\nUse o aparelho apenas sobre superfície plana, seca e estável.\nNão cubra a saída de vapor da tampa durante o cozimento."
+    },
+    {
+      "sku": "PA-5X-127V",
+      "source": "manual:PA-5X-127V.txt",
+      "source_sha256": "bc38412335619c54ceecc6a7ef3cc19b594c4ce9ce901d40e094bd1d48451964",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Tampa de vidro com saída de vapor\n2. Panela interna antiaderente\n3. Cesto para cozimento a vapor\n4. Copo medidor e espátula\n5. Chave cozinhar / manter aquecido"
+    },
+    {
+      "sku": "PA-5X-127V",
+      "source": "manual:PA-5X-127V.txt",
+      "source_sha256": "bc38412335619c54ceecc6a7ef3cc19b594c4ce9ce901d40e094bd1d48451964",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo opera exclusivamente em 127V / 60 Hz, com potência nominal de 400 W.\nNão utilize extensões ou adaptadores.\nLigar o aparelho em tensão diferente da indicada danifica o produto e anula a garantia.\nCapacidade: 1 L."
+    },
+    {
+      "sku": "PA-5X-127V",
+      "source": "manual:PA-5X-127V.txt",
+      "source_sha256": "bc38412335619c54ceecc6a7ef3cc19b594c4ce9ce901d40e094bd1d48451964",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Meça o arroz com o copo medidor que acompanha o produto.\n2. Lave o arroz e coloque-o na panela interna com a água até a marca correspondente ao número de xícaras.\n3. Abaixe a chave para cozinhar.\n4. Ao final, a panela passa sozinha para a função manter aquecido.\nRendimento máximo: 5 xícaras de arroz cru, o que serve até 5 pessoas."
+    },
+    {
+      "sku": "PA-5X-127V",
+      "source": "manual:PA-5X-127V.txt",
+      "source_sha256": "bc38412335619c54ceecc6a7ef3cc19b594c4ce9ce901d40e094bd1d48451964",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue o aparelho da tomada e aguarde esfriar antes de limpar.\nLave a panela interna com esponja macia e detergente neutro; não use palha de aço."
+    },
+    {
+      "sku": "PA-5X-127V",
+      "source": "manual:PA-5X-127V.txt",
+      "source_sha256": "bc38412335619c54ceecc6a7ef3cc19b594c4ce9ce901d40e094bd1d48451964",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "PA-10X-127V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "2dab925eb6cc5d0d91b6cdb3e026aae7d4762fffb9383a15a6c96a3984f5c6bb",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Panela de Arroz Elétrica SmartChef 10 Xícaras\nMarca: SmartChef\nCategoria: Eletroportáteis / Panelas Elétricas\nVoltagem: 127V\nPotência: 700 W\nCapacidade: 1.8 L\nxicaras_arroz_cru: 10\ncesto_vapor: True\ntimer_max_horas: 12\nrevestimento: antiaderente\nfrequencia_hz: 60\nVersão superior para até 10 xícaras de arroz cru, com cesto a vapor e painel com timer."
+    },
+    {
+      "sku": "PA-10X-127V",
+      "source": "manual:PA-10X-127V.txt",
+      "source_sha256": "8ecf9472e7a3312a426d1a24e684e7ca0244a0b27afe966fe48fe952f495218a",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Panela de Arroz Elétrica SmartChef 10 Xícaras\nModelo PA-10X-127V\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "PA-10X-127V",
+      "source": "manual:PA-10X-127V.txt",
+      "source_sha256": "8ecf9472e7a3312a426d1a24e684e7ca0244a0b27afe966fe48fe952f495218a",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão mergulhe o corpo do aparelho, o cabo ou o plugue em água ou outros líquidos.\nMantenha o aparelho fora do alcance de crianças.\nUse o aparelho apenas sobre superfície plana, seca e estável.\nNão cubra a saída de vapor da tampa durante o cozimento."
+    },
+    {
+      "sku": "PA-10X-127V",
+      "source": "manual:PA-10X-127V.txt",
+      "source_sha256": "8ecf9472e7a3312a426d1a24e684e7ca0244a0b27afe966fe48fe952f495218a",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Tampa com trava e saída de vapor\n2. Panela interna antiaderente\n3. Cesto para cozimento a vapor\n4. Copo medidor e espátula\n5. Painel digital com timer"
+    },
+    {
+      "sku": "PA-10X-127V",
+      "source": "manual:PA-10X-127V.txt",
+      "source_sha256": "8ecf9472e7a3312a426d1a24e684e7ca0244a0b27afe966fe48fe952f495218a",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo opera exclusivamente em 127V / 60 Hz, com potência nominal de 700 W.\nNão utilize extensões ou adaptadores.\nLigar o aparelho em tensão diferente da indicada danifica o produto e anula a garantia.\nCapacidade: 1,8 L."
+    },
+    {
+      "sku": "PA-10X-127V",
+      "source": "manual:PA-10X-127V.txt",
+      "source_sha256": "8ecf9472e7a3312a426d1a24e684e7ca0244a0b27afe966fe48fe952f495218a",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Meça o arroz com o copo medidor que acompanha o produto.\n2. Lave o arroz e coloque-o na panela interna com a água até a marca correspondente ao número de xícaras.\n3. Escolha o programa no painel; o timer permite programar o início em até 12 horas.\n4. Ao final, a panela passa sozinha para a função manter aquecido.\nRendimento máximo: 10 xícaras de arroz cru, o que serve até 10 pessoas."
+    },
+    {
+      "sku": "PA-10X-127V",
+      "source": "manual:PA-10X-127V.txt",
+      "source_sha256": "8ecf9472e7a3312a426d1a24e684e7ca0244a0b27afe966fe48fe952f495218a",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue o aparelho da tomada e aguarde esfriar antes de limpar.\nLave a panela interna com esponja macia e detergente neutro; não use palha de aço."
+    },
+    {
+      "sku": "PA-10X-127V",
+      "source": "manual:PA-10X-127V.txt",
+      "source_sha256": "8ecf9472e7a3312a426d1a24e684e7ca0244a0b27afe966fe48fe952f495218a",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "AR-200-BIV",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "6891067b34566376926649682b984d9a7daee07132444d4f24fa77e9fad27786",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Aspirador Robô Varrix R200\nMarca: Varrix\nCategoria: Eletroportáteis / Aspiradores Robô\nVoltagem: BIVOLT\nPotência: 25 W\nCapacidade: 0.3 L\nautonomia_min: 90\nnavegacao: aleatória\napp: False\naltura_cm: 7.5\nAspirador robô com navegação aleatória, autonomia de até 90 minutos e retorno automático à base."
+    },
+    {
+      "sku": "AR-200-BIV",
+      "source": "manual:AR-200-BIV.txt",
+      "source_sha256": "8b8b3312b697d25497d32a42b64113a748219593fc181329f7e7f79ef4f96db9",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Aspirador Robô Varrix R200\nModelo AR-200-BIV\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "AR-200-BIV",
+      "source": "manual:AR-200-BIV.txt",
+      "source_sha256": "8b8b3312b697d25497d32a42b64113a748219593fc181329f7e7f79ef4f96db9",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nRetire do chão fios, cortinas longas e objetos pequenos antes da limpeza.\nNão use o robô em superfícies molhadas nem para aspirar líquidos.\nMantenha a base de carregamento em local ventilado e longe de escadas."
+    },
+    {
+      "sku": "AR-200-BIV",
+      "source": "manual:AR-200-BIV.txt",
+      "source_sha256": "8b8b3312b697d25497d32a42b64113a748219593fc181329f7e7f79ef4f96db9",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Robô com para-choque frontal\n2. Escova lateral giratória\n3. Escova central\n4. Reservatório de pó com filtro\n5. Base de carregamento\n6. Controle remoto"
+    },
+    {
+      "sku": "AR-200-BIV",
+      "source": "manual:AR-200-BIV.txt",
+      "source_sha256": "8b8b3312b697d25497d32a42b64113a748219593fc181329f7e7f79ef4f96db9",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nA base de carregamento é bivolt: funciona em 127V ou 220V / 60 Hz, com seleção automática de tensão.\nA potência nominal é de 25 W.\nNão utilize extensões ou adaptadores.\nCapacidade: 0,3 L.\nO reservatório de pó comporta 0,3 L.\nAutonomia de até 90 minutos por carga."
+    },
+    {
+      "sku": "AR-200-BIV",
+      "source": "manual:AR-200-BIV.txt",
+      "source_sha256": "8b8b3312b697d25497d32a42b64113a748219593fc181329f7e7f79ef4f96db9",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Posicione a base encostada na parede, com 50 cm livres de cada lado.\n2. Carregue o robô por 5 horas antes do primeiro uso.\n3. Pressione o botão iniciar no robô ou no controle remoto.\n4. Com a bateria baixa, o robô retorna sozinho à base.\nA altura de 7,5 cm permite limpar sob camas e sofás."
+    },
+    {
+      "sku": "AR-200-BIV",
+      "source": "manual:AR-200-BIV.txt",
+      "source_sha256": "8b8b3312b697d25497d32a42b64113a748219593fc181329f7e7f79ef4f96db9",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nEsvazie o reservatório de pó após cada uso.\nLimpe o filtro semanalmente batendo-o levemente; troque-o a cada 3 meses.\nRemova cabelos enrolados nas escovas com a ferramenta de limpeza."
+    },
+    {
+      "sku": "AR-200-BIV",
+      "source": "manual:AR-200-BIV.txt",
+      "source_sha256": "8b8b3312b697d25497d32a42b64113a748219593fc181329f7e7f79ef4f96db9",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "AR-300-BIV",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "270c7c5e807464b88c540c4118bcaef544ab8b72ea927742404a18e3f60166e4",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Aspirador Robô Varrix R300 Mapeamento\nMarca: Varrix\nCategoria: Eletroportáteis / Aspiradores Robô\nVoltagem: BIVOLT\nPotência: 35 W\nCapacidade: 0.45 L\nautonomia_min: 120\nnavegacao: mapeamento por sensores\napp: True\naltura_cm: 7.9\nVersão superior com mapeamento por sensores, controle por aplicativo e autonomia de até 120 minutos."
+    },
+    {
+      "sku": "AR-300-BIV",
+      "source": "manual:AR-300-BIV.txt",
+      "source_sha256": "110f9699aed8f28686d56bef7b73cc13bf90994faac3f10ad70f7674c345d42e",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Aspirador Robô Varrix R300 Mapeamento\nModelo AR-300-BIV\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "AR-300-BIV",
+      "source": "manual:AR-300-BIV.txt",
+      "source_sha256": "110f9699aed8f28686d56bef7b73cc13bf90994faac3f10ad70f7674c345d42e",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nRetire do chão fios, cortinas longas e objetos pequenos antes da limpeza.\nNão use o robô em superfícies molhadas nem para aspirar líquidos.\nMantenha a base de carregamento em local ventilado e longe de escadas."
+    },
+    {
+      "sku": "AR-300-BIV",
+      "source": "manual:AR-300-BIV.txt",
+      "source_sha256": "110f9699aed8f28686d56bef7b73cc13bf90994faac3f10ad70f7674c345d42e",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Robô com sensores de mapeamento e para-choque frontal\n2. Duas escovas laterais giratórias\n3. Escova central de borracha\n4. Reservatório de pó com filtro\n5. Base de carregamento"
+    },
+    {
+      "sku": "AR-300-BIV",
+      "source": "manual:AR-300-BIV.txt",
+      "source_sha256": "110f9699aed8f28686d56bef7b73cc13bf90994faac3f10ad70f7674c345d42e",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nA base de carregamento é bivolt: funciona em 127V ou 220V / 60 Hz, com seleção automática de tensão.\nA potência nominal é de 35 W.\nNão utilize extensões ou adaptadores.\nCapacidade: 0,45 L.\nO reservatório de pó comporta 0,45 L.\nAutonomia de até 120 minutos por carga."
+    },
+    {
+      "sku": "AR-300-BIV",
+      "source": "manual:AR-300-BIV.txt",
+      "source_sha256": "110f9699aed8f28686d56bef7b73cc13bf90994faac3f10ad70f7674c345d42e",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Aplicativo e mapeamento\nConecte o robô à rede Wi-Fi de 2,4 GHz pelo aplicativo Varrix Casa.\nNa primeira limpeza o robô cria o mapa da casa; no aplicativo é possível dividir cômodos, agendar limpezas e definir áreas proibidas.\nO robô retoma a limpeza do ponto onde parou após recarregar."
+    },
+    {
+      "sku": "AR-300-BIV",
+      "source": "manual:AR-300-BIV.txt",
+      "source_sha256": "110f9699aed8f28686d56bef7b73cc13bf90994faac3f10ad70f7674c345d42e",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Posicione a base encostada na parede, com 50 cm livres de cada lado.\n2. Carregue o robô por 5 horas antes do primeiro uso.\n3. Inicie a limpeza pelo botão do robô ou pelo aplicativo.\n4. Com a bateria baixa, o robô retorna sozinho à base.\nA altura de 7,9 cm permite limpar sob camas e sofás."
+    },
+    {
+      "sku": "AR-300-BIV",
+      "source": "manual:AR-300-BIV.txt",
+      "source_sha256": "110f9699aed8f28686d56bef7b73cc13bf90994faac3f10ad70f7674c345d42e",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nEsvazie o reservatório de pó após cada uso.\nLimpe o filtro semanalmente batendo-o levemente; troque-o a cada 3 meses.\nLimpe os sensores com pano seco a cada 15 dias."
+    },
+    {
+      "sku": "AR-300-BIV",
+      "source": "manual:AR-300-BIV.txt",
+      "source_sha256": "110f9699aed8f28686d56bef7b73cc13bf90994faac3f10ad70f7674c345d42e",
+      "page_number": 8,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "KIT-AR-01",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "b53d21d2d5a3d31e625f77596f47a58dfac108193abcf51605b7ee0e39dcae54",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Kit de Reposição para Aspirador Robô Varrix\nMarca: Varrix\nCategoria: Acessórios / Acessórios para Aspirador Robô\nVoltagem: N/A\nfiltros: 2\nescovas_laterais: 4\nescovas_centrais: 1\nKit com 2 filtros, 4 escovas laterais e 1 escova central para os aspiradores robô Varrix R200 e R300."
+    },
+    {
+      "sku": "KIT-AR-01",
+      "source": "manual:KIT-AR-01.txt",
+      "source_sha256": "5a9be9c147db76c28269ccdf0d8eb243fe38a72cce2132d9002d06ae9f1ca332",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Kit de Reposição para Aspirador Robô Varrix\nModelo KIT-AR-01\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "KIT-AR-01",
+      "source": "manual:KIT-AR-01.txt",
+      "source_sha256": "5a9be9c147db76c28269ccdf0d8eb243fe38a72cce2132d9002d06ae9f1ca332",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Conteúdo do kit\n1. Dois filtros de reposição\n2. Quatro escovas laterais\n3. Uma escova central"
+    },
+    {
+      "sku": "KIT-AR-01",
+      "source": "manual:KIT-AR-01.txt",
+      "source_sha256": "5a9be9c147db76c28269ccdf0d8eb243fe38a72cce2132d9002d06ae9f1ca332",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nDesligue o robô antes de trocar qualquer peça.\nMantenha as peças pequenas fora do alcance de crianças."
+    },
+    {
+      "sku": "KIT-AR-01",
+      "source": "manual:KIT-AR-01.txt",
+      "source_sha256": "5a9be9c147db76c28269ccdf0d8eb243fe38a72cce2132d9002d06ae9f1ca332",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nAcessório sem alimentação elétrica.\nCompatível com os aspiradores robô Varrix R200 e Varrix R300 Mapeamento."
+    },
+    {
+      "sku": "KIT-AR-01",
+      "source": "manual:KIT-AR-01.txt",
+      "source_sha256": "5a9be9c147db76c28269ccdf0d8eb243fe38a72cce2132d9002d06ae9f1ca332",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Como substituir\n1. Vire o robô sobre uma superfície macia.\n2. Solte o parafuso da escova lateral e encaixe a nova escova.\n3. Abra a trava da escova central, retire-a e encaixe a nova.\n4. Abra o reservatório de pó e troque o filtro."
+    },
+    {
+      "sku": "KIT-AR-01",
+      "source": "manual:KIT-AR-01.txt",
+      "source_sha256": "5a9be9c147db76c28269ccdf0d8eb243fe38a72cce2132d9002d06ae9f1ca332",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Periodicidade de troca\nTroque os filtros a cada 3 meses, as escovas laterais a cada 6 meses e a escova central a cada 12 meses, ou antes se estiverem danificados."
+    },
+    {
+      "sku": "KIT-AR-01",
+      "source": "manual:KIT-AR-01.txt",
+      "source_sha256": "5a9be9c147db76c28269ccdf0d8eb243fe38a72cce2132d9002d06ae9f1ca332",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 3 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre desgaste natural das escovas e filtros."
+    },
+    {
+      "sku": "FN-BT100",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "60595c5326fd8466346941930c56e7763884e39653925c0def2ff17b2aa5b2d3",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Fone Bluetooth Sonaro Pulse\nMarca: Sonaro\nCategoria: Eletrônicos / Fones de Ouvido\nVoltagem: N/A\nbluetooth: 5.3\nbateria_horas: 30\nmicrofone: True\ncancelamento_ruido: False\nFone de ouvido Bluetooth sem fio com até 30 horas de bateria e microfone para chamadas."
+    },
+    {
+      "sku": "FN-BT100",
+      "source": "manual:FN-BT100.txt",
+      "source_sha256": "8fbe7099463409c893e565d809eddaed782308e6c8382cd281de97623b04c679",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Fone Bluetooth Sonaro Pulse\nModelo FN-BT100\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "FN-BT100",
+      "source": "manual:FN-BT100.txt",
+      "source_sha256": "8fbe7099463409c893e565d809eddaed782308e6c8382cd281de97623b04c679",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nEvite ouvir em volume alto por longos períodos.\nNão exponha o fone à chuva, ao calor excessivo ou à luz solar direta.\nNão use o fone ao dirigir ou atravessar ruas."
+    },
+    {
+      "sku": "FN-BT100",
+      "source": "manual:FN-BT100.txt",
+      "source_sha256": "8fbe7099463409c893e565d809eddaed782308e6c8382cd281de97623b04c679",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Fone com arco ajustável\n2. Botões de volume e multifunção\n3. Microfone integrado\n4. Cabo USB-C de carregamento"
+    },
+    {
+      "sku": "FN-BT100",
+      "source": "manual:FN-BT100.txt",
+      "source_sha256": "8fbe7099463409c893e565d809eddaed782308e6c8382cd281de97623b04c679",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nEste produto não é ligado diretamente à tomada: funciona com bateria interna recarregável pelo cabo USB-C que acompanha a embalagem.\nBluetooth 5.3 com alcance de até 10 metros sem obstáculos.\nAutonomia de até 30 horas de reprodução por carga; a recarga completa leva cerca de 2 horas."
+    },
+    {
+      "sku": "FN-BT100",
+      "source": "manual:FN-BT100.txt",
+      "source_sha256": "8fbe7099463409c893e565d809eddaed782308e6c8382cd281de97623b04c679",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Pareamento\n1. Com o fone desligado, mantenha o botão multifunção pressionado por 5 segundos até a luz piscar em azul e vermelho.\n2. No celular, ative o Bluetooth e selecione Sonaro Pulse.\n3. O fone se reconecta sozinho ao último aparelho pareado."
+    },
+    {
+      "sku": "FN-BT100",
+      "source": "manual:FN-BT100.txt",
+      "source_sha256": "8fbe7099463409c893e565d809eddaed782308e6c8382cd281de97623b04c679",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nLimpe as almofadas com pano levemente úmido.\nNão use álcool nem produtos abrasivos.\nPara armazenar por longos períodos, recarregue a bateria a cada 3 meses."
+    },
+    {
+      "sku": "FN-BT100",
+      "source": "manual:FN-BT100.txt",
+      "source_sha256": "8fbe7099463409c893e565d809eddaed782308e6c8382cd281de97623b04c679",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "FN-BT300",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "d277ff96004030334d9eac5fcd056aab9a906816aa1c35b90f702658ae5c6de0",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Fone Bluetooth Sonaro Pulse ANC\nMarca: Sonaro\nCategoria: Eletrônicos / Fones de Ouvido\nVoltagem: N/A\nbluetooth: 5.3\nbateria_horas: 40\nmicrofone: True\ncancelamento_ruido: True\nmultiponto: True\nVersão superior com cancelamento ativo de ruído, modo ambiente e até 40 horas de bateria."
+    },
+    {
+      "sku": "FN-BT300",
+      "source": "manual:FN-BT300.txt",
+      "source_sha256": "b54152bd84b03301c0e1c53aa8bd7abcc6e9d5670daf1ea04993f0adeed6c008",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Fone Bluetooth Sonaro Pulse ANC\nModelo FN-BT300\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "FN-BT300",
+      "source": "manual:FN-BT300.txt",
+      "source_sha256": "b54152bd84b03301c0e1c53aa8bd7abcc6e9d5670daf1ea04993f0adeed6c008",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nEvite ouvir em volume alto por longos períodos.\nNão exponha o fone à chuva, ao calor excessivo ou à luz solar direta.\nDesligue o cancelamento de ruído ao caminhar na rua para ouvir o trânsito."
+    },
+    {
+      "sku": "FN-BT300",
+      "source": "manual:FN-BT300.txt",
+      "source_sha256": "b54152bd84b03301c0e1c53aa8bd7abcc6e9d5670daf1ea04993f0adeed6c008",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Fone com arco ajustável e almofadas de espuma viscoelástica\n2. Botão ANC para alternar entre cancelamento de ruído, modo ambiente e desligado\n3. Botões de volume e multifunção\n4. Cabo USB-C de carregamento e estojo rígido"
+    },
+    {
+      "sku": "FN-BT300",
+      "source": "manual:FN-BT300.txt",
+      "source_sha256": "b54152bd84b03301c0e1c53aa8bd7abcc6e9d5670daf1ea04993f0adeed6c008",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nEste produto não é ligado diretamente à tomada: funciona com bateria interna recarregável pelo cabo USB-C que acompanha a embalagem.\nBluetooth 5.3 com conexão multiponto a dois aparelhos ao mesmo tempo.\nAutonomia de até 40 horas de reprodução por carga com o cancelamento de ruído desligado e até 30 horas com ele ligado."
+    },
+    {
+      "sku": "FN-BT300",
+      "source": "manual:FN-BT300.txt",
+      "source_sha256": "b54152bd84b03301c0e1c53aa8bd7abcc6e9d5670daf1ea04993f0adeed6c008",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Cancelamento de ruído\nPressione o botão ANC uma vez para ativar o cancelamento ativo de ruído, que reduz sons constantes como motores e ar-condicionado.\nPressione de novo para o modo ambiente, que deixa passar vozes e sons ao redor.\nUma terceira pressão desliga as duas funções."
+    },
+    {
+      "sku": "FN-BT300",
+      "source": "manual:FN-BT300.txt",
+      "source_sha256": "b54152bd84b03301c0e1c53aa8bd7abcc6e9d5670daf1ea04993f0adeed6c008",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Pareamento\n1. Com o fone desligado, mantenha o botão multifunção pressionado por 5 segundos até a luz piscar.\n2. No celular, ative o Bluetooth e selecione Sonaro Pulse ANC.\n3. Para usar dois aparelhos, repita o pareamento no segundo aparelho."
+    },
+    {
+      "sku": "FN-BT300",
+      "source": "manual:FN-BT300.txt",
+      "source_sha256": "b54152bd84b03301c0e1c53aa8bd7abcc6e9d5670daf1ea04993f0adeed6c008",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nLimpe as almofadas com pano levemente úmido.\nNão use álcool nem produtos abrasivos.\nGuarde o fone no estojo rígido para transporte."
+    },
+    {
+      "sku": "FN-BT300",
+      "source": "manual:FN-BT300.txt",
+      "source_sha256": "b54152bd84b03301c0e1c53aa8bd7abcc6e9d5670daf1ea04993f0adeed6c008",
+      "page_number": 8,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "CX-20-BT",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "bfe1b1f847f7f50d50f34171aca9bd0b8c3f5f2dd968e758d51e2ea1486d2998",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Caixa de Som Bluetooth Sonaro Wave 20W\nMarca: Sonaro\nCategoria: Eletrônicos / Caixas de Som\nVoltagem: N/A\nPotência: 20 W\nbluetooth: 5.3\nbateria_horas: 12\nresistencia_agua: IPX7\nCaixa de som portátil com resistência à água IPX7 e até 12 horas de bateria."
+    },
+    {
+      "sku": "CX-20-BT",
+      "source": "manual:CX-20-BT.txt",
+      "source_sha256": "c60fe53aed3c16e633c59cb0d0f4e1490a4ad74390c32a648de8e11b86766aea",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Caixa de Som Bluetooth Sonaro Wave 20W\nModelo CX-20-BT\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "CX-20-BT",
+      "source": "manual:CX-20-BT.txt",
+      "source_sha256": "c60fe53aed3c16e633c59cb0d0f4e1490a4ad74390c32a648de8e11b86766aea",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nEvite volume alto por longos períodos.\nFeche bem a tampa da entrada USB-C antes de expor a caixa à água.\nNão carregue a caixa com a entrada molhada."
+    },
+    {
+      "sku": "CX-20-BT",
+      "source": "manual:CX-20-BT.txt",
+      "source_sha256": "c60fe53aed3c16e633c59cb0d0f4e1490a4ad74390c32a648de8e11b86766aea",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Caixa de som com alça\n2. Botões de liga/desliga, volume e Bluetooth\n3. Entrada USB-C protegida por tampa\n4. Cabo USB-C de carregamento"
+    },
+    {
+      "sku": "CX-20-BT",
+      "source": "manual:CX-20-BT.txt",
+      "source_sha256": "c60fe53aed3c16e633c59cb0d0f4e1490a4ad74390c32a648de8e11b86766aea",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nEste produto não é ligado diretamente à tomada: funciona com bateria interna recarregável pelo cabo USB-C que acompanha a embalagem.\nPotência de saída: 20 W RMS.\nResistência à água IPX7: suporta imersão temporária, mas não deve ser usada submersa.\nAutonomia de até 12 horas por carga."
+    },
+    {
+      "sku": "CX-20-BT",
+      "source": "manual:CX-20-BT.txt",
+      "source_sha256": "c60fe53aed3c16e633c59cb0d0f4e1490a4ad74390c32a648de8e11b86766aea",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Mantenha o botão liga/desliga pressionado por 3 segundos.\n2. No celular, ative o Bluetooth e selecione Sonaro Wave.\n3. Para emparelhar duas caixas Sonaro Wave em estéreo, pressione o botão Bluetooth duas vezes em cada uma."
+    },
+    {
+      "sku": "CX-20-BT",
+      "source": "manual:CX-20-BT.txt",
+      "source_sha256": "c60fe53aed3c16e633c59cb0d0f4e1490a4ad74390c32a648de8e11b86766aea",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nApós contato com água salgada ou de piscina, enxágue com água doce e deixe secar naturalmente.\nNão use secador de cabelo para secar a caixa."
+    },
+    {
+      "sku": "CX-20-BT",
+      "source": "manual:CX-20-BT.txt",
+      "source_sha256": "c60fe53aed3c16e633c59cb0d0f4e1490a4ad74390c32a648de8e11b86766aea",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "CX-40-BT",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "72fa1a44522cedf7e9088ea4d306a8210fc0463fb46557bf167d4db0633e03b1",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Caixa de Som Bluetooth Sonaro Wave 40W\nMarca: Sonaro\nCategoria: Eletrônicos / Caixas de Som\nVoltagem: N/A\nPotência: 40 W\nbluetooth: 5.3\nbateria_horas: 20\nresistencia_agua: IPX7\nluzes_led: True\nVersão superior com o dobro de potência, luzes de LED e até 20 horas de bateria."
+    },
+    {
+      "sku": "CX-40-BT",
+      "source": "manual:CX-40-BT.txt",
+      "source_sha256": "2fc8a4468554509107aa1f0d57e2f1f77dd247a6505fd56327eede320bc17f78",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Caixa de Som Bluetooth Sonaro Wave 40W\nModelo CX-40-BT\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "CX-40-BT",
+      "source": "manual:CX-40-BT.txt",
+      "source_sha256": "2fc8a4468554509107aa1f0d57e2f1f77dd247a6505fd56327eede320bc17f78",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nEvite volume alto por longos períodos.\nFeche bem a tampa da entrada USB-C antes de expor a caixa à água.\nNão carregue a caixa com a entrada molhada."
+    },
+    {
+      "sku": "CX-40-BT",
+      "source": "manual:CX-40-BT.txt",
+      "source_sha256": "2fc8a4468554509107aa1f0d57e2f1f77dd247a6505fd56327eede320bc17f78",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Caixa de som com alça e luzes de LED\n2. Botões de liga/desliga, volume, LED e Bluetooth\n3. Entrada USB-C protegida por tampa\n4. Cabo USB-C de carregamento"
+    },
+    {
+      "sku": "CX-40-BT",
+      "source": "manual:CX-40-BT.txt",
+      "source_sha256": "2fc8a4468554509107aa1f0d57e2f1f77dd247a6505fd56327eede320bc17f78",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nEste produto não é ligado diretamente à tomada: funciona com bateria interna recarregável pelo cabo USB-C que acompanha a embalagem.\nPotência de saída: 40 W RMS.\nResistência à água IPX7: suporta imersão temporária, mas não deve ser usada submersa.\nAutonomia de até 20 horas por carga com as luzes de LED desligadas."
+    },
+    {
+      "sku": "CX-40-BT",
+      "source": "manual:CX-40-BT.txt",
+      "source_sha256": "2fc8a4468554509107aa1f0d57e2f1f77dd247a6505fd56327eede320bc17f78",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Mantenha o botão liga/desliga pressionado por 3 segundos.\n2. No celular, ative o Bluetooth e selecione Sonaro Wave 40W.\n3. Pressione o botão LED para alternar os efeitos de luz ou desligá-los.\n4. Para emparelhar duas caixas Sonaro Wave em estéreo, pressione o botão Bluetooth duas vezes em cada uma."
+    },
+    {
+      "sku": "CX-40-BT",
+      "source": "manual:CX-40-BT.txt",
+      "source_sha256": "2fc8a4468554509107aa1f0d57e2f1f77dd247a6505fd56327eede320bc17f78",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nApós contato com água salgada ou de piscina, enxágue com água doce e deixe secar naturalmente.\nNão use secador de cabelo para secar a caixa."
+    },
+    {
+      "sku": "CX-40-BT",
+      "source": "manual:CX-40-BT.txt",
+      "source_sha256": "2fc8a4468554509107aa1f0d57e2f1f77dd247a6505fd56327eede320bc17f78",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "MS-SEM-01",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "868fe0189c0481d63ab993f7184a16de7bedaa907195f5d03f3c07b2cd77569d",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Mouse sem Fio Cliqon Glide\nMarca: Cliqon\nCategoria: Periféricos / Mouses\nVoltagem: N/A\ndpi_max: 1600\nbotoes: 3\nconexao: receptor USB 2,4 GHz\npilha: 1 pilha AA\nMouse sem fio com receptor USB, sensor óptico de 1600 DPI e clique silencioso."
+    },
+    {
+      "sku": "MS-SEM-01",
+      "source": "manual:MS-SEM-01.txt",
+      "source_sha256": "a464c85f79ef1540168fa6b5eb80651dc7bbc0717b598069599afed970c3b778",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Mouse sem Fio Cliqon Glide\nModelo MS-SEM-01\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "MS-SEM-01",
+      "source": "manual:MS-SEM-01.txt",
+      "source_sha256": "a464c85f79ef1540168fa6b5eb80651dc7bbc0717b598069599afed970c3b778",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão olhe diretamente para a luz do sensor.\nRetire a pilha se o mouse ficar sem uso por mais de 30 dias.\nNão misture pilhas novas e usadas."
+    },
+    {
+      "sku": "MS-SEM-01",
+      "source": "manual:MS-SEM-01.txt",
+      "source_sha256": "a464c85f79ef1540168fa6b5eb80651dc7bbc0717b598069599afed970c3b778",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Mouse com botões esquerdo, direito e roda de rolagem\n2. Receptor USB guardado sob a tampa da pilha\n3. Uma pilha AA"
+    },
+    {
+      "sku": "MS-SEM-01",
+      "source": "manual:MS-SEM-01.txt",
+      "source_sha256": "a464c85f79ef1540168fa6b5eb80651dc7bbc0717b598069599afed970c3b778",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nEste produto não é ligado à tomada: funciona com 1 pilha AA, que acompanha a embalagem.\nSensor óptico com resolução ajustável de 800 a 1600 DPI.\nAlcance do receptor de até 10 metros."
+    },
+    {
+      "sku": "MS-SEM-01",
+      "source": "manual:MS-SEM-01.txt",
+      "source_sha256": "a464c85f79ef1540168fa6b5eb80651dc7bbc0717b598069599afed970c3b778",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Instalação\n1. Abra a tampa inferior, coloque a pilha e retire o receptor USB.\n2. Conecte o receptor a uma porta USB do computador.\n3. Ligue a chave na parte inferior do mouse; não é necessário instalar programas.\nCompatível com Windows, macOS, Linux e ChromeOS."
+    },
+    {
+      "sku": "MS-SEM-01",
+      "source": "manual:MS-SEM-01.txt",
+      "source_sha256": "a464c85f79ef1540168fa6b5eb80651dc7bbc0717b598069599afed970c3b778",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nLimpe a superfície com pano levemente úmido.\nUse sobre superfície fosca ou mousepad para melhor precisão do sensor."
+    },
+    {
+      "sku": "MS-SEM-01",
+      "source": "manual:MS-SEM-01.txt",
+      "source_sha256": "a464c85f79ef1540168fa6b5eb80651dc7bbc0717b598069599afed970c3b778",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "MS-GAM-02",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "5ed68051dece23393ca4175d03072c5adb040618b6ffffd659c3a1292beff71e",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Mouse sem Fio Cliqon Glide Pro\nMarca: Cliqon\nCategoria: Periféricos / Mouses\nVoltagem: N/A\ndpi_max: 4000\nbotoes: 6\nconexao: Bluetooth e receptor USB 2,4 GHz\nbateria_dias: 70\nVersão superior recarregável, com Bluetooth e receptor USB, sensor de 4000 DPI e 6 botões."
+    },
+    {
+      "sku": "MS-GAM-02",
+      "source": "manual:MS-GAM-02.txt",
+      "source_sha256": "9a2f03097863dbdd4074d14f0c2c5388bb9469296ea8446b2d7e777a1659419a",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Mouse sem Fio Cliqon Glide Pro\nModelo MS-GAM-02\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "MS-GAM-02",
+      "source": "manual:MS-GAM-02.txt",
+      "source_sha256": "9a2f03097863dbdd4074d14f0c2c5388bb9469296ea8446b2d7e777a1659419a",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão olhe diretamente para a luz do sensor.\nUse apenas o cabo USB-C que acompanha o produto para recarregar."
+    },
+    {
+      "sku": "MS-GAM-02",
+      "source": "manual:MS-GAM-02.txt",
+      "source_sha256": "9a2f03097863dbdd4074d14f0c2c5388bb9469296ea8446b2d7e777a1659419a",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Mouse com botões esquerdo, direito, roda de rolagem, dois botões laterais e botão DPI\n2. Receptor USB\n3. Cabo USB-C de carregamento"
+    },
+    {
+      "sku": "MS-GAM-02",
+      "source": "manual:MS-GAM-02.txt",
+      "source_sha256": "9a2f03097863dbdd4074d14f0c2c5388bb9469296ea8446b2d7e777a1659419a",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nEste produto não é ligado diretamente à tomada: funciona com bateria interna recarregável pelo cabo USB-C que acompanha a embalagem.\nSensor óptico com resolução ajustável de 800 a 4000 DPI.\nAutonomia de até 70 dias por carga em uso de escritório."
+    },
+    {
+      "sku": "MS-GAM-02",
+      "source": "manual:MS-GAM-02.txt",
+      "source_sha256": "9a2f03097863dbdd4074d14f0c2c5388bb9469296ea8446b2d7e777a1659419a",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Instalação\n1. Conecte o receptor USB ao computador ou pareie por Bluetooth mantendo o botão de conexão pressionado por 3 segundos.\n2. O mouse alterna entre até 2 computadores pelo botão de conexão.\n3. O botão DPI alterna entre 800, 1600, 2400 e 4000 DPI.\nCompatível com Windows, macOS, Linux e ChromeOS."
+    },
+    {
+      "sku": "MS-GAM-02",
+      "source": "manual:MS-GAM-02.txt",
+      "source_sha256": "9a2f03097863dbdd4074d14f0c2c5388bb9469296ea8446b2d7e777a1659419a",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nLimpe a superfície com pano levemente úmido.\nUse sobre superfície fosca ou mousepad para melhor precisão do sensor."
+    },
+    {
+      "sku": "MS-GAM-02",
+      "source": "manual:MS-GAM-02.txt",
+      "source_sha256": "9a2f03097863dbdd4074d14f0c2c5388bb9469296ea8446b2d7e777a1659419a",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "MP-XL-01",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "d80899b50297609b52767c6637b497c9744414839940c523634b77631adc5e38",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Mousepad Cliqon Desk XL\nMarca: Cliqon\nCategoria: Acessórios / Acessórios para Periféricos\nVoltagem: N/A\nlargura_cm: 90\nprofundidade_cm: 40\nespessura_mm: 3\nborda_costurada: True\nMousepad extragrande de 90 x 40 cm para teclado e mouse, com base emborrachada antiderrapante."
+    },
+    {
+      "sku": "MP-XL-01",
+      "source": "manual:MP-XL-01.txt",
+      "source_sha256": "aa622ae7bebab728cf4bbb6e5aa878d0d8530e304fb06b8970a02b78fdbba096",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Mousepad Cliqon Desk XL\nModelo MP-XL-01\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "MP-XL-01",
+      "source": "manual:MP-XL-01.txt",
+      "source_sha256": "aa622ae7bebab728cf4bbb6e5aa878d0d8530e304fb06b8970a02b78fdbba096",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de uso\nDesenrole o mousepad sobre a mesa e deixe-o descansar por 24 horas para ficar totalmente plano.\nA superfície de tecido é adequada a sensores ópticos e a laser."
+    },
+    {
+      "sku": "MP-XL-01",
+      "source": "manual:MP-XL-01.txt",
+      "source_sha256": "aa622ae7bebab728cf4bbb6e5aa878d0d8530e304fb06b8970a02b78fdbba096",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Composição\nSuperfície de tecido de microfibra.\nBase de borracha natural antiderrapante.\nBordas costuradas contra desfiamento."
+    },
+    {
+      "sku": "MP-XL-01",
+      "source": "manual:MP-XL-01.txt",
+      "source_sha256": "aa622ae7bebab728cf4bbb6e5aa878d0d8530e304fb06b8970a02b78fdbba096",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nAcessório sem alimentação elétrica.\nDimensões: 90 x 40 cm, com 3 mm de espessura.\nComporta um teclado de tamanho completo e um mouse lado a lado."
+    },
+    {
+      "sku": "MP-XL-01",
+      "source": "manual:MP-XL-01.txt",
+      "source_sha256": "aa622ae7bebab728cf4bbb6e5aa878d0d8530e304fb06b8970a02b78fdbba096",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nLave à mão com água fria e sabão neutro.\nDeixe secar à sombra, na horizontal.\nNão use máquina de lavar nem secadora."
+    },
+    {
+      "sku": "MP-XL-01",
+      "source": "manual:MP-XL-01.txt",
+      "source_sha256": "aa622ae7bebab728cf4bbb6e5aa878d0d8530e304fb06b8970a02b78fdbba096",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Armazenamento\nGuarde enrolado, nunca dobrado, para não marcar a superfície."
+    },
+    {
+      "sku": "MP-XL-01",
+      "source": "manual:MP-XL-01.txt",
+      "source_sha256": "aa622ae7bebab728cf4bbb6e5aa878d0d8530e304fb06b8970a02b78fdbba096",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 3 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre desgaste natural da superfície."
+    },
+    {
+      "sku": "TC-MEC-01",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "6e41fe3c33171dac0aa00a21a482d625c1fcd27e74863d7f2e29a2b8a86c9225",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Teclado Mecânico Cliqon Strike\nMarca: Cliqon\nCategoria: Periféricos / Teclados\nVoltagem: N/A\nlayout: ABNT2\nswitch: tátil\nconexao: cabo USB\niluminacao: branca\nTeclado mecânico com fio, layout ABNT2, switches táteis e iluminação branca."
+    },
+    {
+      "sku": "TC-MEC-01",
+      "source": "manual:TC-MEC-01.txt",
+      "source_sha256": "9f64abf908856f62113c2e2e24598a06d1a17541bb9230e32953729a7aae7447",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Teclado Mecânico Cliqon Strike\nModelo TC-MEC-01\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "TC-MEC-01",
+      "source": "manual:TC-MEC-01.txt",
+      "source_sha256": "9f64abf908856f62113c2e2e24598a06d1a17541bb9230e32953729a7aae7447",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão derrame líquidos sobre o teclado.\nFaça pausas regulares durante longos períodos de digitação."
+    },
+    {
+      "sku": "TC-MEC-01",
+      "source": "manual:TC-MEC-01.txt",
+      "source_sha256": "9f64abf908856f62113c2e2e24598a06d1a17541bb9230e32953729a7aae7447",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Teclado mecânico ABNT2 com teclado numérico\n2. Pés retráteis de inclinação\n3. Extrator de teclas"
+    },
+    {
+      "sku": "TC-MEC-01",
+      "source": "manual:TC-MEC-01.txt",
+      "source_sha256": "9f64abf908856f62113c2e2e24598a06d1a17541bb9230e32953729a7aae7447",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nEste produto não é ligado diretamente à tomada: é alimentado pela porta USB do computador.\nLayout ABNT2 com teclado numérico e cedilha.\nCabo USB de 1,8 metro."
+    },
+    {
+      "sku": "TC-MEC-01",
+      "source": "manual:TC-MEC-01.txt",
+      "source_sha256": "9f64abf908856f62113c2e2e24598a06d1a17541bb9230e32953729a7aae7447",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Instalação e atalhos\nConecte o cabo a uma porta USB do computador; não é necessário instalar programas.\nPressione Fn e as setas para cima ou para baixo para ajustar o brilho da iluminação.\nPressione Fn e a tecla Windows para bloquear a tecla Windows durante jogos."
+    },
+    {
+      "sku": "TC-MEC-01",
+      "source": "manual:TC-MEC-01.txt",
+      "source_sha256": "9f64abf908856f62113c2e2e24598a06d1a17541bb9230e32953729a7aae7447",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesconecte o teclado antes de limpar.\nRemova as teclas com o extrator para limpar entre os switches com pincel macio.\nLimpe as teclas com pano levemente úmido."
+    },
+    {
+      "sku": "TC-MEC-01",
+      "source": "manual:TC-MEC-01.txt",
+      "source_sha256": "9f64abf908856f62113c2e2e24598a06d1a17541bb9230e32953729a7aae7447",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "TC-MEC-02",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "a214d4b05aca74b3ef9b3fa3d152a5196bcdc9055aabdf1c77a08b5987bf9fc3",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Teclado Mecânico Cliqon Strike RGB sem Fio\nMarca: Cliqon\nCategoria: Periféricos / Teclados\nVoltagem: N/A\nlayout: ABNT2\nswitch: tátil hot-swap\nconexao: Bluetooth, receptor USB e cabo\niluminacao: RGB\nbateria_horas: 200\nVersão superior sem fio, com Bluetooth e receptor USB, iluminação RGB e switches hot-swap."
+    },
+    {
+      "sku": "TC-MEC-02",
+      "source": "manual:TC-MEC-02.txt",
+      "source_sha256": "0aeae5adfaa6ce2838a3ee394da1fd3ce4e36e543d408d7bc39f447c7d6dcaed",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Teclado Mecânico Cliqon Strike RGB sem Fio\nModelo TC-MEC-02\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "TC-MEC-02",
+      "source": "manual:TC-MEC-02.txt",
+      "source_sha256": "0aeae5adfaa6ce2838a3ee394da1fd3ce4e36e543d408d7bc39f447c7d6dcaed",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão derrame líquidos sobre o teclado.\nUse apenas o cabo USB-C que acompanha o produto para recarregar."
+    },
+    {
+      "sku": "TC-MEC-02",
+      "source": "manual:TC-MEC-02.txt",
+      "source_sha256": "0aeae5adfaa6ce2838a3ee394da1fd3ce4e36e543d408d7bc39f447c7d6dcaed",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Teclado mecânico ABNT2 com teclado numérico\n2. Receptor USB\n3. Cabo USB-C\n4. Extrator de teclas e de switches"
+    },
+    {
+      "sku": "TC-MEC-02",
+      "source": "manual:TC-MEC-02.txt",
+      "source_sha256": "0aeae5adfaa6ce2838a3ee394da1fd3ce4e36e543d408d7bc39f447c7d6dcaed",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nEste produto não é ligado diretamente à tomada: funciona com bateria interna recarregável pelo cabo USB-C que acompanha a embalagem.\nLayout ABNT2 com teclado numérico e cedilha.\nAutonomia de até 200 horas por carga com a iluminação desligada."
+    },
+    {
+      "sku": "TC-MEC-02",
+      "source": "manual:TC-MEC-02.txt",
+      "source_sha256": "0aeae5adfaa6ce2838a3ee394da1fd3ce4e36e543d408d7bc39f447c7d6dcaed",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Conexão\nO teclado se conecta por Bluetooth, pelo receptor USB ou pelo cabo USB-C.\nPressione Fn e as teclas 1, 2 ou 3 para alternar entre até 3 aparelhos Bluetooth.\nPressione Fn e a tecla de luz para trocar os efeitos RGB."
+    },
+    {
+      "sku": "TC-MEC-02",
+      "source": "manual:TC-MEC-02.txt",
+      "source_sha256": "0aeae5adfaa6ce2838a3ee394da1fd3ce4e36e543d408d7bc39f447c7d6dcaed",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Troca de switches\nOs switches são hot-swap: podem ser trocados sem solda.\nDesligue o teclado, remova a tecla com o extrator de teclas e puxe o switch com o extrator de switches.\nEncaixe o novo switch com os pinos alinhados aos furos da placa."
+    },
+    {
+      "sku": "TC-MEC-02",
+      "source": "manual:TC-MEC-02.txt",
+      "source_sha256": "0aeae5adfaa6ce2838a3ee394da1fd3ce4e36e543d408d7bc39f447c7d6dcaed",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue o teclado antes de limpar.\nRemova as teclas com o extrator para limpar entre os switches com pincel macio."
+    },
+    {
+      "sku": "TC-MEC-02",
+      "source": "manual:TC-MEC-02.txt",
+      "source_sha256": "0aeae5adfaa6ce2838a3ee394da1fd3ce4e36e543d408d7bc39f447c7d6dcaed",
+      "page_number": 8,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "HS-USB-01",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "63ce605d402b04ebf383dbd064aa4f32173df469ac31099a2187f3cb3f0f89e5",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Headset USB Cliqon Talk\nMarca: Cliqon\nCategoria: Periféricos / Headsets\nVoltagem: N/A\nconexao: cabo USB\nmicrofone: haste flexível com redução de ruído\ncontrole_no_cabo: True\nHeadset com fio USB para chamadas e reuniões, microfone com redução de ruído e controle no cabo."
+    },
+    {
+      "sku": "HS-USB-01",
+      "source": "manual:HS-USB-01.txt",
+      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Headset USB Cliqon Talk\nModelo HS-USB-01\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "HS-USB-01",
+      "source": "manual:HS-USB-01.txt",
+      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nEvite ouvir em volume alto por longos períodos.\nNão puxe o headset pelo cabo para desconectá-lo."
+    },
+    {
+      "sku": "HS-USB-01",
+      "source": "manual:HS-USB-01.txt",
+      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Headset com arco ajustável e almofadas de couro sintético\n2. Microfone em haste flexível\n3. Controle no cabo com volume e botão silenciar"
+    },
+    {
+      "sku": "HS-USB-01",
+      "source": "manual:HS-USB-01.txt",
+      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nEste produto não é ligado diretamente à tomada: é alimentado pela porta USB do computador.\nCabo USB de 2 metros com controle de volume e botão para silenciar o microfone."
+    },
+    {
+      "sku": "HS-USB-01",
+      "source": "manual:HS-USB-01.txt",
+      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Instalação\nConecte o cabo a uma porta USB do computador; não é necessário instalar programas.\nNo aplicativo de reuniões, selecione Cliqon Talk como alto-falante e microfone.\nA luz vermelha no controle indica que o microfone está silenciado."
+    },
+    {
+      "sku": "HS-USB-01",
+      "source": "manual:HS-USB-01.txt",
+      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nLimpe as almofadas com pano levemente úmido.\nGire a haste do microfone para cima ao guardar o headset."
+    },
+    {
+      "sku": "HS-USB-01",
+      "source": "manual:HS-USB-01.txt",
+      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "WC-1080-01",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "70f53a7370857a25227c9bc80bc71d00a75a3c0be06eb9ce25221896bd3a1f0a",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Webcam Cliqon View Full HD\nMarca: Cliqon\nCategoria: Periféricos / Webcams\nVoltagem: N/A\nresolucao: 1920 x 1080\nfps: 30\nfoco: automático\ntampa_privacidade: True\nWebcam Full HD 1080p a 30 quadros por segundo, com microfone embutido e tampa de privacidade."
+    },
+    {
+      "sku": "WC-1080-01",
+      "source": "manual:WC-1080-01.txt",
+      "source_sha256": "423a3f682de0b40904e522b0b995872e1620ddfef3ac2681714625e5666c6de1",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Webcam Cliqon View Full HD\nModelo WC-1080-01\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "WC-1080-01",
+      "source": "manual:WC-1080-01.txt",
+      "source_sha256": "423a3f682de0b40904e522b0b995872e1620ddfef3ac2681714625e5666c6de1",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão exponha a lente à luz solar direta.\nUse a tampa de privacidade quando a webcam não estiver em uso."
+    },
+    {
+      "sku": "WC-1080-01",
+      "source": "manual:WC-1080-01.txt",
+      "source_sha256": "423a3f682de0b40904e522b0b995872e1620ddfef3ac2681714625e5666c6de1",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Webcam com lente e microfone embutido\n2. Clipe ajustável para monitor ou notebook\n3. Rosca para tripé\n4. Tampa de privacidade deslizante"
+    },
+    {
+      "sku": "WC-1080-01",
+      "source": "manual:WC-1080-01.txt",
+      "source_sha256": "423a3f682de0b40904e522b0b995872e1620ddfef3ac2681714625e5666c6de1",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nEste produto não é ligado diretamente à tomada: é alimentado pela porta USB do computador.\nResolução Full HD de 1920 x 1080 pixels a 30 quadros por segundo.\nFoco automático e campo de visão de 78 graus."
+    },
+    {
+      "sku": "WC-1080-01",
+      "source": "manual:WC-1080-01.txt",
+      "source_sha256": "423a3f682de0b40904e522b0b995872e1620ddfef3ac2681714625e5666c6de1",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Instalação\n1. Prenda a webcam no topo do monitor com o clipe.\n2. Conecte o cabo a uma porta USB do computador; não é necessário instalar programas.\n3. No aplicativo de vídeo, selecione Cliqon View como câmera e microfone.\nA luz branca ao lado da lente indica que a câmera está em uso."
+    },
+    {
+      "sku": "WC-1080-01",
+      "source": "manual:WC-1080-01.txt",
+      "source_sha256": "423a3f682de0b40904e522b0b995872e1620ddfef3ac2681714625e5666c6de1",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nLimpe a lente apenas com pano de microfibra seco."
+    },
+    {
+      "sku": "WC-1080-01",
+      "source": "manual:WC-1080-01.txt",
+      "source_sha256": "423a3f682de0b40904e522b0b995872e1620ddfef3ac2681714625e5666c6de1",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "SC-1900-127V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "9f8f5a3740290eea8c9955cb75e7713e8905f7d7c7a2359e6234e960b0658dc8",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Secador de Cabelo Aurélia Íon 1900W\nMarca: Aurélia\nCategoria: Beleza e Cuidados Pessoais / Secadores de Cabelo\nVoltagem: 127V\nPotência: 1900 W\nvelocidades: 2\ntemperaturas: 3\njato_frio: True\nions: True\nfrequencia_hz: 60\nSecador com tecnologia de íons, 2 velocidades, 3 temperaturas e jato de ar frio."
+    },
+    {
+      "sku": "SC-1900-127V",
+      "source": "manual:SC-1900-127V.txt",
+      "source_sha256": "62a75f76b493339b4695daeaf9bf8763a35cfd288153eb1ff5820c1a5b2e7162",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Secador de Cabelo Aurélia Íon 1900W\nModelo SC-1900-127V\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "SC-1900-127V",
+      "source": "manual:SC-1900-127V.txt",
+      "source_sha256": "62a75f76b493339b4695daeaf9bf8763a35cfd288153eb1ff5820c1a5b2e7162",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão use o secador perto de banheiras, pias ou outros recipientes com água.\nDesligue o secador da tomada após o uso.\nNão obstrua a entrada de ar traseira."
+    },
+    {
+      "sku": "SC-1900-127V",
+      "source": "manual:SC-1900-127V.txt",
+      "source_sha256": "62a75f76b493339b4695daeaf9bf8763a35cfd288153eb1ff5820c1a5b2e7162",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Bocal concentrador\n2. Difusor para cachos\n3. Chave de velocidade\n4. Chave de temperatura\n5. Botão de jato frio\n6. Filtro traseiro removível"
+    },
+    {
+      "sku": "SC-1900-127V",
+      "source": "manual:SC-1900-127V.txt",
+      "source_sha256": "62a75f76b493339b4695daeaf9bf8763a35cfd288153eb1ff5820c1a5b2e7162",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo opera exclusivamente em 127V / 60 Hz, com potência nominal de 1900 W.\nNão utilize extensões ou adaptadores.\nLigar o aparelho em tensão diferente da indicada danifica o produto e anula a garantia."
+    },
+    {
+      "sku": "SC-1900-127V",
+      "source": "manual:SC-1900-127V.txt",
+      "source_sha256": "62a75f76b493339b4695daeaf9bf8763a35cfd288153eb1ff5820c1a5b2e7162",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Retire o excesso de água do cabelo com uma toalha.\n2. Escolha a velocidade e a temperatura.\n3. Use o bocal concentrador para alisar e o difusor para cachos.\n4. Finalize com o jato frio para fixar o penteado.\nA tecnologia de íons reduz o frizz."
+    },
+    {
+      "sku": "SC-1900-127V",
+      "source": "manual:SC-1900-127V.txt",
+      "source_sha256": "62a75f76b493339b4695daeaf9bf8763a35cfd288153eb1ff5820c1a5b2e7162",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue o secador da tomada e aguarde esfriar.\nRemova o filtro traseiro e retire os fios acumulados a cada 15 dias."
+    },
+    {
+      "sku": "SC-1900-127V",
+      "source": "manual:SC-1900-127V.txt",
+      "source_sha256": "62a75f76b493339b4695daeaf9bf8763a35cfd288153eb1ff5820c1a5b2e7162",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "SC-2200-127V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "6adf7d73e4710d5a55861388dfb728db46096799f118c4571d7932568ee4c46a",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Secador de Cabelo Aurélia Íon Pro 2200W\nMarca: Aurélia\nCategoria: Beleza e Cuidados Pessoais / Secadores de Cabelo\nVoltagem: 127V\nPotência: 2200 W\nvelocidades: 2\ntemperaturas: 3\njato_frio: True\nions: True\nmotor: AC profissional\nfrequencia_hz: 60\nVersão superior com motor profissional AC, cabo de 3 metros e 6 combinações de velocidade e temperatura."
+    },
+    {
+      "sku": "SC-2200-127V",
+      "source": "manual:SC-2200-127V.txt",
+      "source_sha256": "db07a63db1ef4c318ead24a04d3b89f1b4a1a8616396f6eced61b42726efe0e9",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Secador de Cabelo Aurélia Íon Pro 2200W\nModelo SC-2200-127V\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "SC-2200-127V",
+      "source": "manual:SC-2200-127V.txt",
+      "source_sha256": "db07a63db1ef4c318ead24a04d3b89f1b4a1a8616396f6eced61b42726efe0e9",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão use o secador perto de banheiras, pias ou outros recipientes com água.\nDesligue o secador da tomada após o uso.\nNão obstrua a entrada de ar traseira."
+    },
+    {
+      "sku": "SC-2200-127V",
+      "source": "manual:SC-2200-127V.txt",
+      "source_sha256": "db07a63db1ef4c318ead24a04d3b89f1b4a1a8616396f6eced61b42726efe0e9",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Dois bocais concentradores\n2. Difusor para cachos\n3. Chave de velocidade\n4. Chave de temperatura\n5. Botão de jato frio\n6. Cabo de 3 metros com argola para pendurar"
+    },
+    {
+      "sku": "SC-2200-127V",
+      "source": "manual:SC-2200-127V.txt",
+      "source_sha256": "db07a63db1ef4c318ead24a04d3b89f1b4a1a8616396f6eced61b42726efe0e9",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo opera exclusivamente em 127V / 60 Hz, com potência nominal de 2200 W.\nNão utilize extensões ou adaptadores.\nLigar o aparelho em tensão diferente da indicada danifica o produto e anula a garantia."
+    },
+    {
+      "sku": "SC-2200-127V",
+      "source": "manual:SC-2200-127V.txt",
+      "source_sha256": "db07a63db1ef4c318ead24a04d3b89f1b4a1a8616396f6eced61b42726efe0e9",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Retire o excesso de água do cabelo com uma toalha.\n2. Escolha entre as 6 combinações de velocidade e temperatura.\n3. Use o bocal fino para escova lisa e o difusor para cachos.\n4. Finalize com o jato frio para fixar o penteado.\nO motor AC profissional tem vida útil maior em uso diário."
+    },
+    {
+      "sku": "SC-2200-127V",
+      "source": "manual:SC-2200-127V.txt",
+      "source_sha256": "db07a63db1ef4c318ead24a04d3b89f1b4a1a8616396f6eced61b42726efe0e9",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue o secador da tomada e aguarde esfriar.\nRemova o filtro traseiro e retire os fios acumulados a cada 15 dias."
+    },
+    {
+      "sku": "SC-2200-127V",
+      "source": "manual:SC-2200-127V.txt",
+      "source_sha256": "db07a63db1ef4c318ead24a04d3b89f1b4a1a8616396f6eced61b42726efe0e9",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "PR-230-BIV",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "f420da62a98dde9cc0945e0ac48a7c8da66ce448e930db46d169ed3ca80826fa",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Prancha Alisadora Aurélia Titânio 230\nMarca: Aurélia\nCategoria: Beleza e Cuidados Pessoais / Pranchas Alisadoras\nVoltagem: BIVOLT\nPotência: 45 W\ntemperatura_min_c: 120\ntemperatura_max_c: 230\nplacas: titânio\ndesligamento_automatico_min: 60\nPrancha bivolt com placas de titânio, temperatura ajustável até 230 °C e desligamento automático."
+    },
+    {
+      "sku": "PR-230-BIV",
+      "source": "manual:PR-230-BIV.txt",
+      "source_sha256": "b9a191ca578b829816030fbe839b16626ea11f1179ed6d5268e20dca3c70de46",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Prancha Alisadora Aurélia Titânio 230\nModelo PR-230-BIV\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "PR-230-BIV",
+      "source": "manual:PR-230-BIV.txt",
+      "source_sha256": "b9a191ca578b829816030fbe839b16626ea11f1179ed6d5268e20dca3c70de46",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nAs placas atingem temperaturas muito altas: não toque nelas durante o uso.\nApoie a prancha apenas sobre superfície resistente ao calor.\nNão use a prancha em cabelo molhado."
+    },
+    {
+      "sku": "PR-230-BIV",
+      "source": "manual:PR-230-BIV.txt",
+      "source_sha256": "b9a191ca578b829816030fbe839b16626ea11f1179ed6d5268e20dca3c70de46",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Placas flutuantes de titânio\n2. Visor digital de temperatura\n3. Botões de ajuste de temperatura\n4. Trava para guardar fechada\n5. Cabo giratório 360°"
+    },
+    {
+      "sku": "PR-230-BIV",
+      "source": "manual:PR-230-BIV.txt",
+      "source_sha256": "b9a191ca578b829816030fbe839b16626ea11f1179ed6d5268e20dca3c70de46",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo é bivolt: funciona em 127V ou 220V / 60 Hz, com seleção automática de tensão.\nA potência nominal é de 45 W.\nNão utilize extensões ou adaptadores."
+    },
+    {
+      "sku": "PR-230-BIV",
+      "source": "manual:PR-230-BIV.txt",
+      "source_sha256": "b9a191ca578b829816030fbe839b16626ea11f1179ed6d5268e20dca3c70de46",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Temperatura e uso\nA temperatura é ajustável de 120 °C a 230 °C, em intervalos de 10 °C.\nUse de 120 °C a 160 °C para cabelos finos ou com química, de 170 °C a 200 °C para cabelos normais e de 210 °C a 230 °C para cabelos grossos.\nPasse a prancha em mechas finas, da raiz para as pontas, sem parar sobre o mesmo ponto.\nA prancha desliga sozinha após 60 minutos sem uso."
+    },
+    {
+      "sku": "PR-230-BIV",
+      "source": "manual:PR-230-BIV.txt",
+      "source_sha256": "b9a191ca578b829816030fbe839b16626ea11f1179ed6d5268e20dca3c70de46",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue a prancha da tomada e aguarde esfriar.\nLimpe as placas com pano levemente úmido; não use produtos abrasivos."
+    },
+    {
+      "sku": "PR-230-BIV",
+      "source": "manual:PR-230-BIV.txt",
+      "source_sha256": "b9a191ca578b829816030fbe839b16626ea11f1179ed6d5268e20dca3c70de46",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "ES-1000-127V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "a9c30a5716f81d739df1665d2ebe6e301f5e8c42214247325b2118944129c87b",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Escova Rotativa Aurélia Volume 1000W\nMarca: Aurélia\nCategoria: Beleza e Cuidados Pessoais / Escovas Secadoras\nVoltagem: 127V\nPotência: 1000 W\ntemperaturas: 2\nrotacao_bidirecional: True\njato_frio: True\nions: True\nfrequencia_hz: 60\nEscova secadora rotativa com cerdas mistas, rotação nos dois sentidos e jato de ar frio."
+    },
+    {
+      "sku": "ES-1000-127V",
+      "source": "manual:ES-1000-127V.txt",
+      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Escova Rotativa Aurélia Volume 1000W\nModelo ES-1000-127V\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "ES-1000-127V",
+      "source": "manual:ES-1000-127V.txt",
+      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão use a escova perto de banheiras, pias ou outros recipientes com água.\nMantenha o cabelo afastado da entrada de ar traseira.\nDesligue a escova da tomada após o uso."
+    },
+    {
+      "sku": "ES-1000-127V",
+      "source": "manual:ES-1000-127V.txt",
+      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Escova rotativa com cerdas mistas\n2. Botões de rotação para a direita e para a esquerda\n3. Chave de temperatura com jato frio\n4. Filtro traseiro removível"
+    },
+    {
+      "sku": "ES-1000-127V",
+      "source": "manual:ES-1000-127V.txt",
+      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo opera exclusivamente em 127V / 60 Hz, com potência nominal de 1000 W.\nNão utilize extensões ou adaptadores.\nLigar o aparelho em tensão diferente da indicada danifica o produto e anula a garantia."
+    },
+    {
+      "sku": "ES-1000-127V",
+      "source": "manual:ES-1000-127V.txt",
+      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Retire o excesso de água do cabelo com uma toalha e divida-o em mechas.\n2. Escolha a temperatura e posicione a escova na raiz da mecha.\n3. Pressione o botão de rotação no sentido desejado e deslize até as pontas.\n4. Finalize com o jato frio para fixar o volume."
+    },
+    {
+      "sku": "ES-1000-127V",
+      "source": "manual:ES-1000-127V.txt",
+      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue a escova da tomada e aguarde esfriar.\nRetire os fios presos nas cerdas após cada uso.\nLimpe o filtro traseiro a cada 15 dias."
+    },
+    {
+      "sku": "ES-1000-127V",
+      "source": "manual:ES-1000-127V.txt",
+      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
+    },
+    {
+      "sku": "PT-200-01",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "0640866378ac2bead5c0e0c22abbbffe499d6612a1de09b0351884f4b24b6158",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Spray Protetor Térmico Aurélia\nMarca: Aurélia\nCategoria: Cosméticos / Cuidados com os Cabelos\nVoltagem: N/A\nCapacidade: 0.2 L\nprotecao_termica_max_c: 230\nvegano: True\nvalidade_meses: 24\nSpray protetor térmico para uso antes de secador, escova rotativa e prancha, com proteção até 230 °C."
+    },
+    {
+      "sku": "PT-200-01",
+      "source": "manual:PT-200-01.txt",
+      "source_sha256": "88c23af981c634258a0e4c9e16deb40137f255b93011ffa8298427e7eb7e3494",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Spray Protetor Térmico Aurélia\nModelo PT-200-01\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "PT-200-01",
+      "source": "manual:PT-200-01.txt",
+      "source_sha256": "88c23af981c634258a0e4c9e16deb40137f255b93011ffa8298427e7eb7e3494",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Precauções\nUso externo. Evite contato com os olhos; em caso de contato, enxágue com água em abundância.\nSuspenda o uso em caso de irritação.\nMantenha fora do alcance de crianças.\nProduto inflamável enquanto úmido: aguarde 1 minuto antes de usar ferramentas de calor."
+    },
+    {
+      "sku": "PT-200-01",
+      "source": "manual:PT-200-01.txt",
+      "source_sha256": "88c23af981c634258a0e4c9e16deb40137f255b93011ffa8298427e7eb7e3494",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Composição\nÁgua, álcool, polímeros termoprotetores, pantenol, proteína vegetal hidrolisada e fragrância.\nFórmula vegana, sem testes em animais."
+    },
+    {
+      "sku": "PT-200-01",
+      "source": "manual:PT-200-01.txt",
+      "source_sha256": "88c23af981c634258a0e4c9e16deb40137f255b93011ffa8298427e7eb7e3494",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Especificações técnicas\nCosmético sem alimentação elétrica.\nCapacidade: 0,2 L.\nProtege os fios do calor de secadores, escovas rotativas e pranchas de até 230 °C.\nValidade de 24 meses a partir da data de fabricação impressa na embalagem."
+    },
+    {
+      "sku": "PT-200-01",
+      "source": "manual:PT-200-01.txt",
+      "source_sha256": "88c23af981c634258a0e4c9e16deb40137f255b93011ffa8298427e7eb7e3494",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Agite antes de usar.\n2. Aplique a uma distância de 20 cm, mecha por mecha, no cabelo úmido ou seco.\n3. Penteie para distribuir.\n4. Aguarde 1 minuto e use o secador, a escova rotativa ou a prancha.\nNão é necessário enxaguar."
+    },
+    {
+      "sku": "PT-200-01",
+      "source": "manual:PT-200-01.txt",
+      "source_sha256": "88c23af981c634258a0e4c9e16deb40137f255b93011ffa8298427e7eb7e3494",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Armazenamento\nGuarde em local fresco, longe do sol e de fontes de calor.\nMantenha a embalagem bem fechada."
+    },
+    {
+      "sku": "PT-200-01",
+      "source": "manual:PT-200-01.txt",
+      "source_sha256": "88c23af981c634258a0e4c9e16deb40137f255b93011ffa8298427e7eb7e3494",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Garantia\nProduto cosmético: em caso de defeito de fabricação, procure o Serviço de Atendimento ao Consumidor Aurélia dentro do prazo de validade."
     }
   ]
 }

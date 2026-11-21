@@ -1,0 +1,32 @@
+Aspirador Robô Varrix R300 Mapeamento
+Modelo AR-300-BIV
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o produto e guarde-o para consultas futuras.## Instruções de segurança
+Retire do chão fios, cortinas longas e objetos pequenos antes da limpeza.
+Não use o robô em superfícies molhadas nem para aspirar líquidos.
+Mantenha a base de carregamento em local ventilado e longe de escadas.## Componentes
+1. Robô com sensores de mapeamento e para-choque frontal
+2. Duas escovas laterais giratórias
+3. Escova central de borracha
+4. Reservatório de pó com filtro
+5. Base de carregamento## Especificações elétricas
+A base de carregamento é bivolt: funciona em 127V ou 220V / 60 Hz, com seleção automática de tensão.
+A potência nominal é de 35 W.
+Não utilize extensões ou adaptadores.
+Capacidade: 0,45 L.
+O reservatório de pó comporta 0,45 L.
+Autonomia de até 120 minutos por carga.## Aplicativo e mapeamento
+Conecte o robô à rede Wi-Fi de 2,4 GHz pelo aplicativo Varrix Casa.
+Na primeira limpeza o robô cria o mapa da casa; no aplicativo é possível dividir cômodos, agendar limpezas e definir áreas proibidas.
+O robô retoma a limpeza do ponto onde parou após recarregar.## Modo de uso
+1. Posicione a base encostada na parede, com 50 cm livres de cada lado.
+2. Carregue o robô por 5 horas antes do primeiro uso.
+3. Inicie a limpeza pelo botão do robô ou pelo aplicativo.
+4. Com a bateria baixa, o robô retorna sozinho à base.
+A altura de 7,9 cm permite limpar sob camas e sofás.## Limpeza e manutenção
+Esvazie o reservatório de pó após cada uso.
+Limpe o filtro semanalmente batendo-o levemente; troque-o a cada 3 meses.
+Limpe os sensores com pano seco a cada 15 dias.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros.

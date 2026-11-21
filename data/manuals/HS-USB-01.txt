@@ -1,0 +1,19 @@
+Headset USB Cliqon Talk
+Modelo HS-USB-01
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o produto e guarde-o para consultas futuras.## Instruções de segurança
+Evite ouvir em volume alto por longos períodos.
+Não puxe o headset pelo cabo para desconectá-lo.## Componentes
+1. Headset com arco ajustável e almofadas de couro sintético
+2. Microfone em haste flexível
+3. Controle no cabo com volume e botão silenciar## Especificações técnicas
+Este produto não é ligado diretamente à tomada: é alimentado pela porta USB do computador.
+Cabo USB de 2 metros com controle de volume e botão para silenciar o microfone.## Instalação
+Conecte o cabo a uma porta USB do computador; não é necessário instalar programas.
+No aplicativo de reuniões, selecione Cliqon Talk como alto-falante e microfone.
+A luz vermelha no controle indica que o microfone está silenciado.## Limpeza e manutenção
+Limpe as almofadas com pano levemente úmido.
+Gire a haste do microfone para cima ao guardar o headset.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros.
