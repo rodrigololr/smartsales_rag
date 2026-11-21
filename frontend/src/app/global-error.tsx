@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { inter } from "@/lib/fonts";
 import { themeInitScript } from "@/lib/theme";
+import { ThemeSync } from "@/components/layout/ThemeToggle";
 import StoreError from "./error";
 
 /** Replaces the root layout when it fails, so it must render its own document. */
@@ -14,6 +15,7 @@ export default function GlobalError({ error, retry }: { error: unknown; retry: (
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-screen antialiased">
+        <ThemeSync />
         <title>Erro — SmartSales RAG</title>
         <StoreError error={error} retry={retry} />
       </body>

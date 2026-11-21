@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useLayoutEffect, useSyncExternalStore } from "react";
 import { Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  applyThemePreference,
   followSystemTheme,
   readThemePreference,
   selectThemePreference,
@@ -18,12 +19,27 @@ const OPTIONS: { value: ThemePreference; label: string; icon: LucideIcon }[] = [
   { value: "dark", label: "Tema escuro", icon: Moon },
 ];
 
-/** Sistema / Claro / Escuro. The first paint is handled by `themeInitScript` in the root layout. */
-export function ThemeToggle() {
-  // The server cannot know the stored choice; "system" there avoids a hydration mismatch.
-  const preference = useSyncExternalStore(subscribeThemePreference, readThemePreference, () => "system");
+// The server cannot know the stored choice; "system" there avoids a hydration mismatch.
+const useThemePreference = (): ThemePreference =>
+  useSyncExternalStore(subscribeThemePreference, readThemePreference, () => "system");
 
-  useEffect(() => (preference === "system" ? followSystemTheme() : undefined), [preference]);
+/**
+ * Mounted once in the root layout. `themeInitScript` sets `.dark` before the first paint, but
+ * React may re-render <html> on the client (e.g. a 404 in dev) and drop the class: re-apply it
+ * from storage, and follow the OS while the choice is "system".
+ */
+export function ThemeSync() {
+  const preference = useThemePreference();
+  useLayoutEffect(() => {
+    applyThemePreference(readThemePreference());
+    return preference === "system" ? followSystemTheme() : undefined;
+  }, [preference]);
+  return null;
+}
+
+/** Sistema / Claro / Escuro. */
+export function ThemeToggle() {
+  const preference = useThemePreference();
 
   return (
     <div role="group" aria-label="Tema" className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">

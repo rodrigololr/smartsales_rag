@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { ThemeSync, ThemeToggle } from "@/components/layout/ThemeToggle";
 import { THEME_STORAGE_KEY, themeInitScript } from "@/lib/theme";
 
 type Listener = (event: { matches: boolean }) => void;
@@ -62,7 +62,12 @@ describe("Tema claro/escuro", () => {
   it("em Sistema acompanha prefers-color-scheme, inclusive quando ele muda", () => {
     const system = mockSystemTheme(true);
     localStorage.setItem(THEME_STORAGE_KEY, "light");
-    render(<ThemeToggle />);
+    render(
+      <>
+        <ThemeSync />
+        <ThemeToggle />
+      </>
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Tema do sistema" }));
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
@@ -70,6 +75,13 @@ describe("Tema claro/escuro", () => {
 
     act(() => system.setDark(false));
     expect(html()).not.toHaveClass("dark");
+  });
+
+  it("reaplica o tema quando o React recria a classe do <html> (ex.: 404 renderizado no cliente)", () => {
+    mockSystemTheme(false);
+    localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    render(<ThemeSync />);
+    expect(html()).toHaveClass("dark");
   });
 
   it("o script inline aplica o tema antes da pintura (salvo > sistema)", () => {

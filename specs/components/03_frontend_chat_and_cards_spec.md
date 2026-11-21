@@ -179,7 +179,7 @@ Carregar a vitrine e a pesquisa em `GET /api/v1/products` com os parâmetros/res
 
 - O `StoreHeader` (e o cabeçalho do painel `/admin/metricas`) exibe um grupo de botões `role="group"` rotulado `Tema` com três opções: `Tema do sistema` (padrão, segue `prefers-color-scheme` e acompanha mudanças do sistema em tempo real), `Tema claro` e `Tema escuro`. Cada botão tem `aria-label` e `aria-pressed`; o grupo é operável por teclado (Tab + Enter/Espaço).
 - A escolha fica em `localStorage["smartsales-theme"]` (`light` | `dark`; `Sistema` remove a chave). Leituras e gravações ficam em `try/catch`: com o armazenamento bloqueado, a escolha vale só para a página aberta.
-- Um script inline em `<head>` (`app/layout.tsx` e `app/global-error.tsx`) aplica a classe `.dark` no `<html>` antes da primeira pintura, sem flash de tema errado; o `<html>` usa `suppressHydrationWarning`.
+- Um script inline em `<head>` (`app/layout.tsx` e `app/global-error.tsx`) aplica a classe `.dark` no `<html>` antes da primeira pintura, sem flash de tema errado; o `<html>` usa `suppressHydrationWarning`. Um `ThemeSync` (cliente, montado uma vez no layout) reaplica a classe a partir do armazenamento caso o React recrie o `<html>` no cliente (ex.: 404 em dev) e acompanha o sistema enquanto a escolha for `Sistema`.
 - Cores: no escuro o índigo primário vira `indigo-400` com texto `indigo-950` (texto `text-primary` ≥ 5,7:1 sobre `card`); texto de estado usa os tokens `success`/`danger`/`warning` (700/800 no claro, 300/400 no escuro); selos tonais (voltagem, tipo de recomendação, meta) usam fundo 950 e texto 200 no escuro. Ilustrações de produto continuam sobre um bloco claro arredondado para manter a leitura da arte.
 
 ## 7. Fallback, leitores de tela e foco no chat

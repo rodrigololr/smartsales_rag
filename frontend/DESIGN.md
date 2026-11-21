@@ -125,7 +125,8 @@ Neutros acromáticos com um índigo saturado; cores de estado vêm da escala do 
 
 ### Named Rules
 **The Label-With-Color Rule.** Estoque, voltagem e meta sempre têm texto ("Em estoque", "220V", "Na meta"); a cor reforça, nunca carrega sozinha o significado.
-**The Dark-Status Rule.** Texto de estado usa o tom 700 (emerald-700, rose-700) ou 800 sobre fundo 100; o tom 600 não passa AA em 12px.
+**The Dark-Status Rule.** Texto de estado usa os tokens `success`/`danger`/`warning` (emerald-700, rose-700, amber-800 no claro; 400/300 no escuro) ou o tom 800 sobre fundo 100; o tom 600 não passa AA em 12px.
+**The Night-Counter Rule.** Tema escuro (Sistema/Claro/Escuro no cabeçalho): o índigo vira `indigo-400` com texto `indigo-950`, selos tonais usam fundo 950 e texto 200, e as ilustrações de produto ficam num bloco claro arredondado.
 
 ## Typography
 
