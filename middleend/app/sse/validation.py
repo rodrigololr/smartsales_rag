@@ -13,6 +13,8 @@ from .models import Citation, ProductCard
 ERROR_CODES = {"GUARDRAIL_BLOCKED", "LOW_SIMILARITY_FALLBACK", "LLM_UNAVAILABLE", "INTERNAL_ERROR"}
 CONTENT_EVENTS = {"token", "correction", "citations", "recommendations", "error"}
 CENT = Decimal("0.01")
+# chat_messages.intent CHECK; the backend may also send diagnostic labels (LOW_SIMILARITY).
+STORED_INTENTS = {"TECHNICAL_QA", "PRODUCT_COMPARISON", "PURCHASE_INTENT", "OUT_OF_DOMAIN"}
 
 
 def require(condition: bool) -> None:
@@ -99,6 +101,5 @@ def parse(item: Mapping[str, object]) -> tuple[str, Mapping[str, object]]:
     elif event == "end":
         require(integer(payload.get("tokens_used")))
         require("finish_reason" not in payload or payload["finish_reason"] == "error")
-        require("intent" not in payload or payload["intent"] in {
-            "TECHNICAL_QA", "PRODUCT_COMPARISON", "PURCHASE_INTENT", "OUT_OF_DOMAIN"})
+        require("intent" not in payload or isinstance(payload["intent"], str))
     return cast(str, event), payload

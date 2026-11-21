@@ -38,7 +38,7 @@ from .models import (
     ProductCard,
     PublicEventName,
 )
-from .validation import citations, parse, products, require
+from .validation import STORED_INTENTS, citations, parse, products, require
 
 logger = logging.getLogger(__name__)
 SAFE_FAILURE_MESSAGE = "Não foi possível concluir a resposta. Tente novamente."
@@ -85,7 +85,8 @@ class _Turn:
             if payload.get("finish_reason") == "error":
                 self.finish_reason = "error"
             self.tokens_used = cast(int, payload["tokens_used"])
-            self.intent = cast(str | None, payload.get("intent"))
+            intent = payload.get("intent")
+            self.intent = intent if intent in STORED_INTENTS else None
         elif event == "error":
             self._accept_error(payload)
         else:
