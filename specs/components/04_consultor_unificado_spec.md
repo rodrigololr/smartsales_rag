@@ -660,3 +660,43 @@ These strings and labels are the constants in `backend/app/consultant/knowledge_
 7. **Assumption to confirm:** I reconstructed the PO's 6-turn dialog as T1–T6, with "esse é mais barato?" as T7. Confirm the order before the dialogs file is written.
 
 **Not checked:** I did not run any test suite or read the RAGAS README's seeding command, so risk 1's "base-only DB" step needs a check by P1. I did not read `specs/01_BASELINE_REVISADA.md` beyond its headings, or `lib/mock-api.ts`.
+
+---
+
+## 11. Adendo congelado (21/11/2026, antes de P1–P4)
+
+Esta seção prevalece sobre a seção 8 quando houver divergência.
+
+**A1. Diálogo do PO confirmado** (ordem informada pelo GP): T1 "quero um computador novo" → T2 "pra jogar gta 6" → T3 "mas quero um PC" → T4 "desses que você mandou qual o melhor?" → T5 "mas qual é a marca mais confiável" → T6 "eu posso ligar todos esses pc em 127v?". T7 "esse é mais barato?" vem da frase do GP ("Esse produto aqui é mais barato") e entra no PO-01.
+
+**A2. Arquivos da KB** (`doc_id` = nome do arquivo sem `.txt`). Os arquivos de pesquisa atuais (`KB-GTA6.txt`, `KB-GTAV-PC.txt`, `KB-ROBLOX.txt`, `KB-TWITCH.txt`, `KB-SOFA-ESPACO.txt`) são a fonte verificada; P1 os reorganiza nos 6 arquivos abaixo, sem inventar fatos, e remove os antigos:
+
+| doc_id | Linha 1 (título, sem vírgula) | Origem |
+|---|---|---|
+| KB-GTA6-PLATAFORMAS | `GTA 6 plataformas e versão para PC` | KB-GTA6.txt |
+| KB-GTA-RP | `GTA RP no PC` | seções GTA RP/FiveM de KB-GTAV-PC.txt |
+| KB-GTAV-REQUISITOS | `Requisitos do GTA V para PC` | seções de requisitos de KB-GTAV-PC.txt |
+| KB-ROBLOX-REQUISITOS | `Requisitos do Roblox para PC` | KB-ROBLOX.txt |
+| KB-TWITCH-TRANSMISSAO | `Twitch qualidade de transmissão` | KB-TWITCH.txt |
+| KB-SOFA-ESPACO | `Sofá espaço necessário no ambiente` | KB-SOFA-ESPACO.txt |
+
+- Linha 2: `Fonte de referência: <url oficial principal>; consultado em 21/11/2026 (curadoria SmartSales).`
+- Páginas separadas por `\f`; a seção `## Fontes` com todas as URLs fica na última página.
+
+**A3. Strings congeladas** (`backend/app/consultant/knowledge_facts.py`; o teste de P1 exige presença literal, cada uma em sua própria linha):
+
+| Constante | doc_id | Texto literal |
+|---|---|---|
+| `KB_GTA6_PLATFORMS` | KB-GTA6-PLATAFORMAS | `GTA 6 foi lançado em 19/11/2026 para PlayStation 5 e Xbox Series X\|S.` |
+| `KB_GTA6_NO_PC` | KB-GTA6-PLATAFORMAS | `Não há versão de GTA 6 para PC anunciada até a data de atualização desta base.` |
+| `KB_GTA_RP` | KB-GTA-RP | `GTA RP é jogado no GTA V para PC por meio de servidores de roleplay.` |
+| `KB_TWITCH_HEIGHT` (rótulo) | KB-TWITCH-TRANSMISSAO | linha `\| Altura máxima de vídeo recomendada \| 1080 px \|` |
+| `KB_TWITCH_FPS` (rótulo) | KB-TWITCH-TRANSMISSAO | linha `\| Taxa de quadros máxima recomendada \| 60 fps \|` |
+| `KB_SOFA_CLEARANCE` (rótulo) | KB-SOFA-ESPACO | linha `\| Folga lateral mínima por lado \| 10 cm \|` |
+| `KB_SOFA_FRONT` (rótulo) | KB-SOFA-ESPACO | linha `\| Passagem livre mínima à frente \| 76 cm \|` |
+
+- A linha de folga lateral vem acompanhada, na mesma página, de: `Curadoria SmartSales: adota-se 10 cm por lado com base na faixa de 8 a 13 cm de afastamento recomendada por designers; não é norma técnica.`
+- O builder GAME_FIT usa `KB_GTA6_PLATFORMS` no lugar do texto "anunciado" da seção 4.
+- `knowledge_facts.py` guarda só `(doc_id, texto ou rótulo)`, sem número de página. O protocolo I5 troca `knowledge_page(doc_id, page)` por `knowledge_doc(doc_id) -> list[RetrievedChunk]` (todos os chunks do documento, por página e chunk_index); a página citada é a do chunk onde a string ocorre.
+
+**A4. Ambiente de teste:** Python em `/home/antonio/Documentos/gerencia_projeto/smartsales_rag/.venv/bin/python`; Postgres de integração em container `pgvector/pgvector:pg16` com porta própria por pacote (P1 5561, P2 5562, P3 5563 + Redis 6403).
