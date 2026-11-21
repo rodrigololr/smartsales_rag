@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Product } from "@/types/catalog";
 import type {
   ChatMessage,
+  FeedbackCreate,
   FeedbackRating,
   FeedbackReasonCategory,
   StreamEvent,
@@ -12,9 +13,11 @@ import { createId } from "@/lib/format";
 import { mockFeedback, streamMockChat } from "@/lib/mock-api";
 import {
   API_BASE_URL,
+  ChatApiError,
   StreamInterruptedError,
   createSession,
   deleteSession,
+  postFeedback,
   streamChat,
 } from "@/lib/chat-api";
 
@@ -34,6 +37,10 @@ const emptyAssistantMessage = (id: string): ChatMessage => ({
   errorFallback: null,
   errorCode: null,
 });
+
+/** Feedback/checkout must reference the gateway's message_id; without it the API answers 404. */
+export const canReferenceServerMessage = (message: ChatMessage): boolean =>
+  !USE_REAL_API || Boolean(message.serverMessageId);
 
 const isAbort = (error: unknown): boolean =>
   error instanceof Error && error.name === "AbortError";
@@ -83,6 +90,7 @@ export function useChatSession(product: Product | null) {
       switch (event.event) {
         case "metadata":
           patchAssistant(assistantId, {
+            serverMessageId: event.data.message_id,
             ttftMs: event.data.ttft_ms,
             cacheHit: event.data.cache_hit,
           });
@@ -246,18 +254,25 @@ export function useChatSession(product: Product | null) {
       rating: FeedbackRating,
       reason?: FeedbackReasonCategory
     ) => {
-      await mockFeedback({
-        session_id: sessionId,
-        message_id: messageId,
-        rating,
-        reason_category: rating === "DISLIKE" ? reason : undefined,
-      });
-      patchAssistant(messageId, {
-        feedback: rating,
-        feedbackReason: reason ?? null,
-      });
+      const message = messages.find((candidate) => candidate.id === messageId);
+      const serverMessageId = message?.serverMessageId ?? (USE_REAL_API ? undefined : messageId);
+      if (!serverMessageId) throw new Error("feedback exige o message_id do servidor");
+      const target = { session_id: sessionId, message_id: serverMessageId };
+      if (rating === "DISLIKE" && !reason) throw new Error("DISLIKE exige reason_category");
+      const feedback: FeedbackCreate =
+        rating === "DISLIKE" && reason
+          ? { ...target, rating, reason_category: reason }
+          : { ...target, rating: "LIKE" };
+      try {
+        await (USE_REAL_API ? postFeedback(feedback) : mockFeedback(feedback));
+        patchAssistant(messageId, { feedback: rating, feedbackReason: reason ?? null });
+      } catch (error) {
+        // One rating per message (UC06): a 409 means it is already stored, not a failure.
+        if (!(error instanceof ChatApiError) || error.code !== "FEEDBACK_ALREADY_RECORDED") throw error;
+        patchAssistant(messageId, { feedback: rating, feedbackAlreadyRecorded: true });
+      }
     },
-    [patchAssistant, sessionId]
+    [messages, patchAssistant, sessionId]
   );
 
   return {
