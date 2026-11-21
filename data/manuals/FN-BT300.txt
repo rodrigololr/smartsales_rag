@@ -1,0 +1,26 @@
+Fone Bluetooth Sonaro Pulse ANC
+Modelo FN-BT300
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o produto e guarde-o para consultas futuras.## Instruções de segurança
+Evite ouvir em volume alto por longos períodos.
+Não exponha o fone à chuva, ao calor excessivo ou à luz solar direta.
+Desligue o cancelamento de ruído ao caminhar na rua para ouvir o trânsito.## Componentes
+1. Fone com arco ajustável e almofadas de espuma viscoelástica
+2. Botão ANC para alternar entre cancelamento de ruído, modo ambiente e desligado
+3. Botões de volume e multifunção
+4. Cabo USB-C de carregamento e estojo rígido## Especificações técnicas
+Este produto não é ligado diretamente à tomada: funciona com bateria interna recarregável pelo cabo USB-C que acompanha a embalagem.
+Bluetooth 5.3 com conexão multiponto a dois aparelhos ao mesmo tempo.
+Autonomia de até 40 horas de reprodução por carga com o cancelamento de ruído desligado e até 30 horas com ele ligado.## Cancelamento de ruído
+Pressione o botão ANC uma vez para ativar o cancelamento ativo de ruído, que reduz sons constantes como motores e ar-condicionado.
+Pressione de novo para o modo ambiente, que deixa passar vozes e sons ao redor.
+Uma terceira pressão desliga as duas funções.## Pareamento
+1. Com o fone desligado, mantenha o botão multifunção pressionado por 5 segundos até a luz piscar.
+2. No celular, ative o Bluetooth e selecione Sonaro Pulse ANC.
+3. Para usar dois aparelhos, repita o pareamento no segundo aparelho.## Limpeza e manutenção
+Limpe as almofadas com pano levemente úmido.
+Não use álcool nem produtos abrasivos.
+Guarde o fone no estojo rígido para transporte.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros.

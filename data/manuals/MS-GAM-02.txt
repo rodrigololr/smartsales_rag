@@ -1,0 +1,21 @@
+Mouse sem Fio Cliqon Glide Pro
+Modelo MS-GAM-02
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o produto e guarde-o para consultas futuras.## Instruções de segurança
+Não olhe diretamente para a luz do sensor.
+Use apenas o cabo USB-C que acompanha o produto para recarregar.## Componentes
+1. Mouse com botões esquerdo, direito, roda de rolagem, dois botões laterais e botão DPI
+2. Receptor USB
+3. Cabo USB-C de carregamento## Especificações técnicas
+Este produto não é ligado diretamente à tomada: funciona com bateria interna recarregável pelo cabo USB-C que acompanha a embalagem.
+Sensor óptico com resolução ajustável de 800 a 4000 DPI.
+Autonomia de até 70 dias por carga em uso de escritório.## Instalação
+1. Conecte o receptor USB ao computador ou pareie por Bluetooth mantendo o botão de conexão pressionado por 3 segundos.
+2. O mouse alterna entre até 2 computadores pelo botão de conexão.
+3. O botão DPI alterna entre 800, 1600, 2400 e 4000 DPI.
+Compatível com Windows, macOS, Linux e ChromeOS.## Limpeza e manutenção
+Limpe a superfície com pano levemente úmido.
+Use sobre superfície fosca ou mousepad para melhor precisão do sensor.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros.
