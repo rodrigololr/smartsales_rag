@@ -240,7 +240,8 @@ def test_consultor_manuals_follow_structure_and_publishable_claims() -> None:
         for sentence in re.split(r"(?<=[.!?])\s+|\n|\f", text):
             if "danifica" in sentence:
                 continue
-            critical = {c for c in technical_claims(sentence) if c[1] in {"V", "W", "L"}}
+            prose = sentence.replace(product.sku, "")
+            critical = {c for c in technical_claims(prose) if c[1] in {"V", "W", "L"}}
             assert critical <= sql_claims, f"{product.sku}: {sentence}"
 
 

@@ -1,0 +1,23 @@
+Requisitos do GTA V para PC
+Fonte de referência: https://support.rockstargames.com/articles/lMQXeP2Z1mN3g9oZiBZFR/grand-theft-auto-v-pc-system-requirements; consultado em 21/11/2026 (curadoria SmartSales).
+## Versões de GTA V no PC e requisitos mínimos (Enhanced)
+A Rockstar mantém duas versões de GTA V no PC: Enhanced e Legacy.
+Os requisitos da versão Enhanced são maiores que os da Legacy.
+A Rockstar avisa que conteúdos futuros podem alterar os requisitos e que componentes não listados podem não ser suportados.
+Placas de vídeo integradas, de chipset móvel ou AGP podem ser incompatíveis.
+Sistema operacional: Windows 10 (build 1909 ou superior).
+Processador: Intel Core i7-4770 ou AMD FX-9590.
+Memória: 8 GB de RAM.
+Placa de vídeo: NVIDIA GeForce GTX 1630 (4 GB de VRAM) ou AMD Radeon RX 6400 (4 GB de VRAM).
+Armazenamento: 105 GB em SSD (obrigatório).
+## GTA V Enhanced recomendados e GTA V Legacy
+Sistema operacional: Windows 11.
+Processador: Intel Core i5-9600K ou AMD Ryzen 5 3600.
+Memória: 16 GB de RAM em dual-channel.
+Placa de vídeo: NVIDIA GeForce RTX 3060 (8 GB de VRAM) ou AMD Radeon RX 6600 XT (8 GB de VRAM).
+Armazenamento: 105 GB em unidade compatível com DirectStorage.
+Mínimo (Legacy): Windows 10 64 bits, Intel Core 2 Quad Q6600 2,4 GHz ou AMD Phenom 9850 2,5 GHz, 4 GB de RAM, NVIDIA 9800 GT ou AMD HD 4870 (1 GB de VRAM), 125 GB em HDD.
+Recomendado (Legacy): Windows 10 64 bits, Intel Core i5 3470 3,2 GHz ou AMD FX-8350 4 GHz, 8 GB de RAM, NVIDIA GTX 660 ou AMD HD 7870 (2 GB de VRAM), 125 GB em HDD.
+Ambas as versões exigem conta Rockstar Games e conexão à internet para ativação e jogo online.
+## Fontes
+https://support.rockstargames.com/articles/lMQXeP2Z1mN3g9oZiBZFR/grand-theft-auto-v-pc-system-requirements (verificado em 21/11/2026)

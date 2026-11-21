@@ -1,0 +1,44 @@
+[
+  {
+    "base_sku": "PC-VX3-BIV",
+    "related_sku": "MN-LM24-BIV",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Monitor gamer Full HD de 24 polegadas a 165 Hz compatível com as saídas HDMI e DisplayPort do PC Gamer Vortex X3."
+  },
+  {
+    "base_sku": "PC-VX5-BIV",
+    "related_sku": "MN-LM27Q-BIV",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Monitor gamer Quad HD de 27 polegadas a 170 Hz compatível com as saídas HDMI e DisplayPort do PC Gamer Vortex X5."
+  },
+  {
+    "base_sku": "PC-VX5P-220V",
+    "related_sku": "MN-LM27Q-BIV",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Monitor gamer Quad HD de 27 polegadas a 170 Hz compatível com as saídas HDMI e DisplayPort do PC Gamer Vortex X5 Pro."
+  },
+  {
+    "base_sku": "PC-VX7-220V",
+    "related_sku": "MN-LM27U-BIV",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Monitor 4K de 27 polegadas a 144 Hz compatível com as saídas HDMI 2.1 e DisplayPort 1.4 do PC Gamer Vortex X7."
+  },
+  {
+    "base_sku": "NB-NX15-BIV",
+    "related_sku": "MN-LM24-BIV",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Monitor externo Full HD de 24 polegadas a 165 Hz compatível com a saída HDMI do Notebook Gamer Nimbus 15."
+  },
+  {
+    "base_sku": "NB-NX16-BIV",
+    "related_sku": "MN-LM27Q-BIV",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Monitor externo Quad HD de 27 polegadas a 170 Hz compatível com a saída HDMI do Notebook Gamer Nimbus 16."
+  }
+]
