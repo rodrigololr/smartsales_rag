@@ -42,6 +42,12 @@ Configure localmente, sem versionar valores secretos:
   reutilizadas; com ela, a URL do juiz nunca é herdada (sem `EVAL_EMBEDDING_BASE_URL`,
   vale o endpoint padrão da OpenAI).
 
+- `EVAL_MAX_RETRIES` (padrão 6) e `EVAL_MIN_INTERVAL_SECONDS` (padrão 0): só no
+  runner live, novas tentativas com backoff exponencial (respeitando `Retry-After`)
+  para cota 429, timeout ou falha de conexão do juiz, do gerador antes do primeiro
+  token e dos embeddings da pergunta, e espaçamento mínimo entre chamadas. Não
+  alteram métricas, gates nem a identidade da execução.
+
 O gerador e seu modelo de embeddings usam o mesmo endpoint compatível com OpenAI,
 conforme os adaptadores atuais de produção. O juiz precisa de chat compatível com
 OpenAI; os embeddings vêm do mesmo endpoint ou do provedor configurado acima. Os parâmetros de chunking/geração e limiar devem

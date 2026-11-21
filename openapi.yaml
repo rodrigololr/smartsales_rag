@@ -1101,6 +1101,12 @@
           "specs_json": {
             "type": "object"
           },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "updated_at": {
             "type": "string",
             "format": "date-time"

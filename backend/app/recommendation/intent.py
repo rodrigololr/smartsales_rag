@@ -10,7 +10,9 @@ import unicodedata
 
 _UPGRADE_PATTERNS = (
     r"\b(?:para|atende|serve|comporta|conta)(?: uma?)? (?:familia|\d+ pessoas?)\b",
-    r"\b(modelo|versao|opcao|tamanho|capacidade|cesto) maior(es)?\b",
+    r"\b(?:\d+|duas|tres|quatro|cinco|seis|sete|oito|nove|dez) pessoas\b",
+    r"\b(modelo|versao|opcao|tamanho|capacidade|cesto|reservatorio) maior(es)?\b",
+    r"\b(?:um|uma|outro|outra) \w+ maior(es)?\b",  # "uma Airfryer maior"
     r"\bmaior (modelo|versao|opcao|tamanho|capacidade|cesto)\b",
     r"\b(tem|existe|ha) (um|uma|algum|alguma) maior\b",
     r"\bmais (capacidade|potencia|potente|espaco|litros)\b",

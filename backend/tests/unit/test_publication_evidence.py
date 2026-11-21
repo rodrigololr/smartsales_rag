@@ -1,6 +1,11 @@
 """B03: verify SQL facts and the actual cited evidence before publishing a sentence."""
 
+from decimal import Decimal
+
 import pytest
+from app.guardrails.output import technical_claims
+from app.guardrails.publication import ConsultativeVerifier, SentenceVerifier
+from app.models.schemas import CatalogProduct, ProductRecommendation
 from test_orchestrator import PRODUCT, Catalog, ChatModel, chunk, names, run
 
 
@@ -91,3 +96,294 @@ def test_consultative_facts_never_borrow_values_or_manuals_from_another_sku() ->
     assert verifier.approve('SKU AF-UNKNOWN-220V: Voltagem: 220V.') is None
     assert verifier.approve(f'SKU {FAMILY.sku}: Possui capacidade de 5,5 L e {PRODUCT.sku} tem 4 L.') is None
     assert verifier.cited_chunk_ids == set()
+
+
+def test_dash_bullets_keep_facts_and_sku_anchors_publishable() -> None:
+    from app.guardrails.publication import ConsultativeVerifier
+    from app.models.schemas import ProductRecommendation
+    from test_recommendation_service import FAMILY
+
+    card = ProductRecommendation(
+        sku=FAMILY.sku, name=FAMILY.name, price=FAMILY.price,
+        stock_quantity=5, voltage=FAMILY.voltage,
+        capacity_liters=FAMILY.capacity_liters, power_watts=FAMILY.power_watts,
+        recommendation_type="UPSELL",
+    )
+    verifier = ConsultativeVerifier(PRODUCT, [chunk()], [card])
+    assert verifier.approve("- A potência é 1500 W.") == "- A potência é 1500 W."
+    assert verifier.approve(f"- SKU {FAMILY.sku}: Voltagem: 220V.") == f"- SKU {FAMILY.sku}: Voltagem: 220V."
+    assert verifier.approve(f"- SKU {FAMILY.sku}: Possui capacidade de 4 L.") is None
+
+
+@pytest.mark.parametrize("answer", [
+    "A capacidade é de 4 litros.",
+    "A potência é de 1500 W.",
+    "A potência é de 1.500 W.",
+    "Possui 1.500 watts de potência.",
+    "A voltagem é de 220V.",
+    "A tensão é de 220 volts.",
+    "O preço atual é de R$ 499,90.",
+    "O preço é de R$ 499,90.",
+    "Este produto é 220V.",
+    "Ele é 220V.",
+])
+def test_common_portuguese_phrasings_of_sql_facts_are_published(answer: str) -> None:
+    assert SentenceVerifier(PRODUCT, []).approve(answer) == answer
+
+
+PRODUCT_127V = PRODUCT.model_copy(update={"voltage": "127V"})
+
+
+@pytest.mark.parametrize("product,answer", [
+    (PRODUCT, "A potência é de 1800 W."),
+    (PRODUCT, "A potência é de 1.800 W."),
+    (PRODUCT, "A capacidade é de 5 litros."),
+    (PRODUCT, "O preço atual é de R$ 349,90."),
+    (PRODUCT, "A voltagem é de 1500 W."),
+    (PRODUCT, "A potência é de 220V."),
+    (PRODUCT_127V, "A voltagem é de 220V."),
+    (PRODUCT_127V, "Este produto é 220V."),
+    (PRODUCT_127V, "Este produto é bivolt."),
+])
+def test_wrong_values_in_those_phrasings_are_still_blocked(
+    product: CatalogProduct, answer: str
+) -> None:
+    assert SentenceVerifier(product, []).approve(answer) is None
+
+
+@pytest.mark.parametrize("text,claim", [
+    ("1.500 W", ("1500", "W")),
+    ("2.000 mL", ("2", "L")),
+    ("1,5 L", ("1.5", "L")),
+    ("0.5 L", ("0.5", "L")),
+])
+def test_thousands_separator_is_not_read_as_a_decimal_point(
+    text: str, claim: tuple[str, str]
+) -> None:
+    assert technical_claims(text) == {claim}
+
+
+@pytest.mark.parametrize("manual,answer", [
+    ("Peso de 1,500 kg.", "Peso de 1.500 kg."),
+    ("Peso de 1.500 kg.", "Peso de 1,500 kg."),
+    ("Pressão de 1,5 bar.", "Pressão de 15 bar."),
+    ("Aquece até 200 °C em 3 min.", "Aquece até 200 °C em 30 min."),
+    ("Peso de 1,500 kg de batatas.", "Peso de 1.500 kg"),
+])
+def test_manual_only_figures_must_be_numerically_equal_to_the_evidence(
+    manual: str, answer: str
+) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=manual)])
+    assert verifier.approve(answer) is None
+    assert verifier.approve(f"{answer} [Fonte: Manual Airfryer SmartChef 4L, p. 7].") is None
+
+
+@pytest.mark.parametrize("manual,answer", [
+    ("Peso de 1,500 kg.", "Peso de 1,500 kg."),
+    ("Peso de 1.500 kg.", "Peso de 1.500 kg."),
+    ("Pressão de 1,5 bar.", "Pressão de 1.5 bar."),
+    ("O cesto suporta até 1,2 kg de batatas.", "O cesto suporta até 1,2 kg."),
+])
+def test_numerically_identical_manual_figures_are_still_published(manual: str, answer: str) -> None:
+    approved = SentenceVerifier(PRODUCT, [chunk(content=manual)]).approve(answer)
+    assert approved is not None and "[Fonte: Manual Airfryer SmartChef 4L, p. 7]" in approved
+
+
+@pytest.mark.parametrize("manual,answer", [
+    ("Peso de 2 kg a 3 kg, conforme o modelo.", "Peso de 2 kg."),
+    ("Peso de 2 kg - 3 kg.", "Peso de 2 kg."),
+    ("Peso de 2 kg – 3 kg.", "Peso de 2 kg."),
+    ("Tempo de 10 min até 15 min.", "Tempo de 10 min."),
+    ("Tempo de 10 min ou mais.", "Tempo de 10 min."),
+    ("Aquece a 200 °C quando pré-aquecida.", "Aquece a 200 °C."),
+    ("Aquece a 200 °C em modo turbo.", "Aquece a 200 °C."),
+    ("Consome 1.500 W no modo turbo e no modo eco é de 800 W.", "Consome 1.500 W."),
+])
+def test_truncated_ranges_and_mode_qualifiers_are_not_literal_support(
+    manual: str, answer: str
+) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=manual)])
+    assert verifier.approve(answer) is None
+    assert verifier.approve(f"{answer[:-1]} [Fonte: Manual Airfryer SmartChef 4L, p. 7].") is None
+
+
+FILTER_MANUAL = "Limpe o filtro semanalmente batendo-o levemente; troque-o a cada 3 meses."
+
+
+@pytest.mark.parametrize("answer", [
+    "Troque-o a cada 3 meses [Fonte: Manual Airfryer SmartChef 4L, p. 7].",
+    "Troque-o a cada 3 meses.",
+])
+def test_a_complete_clause_after_a_semicolon_is_literal_support(answer: str) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=FILTER_MANUAL)])
+    assert verifier.approve(answer) == "Troque-o a cada 3 meses [Fonte: Manual Airfryer SmartChef 4L, p. 7]."
+
+
+@pytest.mark.parametrize("manual,answer", [
+    (FILTER_MANUAL, "Troque-o a cada 6 meses."),
+    ("Limpe o cesto; aguarde de 10 min a 15 min antes de guardar.", "Aguarde de 10 min."),
+    ("Limpe o cesto; aquece a 200 °C em modo turbo.", "Aquece a 200 °C."),
+    # A colon label governs its whole list: its items are not independent clauses.
+    ("Nunca utilize: álcool; solventes.", "Solventes."),
+    ("Proibido: usar formas de alumínio no cesto.", "Usar formas de alumínio no cesto."),
+])
+def test_clause_support_keeps_values_ranges_and_governing_labels(manual: str, answer: str) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=manual)])
+    assert verifier.approve(answer) is None
+    assert verifier.approve(f"{answer[:-1]} [Fonte: Manual Airfryer SmartChef 4L, p. 7].") is None
+
+
+def _upgrade_card() -> ProductRecommendation:
+    return ProductRecommendation(
+        sku="AF-800-220V", name="Airfryer SmartChef 8L", price="799.90",  # type: ignore[arg-type]
+        stock_quantity=5, voltage="220V", capacity_liters="8.0",  # type: ignore[arg-type]
+        power_watts=1800, recommendation_type="UPSELL",
+    )
+
+
+def _verifier() -> ConsultativeVerifier:
+    return ConsultativeVerifier(PRODUCT, [chunk()], [_upgrade_card()])
+
+
+def test_a_sku_header_attributes_the_following_bullets_to_that_sku() -> None:
+    verifier = _verifier()
+    assert verifier.approve("SKU AF-800-220V:\n") == ""  # held until its first verified fact
+    assert verifier.approve("- A potência é 1800 W.\n") == "SKU AF-800-220V:\n- A potência é 1800 W.\n"
+    assert verifier.approve("- Possui capacidade de 8 L.\n") == "- Possui capacidade de 8 L.\n"
+    assert verifier.approve("- Preço atual: R$ 799,90.\n") == "- Preço atual: R$ 799,90.\n"
+    assert verifier.approve("- Possui capacidade de 4 L.\n") is None  # the base value, not this SKU's
+    assert verifier.approve("- A potência é 1500 W.\n") is None
+
+
+def test_the_sku_block_ends_at_a_blank_line_another_header_or_the_end_of_the_list() -> None:
+    verifier = _verifier()
+    verifier.approve("SKU AF-800-220V:\n")
+    verifier.approve("- A potência é 1800 W.\n")
+    verifier.end_block()  # blank line
+    assert verifier.approve("A potência é 1800 W.\n") is None
+    assert verifier.approve("A potência é 1500 W.\n") == "A potência é 1500 W.\n"
+
+    verifier.approve("SKU AF-800-220V:\n")
+    verifier.approve("- A potência é 1800 W.\n")
+    assert verifier.approve("A potência é 1500 W.\n") == "A potência é 1500 W.\n"  # list ended
+
+    verifier.approve("SKU AF-800-220V:\n")
+    assert verifier.approve(f"SKU {PRODUCT.sku}:\n") == ""
+    assert verifier.approve("- A potência é 1800 W.\n") is None
+    assert verifier.approve("- A potência é 1500 W.\n") == f"SKU {PRODUCT.sku}:\n- A potência é 1500 W.\n"
+
+
+def test_an_unknown_sku_header_blocks_its_whole_block() -> None:
+    verifier = _verifier()
+    assert verifier.approve("SKU AF-999-220V:\n") is None
+    assert verifier.approve("- A potência é 1500 W.\n") is None
+    verifier.end_block()
+    assert verifier.approve("A potência é 1500 W.") == "A potência é 1500 W."
+
+
+def test_streamed_alternative_list_is_published_without_the_missing_evidence_notice() -> None:
+    from test_orchestrator_recommendations import Recommender
+    from test_orchestrator_recommendations import run as run_with_cards
+
+    model = ChatModel([
+        "SKU AF-800-220V:\n- A potência é 1800 W.\n- Possui capacidade de 8.0 L.\n",
+        "- Preço atual: R$ 799.9.\n- Voltagem: 220V.\n",
+    ])
+    events = run_with_cards(Catalog(PRODUCT, [chunk()]), model, Recommender([_upgrade_card().model_dump(mode="json")]))
+    text = "".join(str(event["data"]["delta"]) for event in events if event["event"] == "token")  # type: ignore[index]
+    assert text == (
+        "SKU AF-800-220V:\n- A potência é 1800 W.\n- Possui capacidade de 8.0 L.\n"
+        "- Preço atual: R$ 799.9.\n- Voltagem: 220V.\n"
+    )
+    assert "error" not in names(events)
+
+
+def test_prompt_renders_sql_values_in_pt_br_and_asks_for_prefixed_sentences() -> None:
+    from app.generation.prompt import build_messages
+
+    pricey = PRODUCT.model_copy(update={"price": Decimal("1299.90"), "capacity_liters": Decimal("1.5"),
+                                        "specs_json": {"altura_cm": 7.5}})
+    card = _upgrade_card().model_dump(mode="json")
+    system = build_messages(pricey, [chunk()], [], "Tem maior?", history_limit=0,
+                            recommendations=[card])[0]["content"]
+    catalog = system[system.index("<CATALOGO_SQL>\n"):system.index("</CATALOGO_SQL>")]
+    assert "Preço atual: R$ 1.299,90" in catalog
+    assert "Capacidade: 1,5 L" in catalog and "Potência: 1500 W" in catalog
+    assert "altura_cm: 7,5" in catalog
+    options = system[system.index("<RECOMENDACOES_SQL>\n"):system.index("</RECOMENDACOES_SQL>")]
+    assert '"price": "R$ 799,90"' in options
+    assert '"capacity_liters": "8 L"' in options and '"power_watts": "1800 W"' in options
+    assert "799.90" not in options and "8.0" not in options
+    assert '"SKU AF-123-220V: A potência é 1200 W."' in system
+
+
+@pytest.mark.parametrize("answer", [
+    "Preço atual: R$ 1.299,90.", "Possui capacidade de 1,5 L.", "A potência é 1500 W.",
+])
+def test_g_out_accepts_the_pt_br_forms_the_prompt_renders(answer: str) -> None:
+    product = PRODUCT.model_copy(update={"price": Decimal("1299.90"), "capacity_liters": Decimal("1.5")})
+    assert SentenceVerifier(product, []).approve(answer) == answer
+
+
+TABLE_MANUAL = (
+    "## Tabela de preparo\n| Alimento | Temperatura | Tempo |\n"
+    "| Batata congelada | 200 °C | 18 a 20 min |\n| Coxa de frango | 180 °C | 25 a 30 min |\n"
+    "| Pão de queijo congelado | 180 °C | 15 min |"
+)
+CITE_P7 = " [Fonte: Manual Airfryer SmartChef 4L, p. 7]."
+
+
+@pytest.mark.parametrize("answer", [
+    "Para batata congelada, a temperatura é 200 °C e o tempo é 18 a 20 min",
+    "Para batata congelada, use 200 °C por 18 a 20 minutos",
+    "Batata congelada: 200 °C",
+    "Para pão de queijo congelado, o tempo é 15 min",
+])
+def test_a_table_row_supports_its_label_with_its_own_values(answer: str) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=TABLE_MANUAL)])
+    assert verifier.approve(answer + CITE_P7) == answer + CITE_P7
+    assert verifier.approve(answer + ".") == answer + CITE_P7  # uncited: gets its real page
+
+
+@pytest.mark.parametrize("answer", [
+    "Para batata congelada, a temperatura é 180 °C e o tempo é 18 a 20 min",  # wrong value
+    "Para batata congelada, a temperatura é 200 °C e o tempo é 25 a 30 min",  # another row's value
+    "Para batata congelada, o tempo é 18 min",  # truncated range
+    "Para batata congelada, o tempo é 20 min",
+    "Para batata congelada, use 200 °C por 18 a 20 min e mais 5 min",  # extra number
+    "Para batata congelada, use 200 °C por 18 a 20 min, 2 vezes",
+    "Para batata congelada e coxa de frango, use 200 °C",  # two row labels
+    "Para batata, use 200 °C",  # partial label
+    "Para batata congelada, use 200 °C sem pré-aquecer",  # unsupported added instruction
+    "Não use 200 °C para batata congelada",
+    "Para frango, 200 °C",
+])
+def test_a_table_row_never_supports_wrong_partial_or_foreign_values(answer: str) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=TABLE_MANUAL)])
+    assert verifier.approve(answer + CITE_P7) is None
+    assert verifier.approve(answer + ".") is None
+
+
+DESCALING = (
+    "Faça a descalcificação a cada 2 meses, ou antes se a água da região for dura, usando o "
+    "Kit de Limpeza e Descalcificação AromaTech (KIT-CAF-01) conforme a embalagem."
+)
+
+
+def test_a_literal_manual_sentence_may_name_the_accessory_sku_it_contains() -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=DESCALING)])
+    cited = DESCALING[:-1] + CITE_P7
+    assert verifier.approve(cited) == cited
+    assert verifier.approve(DESCALING) == cited
+
+
+@pytest.mark.parametrize("answer", [
+    "Use o KIT-CAF-01 a cada 2 meses.",  # paraphrase naming another SKU
+    "Faça a descalcificação a cada 3 meses usando o KIT-CAF-01.",
+    "O KIT-CAF-01 custa R$ 499,90.",  # base SQL value transferred to another SKU
+    "O KIT-CAF-01 tem potência de 1500 W.",
+])
+def test_another_sku_outside_a_literal_manual_sentence_is_still_blocked(answer: str) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=DESCALING)])
+    assert verifier.approve(answer) is None
+    assert verifier.approve(answer[:-1] + CITE_P7) is None
