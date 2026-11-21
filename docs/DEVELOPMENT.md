@@ -56,6 +56,39 @@ O workflow `Python domain modules` sobe os dois serviços e executa as verifica�
 das duas camadas com uv. `Specs and reference contracts` continua validando a
 documentação e o OpenAPI.
 
+## Aceitação F05 com Docker e Playwright
+
+No worktree com a pilha integrada, execute a partir da raiz. No PowerShell:
+
+```powershell
+$env:LLM_API_KEY = 'f05-fixture'
+$env:E2E_ADMIN_TOKEN = 'f05-local-admin'
+$env:E2E_BASE_URL = 'http://localhost:3300'
+docker compose -p smartsales-f05 -f docker-compose.yml -f docker-compose.f05.yml up --build --wait --wait-timeout 360
+corepack pnpm@9.0.0 -C frontend install --frozen-lockfile
+corepack pnpm@9.0.0 -C frontend exec playwright install chromium
+corepack pnpm@9.0.0 -C frontend run test:e2e tests/e2e/f05.spec.ts
+```
+
+Se já tiver Chrome instalado, use `$env:E2E_CHROMIUM_CHANNEL = 'chrome'` no
+lugar de instalar o Chromium. O painel fica em
+`http://localhost:3300/admin/metricas` e o gateway em `http://localhost:8800`.
+Use o mesmo `E2E_ADMIN_TOKEN` no painel e no teste. O token acima é apenas
+para a pilha de aceitação local.
+
+Os testes usam o frontend, o gateway, o RAG, o PostgreSQL e o Redis do Docker.
+O serviço `model-fixture` responde localmente às chamadas de embedding e geração
+das duas jornadas. O painel calcula as métricas sobre eventos realmente gravados.
+O checkout é simulado e o teste confere o link retornado sem abrir o marketplace.
+Essa execução valida a integração. A qualidade e a latência de um provedor
+de IA externo exigem execução própria com o Compose normal.
+
+Para encerrar a pilha de teste:
+
+```powershell
+docker compose -p smartsales-f05 -f docker-compose.yml -f docker-compose.f05.yml down
+```
+
 ## Rodar sem Docker (três terminais)
 
 Precisa de um PostgreSQL com pgvector e de um Redis acessíveis.
