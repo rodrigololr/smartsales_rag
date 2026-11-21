@@ -43,6 +43,8 @@ export interface Product {
   /** Present on gateway products; mock products derive them in mock-data. */
   marketplace?: MarketplaceType;
   checkout_url?: string;
+  /** Technical sheet from the catalog (`specs_json`); shown as-is, never inferred (R01). */
+  specs_json?: Record<string, unknown>;
   /** Extra product photos for the product page gallery (frontend only). */
   gallery?: string[];
   description?: string;

@@ -52,7 +52,7 @@ function RecommendationCard({
   return (
     <Card
       data-testid={`recommendation-card-${card.sku}`}
-      className={cn("w-[252px] shrink-0 snap-start gap-2 py-3 text-xs", tone.card)}
+      className={cn("w-[min(252px,80vw)] shrink-0 snap-start gap-2 py-3 text-xs", tone.card)}
     >
       <CardContent className="flex flex-col gap-2 px-3">
         <div className="flex items-start justify-between gap-2">
@@ -79,22 +79,22 @@ function RecommendationCard({
           />
           <div className="min-w-0">
             <p className="line-clamp-2 text-sm font-semibold text-foreground">{card.name}</p>
-            <p className="font-mono text-[10px] text-muted-foreground">{card.sku}</p>
+            <p className="font-mono text-[11px] text-muted-foreground">{card.sku}</p>
           </div>
         </div>
 
-        <p className="line-clamp-2 min-h-8 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="line-clamp-3 min-h-8 text-xs leading-relaxed text-muted-foreground">
           {card.justification}
         </p>
 
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-base font-bold text-foreground">{formatBRL(card.price)}</span>
+          <span className="text-base font-bold tabular-nums text-foreground">{formatBRL(card.price)}</span>
           {inStock ? (
-            <span className="text-[11px] font-medium text-emerald-600">
+            <span className="text-xs font-medium text-emerald-700">
               Em estoque ({card.stock_quantity} un.)
             </span>
           ) : (
-            <span className="text-[11px] font-medium text-rose-600">Esgotado</span>
+            <span className="text-xs font-medium text-rose-700">Esgotado</span>
           )}
         </div>
 
@@ -107,7 +107,8 @@ function RecommendationCard({
           className="mt-1 w-full gap-1.5"
         >
           <ShoppingCart />
-          Comprar na {marketplaceLabel(card.marketplace)}
+          {/* Sold-out is never offered as a purchase (R03). */}
+          {inStock ? `Comprar na ${marketplaceLabel(card.marketplace)}` : "Indisponível"}
         </Button>
       </CardContent>
     </Card>
@@ -133,9 +134,9 @@ export function ProductRecommendationCarousel({
 
   return (
     <div className="space-y-1.5" data-testid="recommendation-carousel">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <h3 className="text-xs font-semibold text-foreground">
         Recomendações para você
-      </p>
+      </h3>
 
       <div className="-mx-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 pb-2">
         {products.map((card) => {
@@ -147,7 +148,7 @@ export function ProductRecommendationCarousel({
         })}
       </div>
 
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-[11px] text-muted-foreground">
         Preço e estoque são revalidados antes de abrir o marketplace.
       </p>
 

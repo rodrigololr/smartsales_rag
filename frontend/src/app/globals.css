@@ -111,7 +111,7 @@
 	--muted:
 		oklch(0.97 0 0);
 	--muted-foreground:
-		oklch(0.556 0 0);
+		oklch(0.5 0 0);
 	--accent:
 		oklch(0.97 0 0);
 	--accent-foreground:
@@ -123,7 +123,7 @@
 	--input:
 		oklch(0.922 0 0);
 	--ring:
-		oklch(0.708 0 0);
+		oklch(0.585 0.233 277.117);
 	--chart-1:
 		oklch(0.785 0.115 274.713);
 	--chart-2:
@@ -228,7 +228,35 @@
 	}
   html {
     @apply font-sans;
+    accent-color: var(--primary);
 	}
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+  input,
+  textarea {
+    caret-color: var(--primary);
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p,
+  li,
+  blockquote {
+    text-wrap: pretty;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {

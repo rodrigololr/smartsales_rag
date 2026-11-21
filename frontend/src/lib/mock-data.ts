@@ -37,6 +37,7 @@ export const CATALOG_PRODUCTS: Product[] = [
     voltage: "220V",
     capacity_liters: 4.0,
     power_watts: 1500,
+    specs_json: { temperatura_min_c: 80, temperatura_max_c: 200, timer_max_min: 60, frequencia_hz: 60 }, // data/catalog.json
     image_url: "/images/airfryer-4l.svg",
     gallery: ["/images/airfryer-4l-painel.svg"],
     description:
@@ -56,6 +57,7 @@ export const CATALOG_PRODUCTS: Product[] = [
     voltage: "220V",
     capacity_liters: 5.5,
     power_watts: 1800,
+    specs_json: { temperatura_min_c: 80, temperatura_max_c: 200, timer_max_min: 60, frequencia_hz: 60 }, // data/catalog.json
     image_url: "/images/airfryer-55l.svg",
     gallery: ["/images/airfryer-55l-painel.svg"],
     description:
@@ -75,6 +77,7 @@ export const CATALOG_PRODUCTS: Product[] = [
     voltage: "127V",
     capacity_liters: 1.5,
     power_watts: 1050,
+    specs_json: { pressao_bar: 15, frequencia_hz: 60 }, // data/catalog.json
     image_url: "/images/cafeteira.svg",
     gallery: ["/images/cafeteira-detalhe.svg"],
     description:
@@ -132,6 +135,7 @@ export const RECOMMENDATION_PRODUCTS: Product[] = [
     voltage: "127V",
     capacity_liters: 2.0,
     power_watts: 1350,
+    specs_json: { pressao_bar: 19 }, // data/catalog.json
     image_url: "/images/cafeteira-2l.svg",
     description: "Versão superior com reservatório de 2L e moedor integrado.",
     features: ["Moedor integrado", "Reservatório 2L", "Pressão de 19 bar"],

@@ -36,22 +36,22 @@ export function AssistantMessage({
 
   return (
     <div className="space-y-2" data-testid={`assistant-message-${message.id}`}>
-      <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <span className="flex items-center gap-1">
-          <Bot className="size-3.5 text-primary" />
+          <Bot aria-hidden className="size-3.5 text-primary" />
           Consultor IA
         </span>
         {message.cacheHit ? (
-          <Badge variant="outline" className="h-4 gap-0.5 px-1 text-[9px]">
+          <Badge variant="outline" className="h-4 gap-0.5 px-1 text-[10px]">
             <Zap className="size-2.5" />
             Cache
           </Badge>
         ) : null}
         {typeof message.ttftMs === "number" ? (
-          <span className="normal-case">TTFT {message.ttftMs} ms</span>
+          <span className="normal-case tabular-nums">TTFT {message.ttftMs} ms</span>
         ) : null}
         {message.wasCorrected ? (
-          <Badge variant="outline" className="h-4 px-1 text-[9px]">
+          <Badge variant="outline" className="h-4 px-1 text-[10px]">
             Resposta corrigida
           </Badge>
         ) : null}
@@ -76,7 +76,7 @@ export function AssistantMessage({
           <AlertDescription>
             {message.errorFallback}
             {message.errorCode ? (
-              <span className="mt-1 block font-mono text-[10px] opacity-80">
+              <span className="mt-1 block font-mono text-[11px] opacity-80">
                 {message.errorCode}
               </span>
             ) : null}
@@ -103,7 +103,7 @@ export function AssistantMessage({
         >
           {message.content}
           {message.isStreaming ? (
-            <span className="ml-0.5 inline-block h-3.5 w-1 animate-pulse rounded-full bg-primary align-middle" />
+            <span aria-hidden="true" className="ml-0.5 inline-block h-3.5 w-1 animate-pulse rounded-full bg-primary align-middle" />
           ) : null}
         </div>
       ) : null}

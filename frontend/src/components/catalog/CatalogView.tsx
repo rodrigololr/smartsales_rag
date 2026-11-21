@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Filter, Search, X } from "lucide-react";
+import Link from "next/link";
+import { Search, X } from "lucide-react";
 import type { Product } from "@/types/catalog";
 import { API_BASE_URL } from "@/lib/chat-api";
 import { StoreHeader } from "@/components/layout/StoreHeader";
@@ -45,24 +46,24 @@ export function CatalogView({ products, unavailable = false }: CatalogViewProps)
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <StoreHeader />
+      <StoreHeader contained />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <main id="conteudo" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Catálogo</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Catálogo</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Abra um produto para ver os detalhes e tirar dúvidas com o Consultor IA.
           </p>
         </div>
 
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full sm:max-w-sm">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar por nome, SKU ou marca..."
+              placeholder="Buscar por nome, SKU ou marca…"
               aria-label="Buscar produtos no catálogo"
               className="bg-card pl-9 pr-9"
             />
@@ -73,21 +74,27 @@ export function CatalogView({ products, unavailable = false }: CatalogViewProps)
                 size="icon-xs"
                 onClick={() => setQuery("")}
                 aria-label="Limpar busca"
-                className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground"
+                className="absolute top-1/2 right-1 size-7 -translate-y-1/2 text-muted-foreground"
               >
                 <X />
               </Button>
             ) : null}
           </div>
 
-          <div className="flex w-fit items-center gap-1 rounded-lg bg-muted p-1 text-xs text-muted-foreground">
-            <Filter className="ml-1 size-3.5" />
+          <div
+            role="group"
+            aria-labelledby="filtro-voltagem"
+            className="flex w-fit items-center gap-1 rounded-lg bg-muted p-1 text-xs text-muted-foreground"
+          >
+            <span id="filtro-voltagem" className="px-1.5 font-medium">
+              Voltagem
+            </span>
             {VOLTAGE_FILTERS.map((filter) => (
               <Button
                 key={filter}
                 type="button"
                 variant="ghost"
-                size="xs"
+                size="sm"
                 aria-pressed={voltageFilter === filter}
                 onClick={() => setVoltageFilter(filter)}
                 className={cn(
@@ -109,15 +116,32 @@ export function CatalogView({ products, unavailable = false }: CatalogViewProps)
             data-testid="catalog-error"
             className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-800"
           >
-            O catálogo está indisponível agora. Recarregue a página em instantes.
+            O catálogo está indisponível agora.{" "}
+            <Link href="/" prefetch={false} className="font-medium underline underline-offset-2">
+              Tentar de novo
+            </Link>
           </p>
         ) : (
-          <ProductGrid products={filteredProducts} />
+          <>
+            <p role="status" className="mb-3 text-xs text-muted-foreground">
+              {filteredProducts.length === 1
+                ? "1 produto"
+                : `${filteredProducts.length} produtos`}
+              {filteredProducts.length !== products.length ? ` de ${products.length}` : ""}
+            </p>
+            <ProductGrid
+              products={filteredProducts}
+              onClearFilters={() => {
+                setQuery("");
+                setVoltageFilter("ALL");
+              }}
+            />
+          </>
         )}
       </main>
 
-      <footer className="border-t border-border bg-muted/30 py-4">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6 lg:px-8">
+      <footer className="border-t border-border bg-muted/30 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 text-center text-xs text-muted-foreground sm:flex-row sm:px-6 sm:text-left lg:px-8">
           <span>
             SmartSales RAG ·{" "}
             {API_BASE_URL ? "Consultor conectado ao RAG dos manuais" : "MVP demonstrativo com dados mockados"}

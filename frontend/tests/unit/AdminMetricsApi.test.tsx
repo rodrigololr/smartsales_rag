@@ -89,7 +89,7 @@ describe("UT-F04-03: /admin/metricas ligado ao GET /api/v1/metrics/summary", () 
     await screen.findByTestId("admin-dashboard");
 
     expect(screen.getByTestId("metric-ttft-p50")).toHaveTextContent("Na meta");
-    expect(screen.getByTestId("metric-ttft-p95")).toHaveTextContent("2400 ms");
+    expect(screen.getByTestId("metric-ttft-p95")).toHaveTextContent("2.400 ms");
     expect(screen.getByTestId("metric-ttft-p95")).toHaveTextContent("Fora da meta");
     expect(screen.getByTestId("metric-total-latency-p95")).toHaveTextContent("Na meta");
     expect(screen.getByTestId("metric-cache-hit")).toHaveTextContent("42%");
