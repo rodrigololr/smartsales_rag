@@ -52,14 +52,15 @@ describe("Página do produto com Consultor IA ao lado", () => {
     expect(screen.queryByTestId("contextual-chat-drawer")).not.toBeInTheDocument();
   });
 
-  it("registra um único checkout mesmo quando a página re-renderiza", () => {
-    const airfryer = product("AF-400-220V");
-    const { rerender } = render(<ProductPageView product={airfryer} />);
+  it("o buy box (fora do chat) abre o marketplace direto, sem mock checkout", () => {
+    render(<ProductPageView product={product("AF-400-220V")} />);
 
-    fireEvent.click(screen.getByTestId("buy-btn-AF-400-220V"));
-    rerender(<ProductPageView product={airfryer} />);
+    const buy = screen.getByTestId("buy-btn-AF-400-220V");
+    expect(buy).toHaveAttribute("href", expect.stringContaining("amazon.com.br"));
+    expect(buy).toHaveAttribute("target", "_blank");
+    fireEvent.click(buy);
 
-    expect(mockCheckout).toHaveBeenCalledTimes(1);
+    expect(mockCheckout).not.toHaveBeenCalled();
   });
 
   it("sugere perguntas coerentes com o tipo de produto", () => {

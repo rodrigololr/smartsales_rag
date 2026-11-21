@@ -46,6 +46,7 @@ export type StreamErrorCode =
 
 export type FeedbackReasonCategory = "HALLUCINATION" | "WRONG_VOLTAGE" | "SLOW" | "OTHER";
 
+/** openapi.yaml `Metrics` (GET /api/v1/metrics/summary). */
 export interface MetricsSummary {
   window: { from: string; to: string };
   turns: number;
@@ -87,6 +88,7 @@ export interface FeedbackRecorded {
   recorded_at: string;
 }
 
+/** openapi.yaml `CheckoutCreate`: `message_id` is the server id from SSE `metadata`. */
 export interface CheckoutCreate {
   session_id: string;
   message_id: string;
@@ -96,6 +98,7 @@ export interface CheckoutCreate {
   displayed_price: number;
 }
 
+/** openapi.yaml `Checkout` (HTTP 200). */
 export interface Checkout {
   checkout_event_id: string;
   status: "CONFIRMED";
@@ -111,6 +114,7 @@ export interface Checkout {
   message: string;
 }
 
+/** openapi.yaml `CheckoutConflict` (HTTP 409). */
 export interface CheckoutConflict {
   checkout_event_id: string;
   status: "OUT_OF_STOCK" | "PRICE_CHANGED";

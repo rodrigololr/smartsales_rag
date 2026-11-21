@@ -97,18 +97,20 @@ export function ProductPageView({ product }: { product: Product }) {
                 </tbody>
               </table>
 
-              <div className="border-t border-border pt-3">
-                <h2 className="mb-2 text-base font-semibold text-foreground">Sobre este item</h2>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  <li>{product.description}</li>
-                  {(product.features ?? []).map((feature) => (
-                    <li key={feature}>{feature}</li>
-                  ))}
-                </ul>
-              </div>
+              {product.description || product.features?.length ? (
+                <div className="border-t border-border pt-3">
+                  <h2 className="mb-2 text-base font-semibold text-foreground">Sobre este item</h2>
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    {product.description ? <li>{product.description}</li> : null}
+                    {(product.features ?? []).map((feature) => (
+                      <li key={feature}>{feature}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </section>
 
-            <ProductBuyBox product={product} sessionId={chat.sessionId} />
+            <ProductBuyBox product={product} />
           </div>
         </main>
       </div>

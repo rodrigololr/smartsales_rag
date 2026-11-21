@@ -154,7 +154,7 @@ const planResponse = (product: Product, message: string): MockPlan => {
     .join(" · ");
 
   return {
-    answer: `Sobre a ${product.name}: ${product.description}\n\nEspecificações do manual — ${specs}. O item está em estoque com ${product.stock_quantity} unidades e pode ser adquirido no canal oficial exibido abaixo.`,
+    answer: `Sobre a ${product.name}: ${product.description ?? ""}\n\nEspecificações do manual — ${specs}. O item está em estoque com ${product.stock_quantity} unidades e pode ser adquirido no canal oficial exibido abaixo.`,
     citations: citations.slice(0, 1),
     recommendations: allCards,
   };

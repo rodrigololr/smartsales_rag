@@ -98,6 +98,8 @@ em `http://localhost:8001/docs`.
 | middleend | `SESSION_TTL_SECONDS`, `SESSION_HISTORY_MAX_MESSAGES`, `SESSION_LOCK_TTL_SECONDS` | `1800`, `10`, `60` | TTL da sessão, janela do histórico (número par, mínimo 2) e validade do lease/lock de turno. |
 | middleend | `SESSION_HEARTBEAT_SECONDS`, `SESSION_MAINTENANCE_SECONDS`, `TURN_RETRY_AFTER_SECONDS` | `10.0`, `60.0`, `1` | Intervalo de renovação do lease durante o stream, intervalo de limpeza SQL de sessões/turnos expirados e cabeçalho `Retry-After` em `409 TURN_IN_PROGRESS`. |
 | middleend | `CACHE_TTL_SECONDS`, `CACHE_POLICY_VERSION` | `3600`, `p1` | TTL das respostas em cache; mude a versão ao alterar prompts, guardrails, ranking ou modelo. |
+| frontend | `NEXT_PUBLIC_API_BASE_URL` | vazia | Endereço do gateway visto pelo navegador (chat, feedback, checkout, métricas). Vazia: a vitrine usa o mock local. Entra no bundle no `next build`. |
+| frontend | `API_INTERNAL_BASE_URL` | `NEXT_PUBLIC_API_BASE_URL` | Endereço do gateway visto pelo servidor Next, usado na vitrine e na página do produto (`GET /api/v1/products`, renderizadas a cada requisição, sem cache). No Docker, use `http://middleend:8000`: `localhost` dentro do contêiner do frontend não é o gateway. |
 
 ## Arquitetura implementada
 

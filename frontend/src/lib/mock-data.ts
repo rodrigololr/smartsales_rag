@@ -163,10 +163,10 @@ export const findProduct = (sku: string): Product | undefined =>
   ALL_PRODUCTS.find((product) => product.sku === sku);
 
 export const marketplaceOf = (product: Product): MarketplaceType =>
-  marketplaceForSku[product.sku] ?? "LOJA_OFICIAL";
+  product.marketplace ?? marketplaceForSku[product.sku] ?? "LOJA_OFICIAL";
 
 export const checkoutUrlOf = (product: Product): string =>
-  checkoutUrl(marketplaceOf(product), product.name);
+  product.checkout_url ?? checkoutUrl(marketplaceOf(product), product.name);
 
 export const toCard = (
   product: Product,

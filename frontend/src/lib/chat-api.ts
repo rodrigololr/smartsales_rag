@@ -1,13 +1,18 @@
 import type {
   ApiErrorEnvelope,
+  Checkout,
+  CheckoutConflict,
+  CheckoutCreate,
   FeedbackCreate,
   FeedbackRecorded,
+  MetricsSummary,
   StreamEvent,
 } from "@/types/chat";
 import { SSEParser } from "@/lib/sse-parser";
 
 /** Middle-end origin. Empty means the UI runs on the local mock API. */
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+export const USE_REAL_API = API_BASE_URL !== "";
 
 const MAX_TURN_IN_PROGRESS_WAITS = 3;
 const DEFAULT_RETRY_AFTER_SECONDS = 1;
@@ -42,7 +47,7 @@ export interface ChatStreamInput {
 const isAbort = (error: unknown): boolean =>
   error instanceof Error && error.name === "AbortError";
 
-async function toApiError(response: Response): Promise<ChatApiError> {
+export async function toApiError(response: Response): Promise<ChatApiError> {
   let code = `HTTP_${response.status}`;
   let message = response.statusText;
   try {
@@ -171,4 +176,35 @@ export async function postFeedback(
   });
   if (!response.ok) throw await toApiError(response);
   return (await response.json()) as FeedbackRecorded;
+}
+
+/** POST /api/v1/checkout/mock. 409 is a business answer (CheckoutConflict), not an error. */
+export async function postCheckout(
+  checkout: CheckoutCreate,
+  signal?: AbortSignal
+): Promise<Checkout | CheckoutConflict> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/checkout/mock`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(checkout),
+    signal,
+  });
+  if (response.ok) return (await response.json()) as Checkout;
+  if (response.status === 409) return (await response.json()) as CheckoutConflict;
+  throw await toApiError(response);
+}
+
+/** GET /api/v1/metrics/summary. The token only travels in the X-Admin-Token header. */
+export async function getMetricsSummary(
+  adminToken: string,
+  window: { from: string; to: string },
+  signal?: AbortSignal
+): Promise<MetricsSummary> {
+  const query = new URLSearchParams(window);
+  const response = await fetch(`${API_BASE_URL}/api/v1/metrics/summary?${query}`, {
+    headers: { "X-Admin-Token": adminToken },
+    signal,
+  });
+  if (!response.ok) throw await toApiError(response);
+  return (await response.json()) as MetricsSummary;
 }

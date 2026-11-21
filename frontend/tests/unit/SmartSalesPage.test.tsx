@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import SmartSalesPage from "@/app/page";
+import { CatalogView } from "@/components/catalog/CatalogView";
+import { CATALOG_PRODUCTS } from "@/lib/mock-data";
 
 describe("UT-F01-01: catálogo comum com imagens", () => {
   it("mostra os produtos com foto, preço e link para a página do item", () => {
-    render(<SmartSalesPage />);
+    render(<CatalogView products={CATALOG_PRODUCTS} />);
 
     expect(within(screen.getByRole("banner")).getByText(/SmartSales/i)).toBeInTheDocument();
     const card = screen.getByTestId("product-card-AF-400-220V");
@@ -18,7 +19,7 @@ describe("UT-F01-01: catálogo comum com imagens", () => {
   });
 
   it("filtra por voltagem e busca", () => {
-    render(<SmartSalesPage />);
+    render(<CatalogView products={CATALOG_PRODUCTS} />);
 
     fireEvent.click(screen.getByRole("button", { name: "127V" }));
     expect(screen.getByTestId("product-card-CF-15B-127V")).toBeInTheDocument();
