@@ -47,10 +47,15 @@ async def error_5xx_rate(
     keys = hour_keys(window_from, window_to, now)
     if redis is None or not keys:
         return 0.0
-    async with redis.pipeline(transaction=False) as pipeline:
-        for key in keys:
-            pipeline.hmget(key, TOTAL_FIELD, ERROR_FIELD)
-        buckets: list[list[str | None]] = await pipeline.execute()
+    try:
+        async with redis.pipeline(transaction=False) as pipeline:
+            for key in keys:
+                pipeline.hmget(key, TOTAL_FIELD, ERROR_FIELD)
+            buckets: list[list[str | None]] = await pipeline.execute()
+    except RedisError:
+        # Only this metric depends on Redis: degrade it instead of failing the summary.
+        logger.warning("metrics_error_rate_unavailable")
+        return 0.0
     total = sum(int(bucket[0] or 0) for bucket in buckets)
     errors = sum(int(bucket[1] or 0) for bucket in buckets)
     return errors / total if total else 0.0
