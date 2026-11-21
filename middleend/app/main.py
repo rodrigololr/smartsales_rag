@@ -23,13 +23,14 @@ from app.cache.service import SemanticCacheService
 from app.clients.backend import BackendClient
 from app.config import Settings, get_settings
 from app.ratelimit import (
+    RATE_LIMIT_WINDOW_SECONDS,
     InMemoryRateLimiter,
     RateLimiter,
     RedisRateLimiter,
     client_ip_from_request,
 )
 from app.repositories.products import PostgresProductSnapshots
-from app.routes.chat import RagBackend, error_response, router
+from app.routes.chat import RagBackend, error_response, rate_limited, router
 from app.sessions.cache import SessionCache
 from app.sessions.postgres_store import PostgresSessionStore
 from app.sessions.redis_store import RedisSessionStore
@@ -38,7 +39,14 @@ from app.sessions.store import InMemorySessionStore, SessionStore
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-_EXEMPT_RATE_LIMIT_PATHS = {"/api/v1/health", "/docs", "/openapi.json", "/redoc"}
+# /chat/stream is limited per session_id inside the route, not per IP.
+_EXEMPT_IP_LIMIT_PATHS = {
+    "/api/v1/health",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+    "/api/v1/chat/stream",
+}
 
 
 async def redis_unavailable(request: Request, failure: Exception) -> JSONResponse:
@@ -142,12 +150,12 @@ def build_rate_limiter(settings: Settings, redis: Redis | None) -> RateLimiter:
     if redis is not None:
         return RedisRateLimiter(
             redis,
-            limit=settings.rate_limit_requests_per_minute,
-            window_seconds=settings.rate_limit_window_seconds,
+            limit=settings.rate_limit_per_minute,
+            window_seconds=RATE_LIMIT_WINDOW_SECONDS,
         )
     return InMemoryRateLimiter(
-        limit=settings.rate_limit_requests_per_minute,
-        window_seconds=settings.rate_limit_window_seconds,
+        limit=settings.rate_limit_per_minute,
+        window_seconds=RATE_LIMIT_WINDOW_SECONDS,
     )
 
 
@@ -205,20 +213,14 @@ def create_app(
     async def enforce_rate_limit(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        if request.method != "OPTIONS" and request.url.path not in _EXEMPT_RATE_LIMIT_PATHS:
+        if request.method != "OPTIONS" and request.url.path not in _EXEMPT_IP_LIMIT_PATHS:
             limiter: RateLimiter = request.app.state.rate_limiter
             client_ip = client_ip_from_request(
                 request, trusted_proxy_hops=settings.rate_limit_trusted_proxy_hops
             )
-            decision = await limiter.check(client_ip)
+            decision = await limiter.check(f"ip:{client_ip}")
             if not decision.allowed:
-                limit = settings.rate_limit_requests_per_minute
-                return error_response(
-                    429,
-                    "RATE_LIMITED",
-                    f"Limite de {limit} requisições por minuto excedido.",
-                    headers={"Retry-After": str(decision.retry_after_seconds)},
-                )
+                return rate_limited(decision, settings.rate_limit_per_minute)
         return await call_next(request)
 
     app.add_middleware(

@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from app.cache.service import CachedAnswer, SemanticCacheService
 from app.clients.backend import ReplayStream
 from app.config import Settings
+from app.ratelimit import RateDecision, RateLimiter
 from app.schemas import ChatStreamRequest, Filters, SessionCreate
 from app.sessions.lease import LeaseStream
 from app.sessions.response import SessionStreamingResponse
@@ -53,6 +54,15 @@ def error_response(
         "error": {"code": code, "message": message, "trace_id": str(uuid.uuid4()), "details": {}}
     }
     return JSONResponse(body, status_code=status, headers=headers)
+
+
+def rate_limited(decision: RateDecision, limit: int) -> JSONResponse:
+    return error_response(
+        429,
+        "RATE_LIMITED",
+        f"Limite de {limit} requisições por minuto excedido.",
+        headers={"Retry-After": str(decision.retry_after_seconds)},
+    )
 
 
 def _payload_hash(body: ChatStreamRequest) -> str:
@@ -185,6 +195,11 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
     session = await store.get(str(body.session_id))
     if session is None:
         return error_response(404, "SESSION_NOT_FOUND", "Sessão não encontrada ou expirada.")
+    # Chat is limited per session (not per IP): a class behind one NAT shares one IP.
+    limiter: RateLimiter = request.app.state.rate_limiter
+    decision = await limiter.check(f"session:{session.session_id}")
+    if not decision.allowed:
+        return rate_limited(decision, settings.rate_limit_per_minute)
     filters = body.context_filters
     sku = (filters.current_product_sku if filters else None) or session.current_product_sku
     if not sku:

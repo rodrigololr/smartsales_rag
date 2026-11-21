@@ -35,8 +35,7 @@ class Settings(BaseSettings):
         default=60, ge=1
     )  # SET NX EX: one turn at a time per session
     turn_retry_after_seconds: int = 1
-    rate_limit_requests_per_minute: int = Field(default=30, ge=1)
-    rate_limit_window_seconds: int = Field(default=60, ge=1)
+    rate_limit_per_minute: int = Field(default=30, ge=1)  # spec: RATE_LIMIT_PER_MINUTE
     # Reverse proxies in front of the gateway that append to X-Forwarded-For. With 0 the
     # header is ignored: a client could otherwise forge it to dodge or exhaust a bucket.
     rate_limit_trusted_proxy_hops: int = Field(default=0, ge=0)

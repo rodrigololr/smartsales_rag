@@ -1,4 +1,4 @@
-"""Per-IP rate limiter (`ratelimit:ip:{client_ip}`, M01 / RNF09).
+"""Rate limiter per bucket (`ratelimit:ip:{client_ip}`, `ratelimit:session:{id}`; M01 / R16).
 
 Uses atomic INCR + EXPIRE in Redis (60s window, 30 req/min default) with an
 in-memory fallback for single-process development when REDIS_URL is unset.
@@ -17,7 +17,8 @@ from redis.exceptions import RedisError
 
 logger = logging.getLogger(__name__)
 
-RATE_LIMIT_KEY_PREFIX = "ratelimit:ip:"
+RATE_LIMIT_KEY_PREFIX = "ratelimit:"
+RATE_LIMIT_WINDOW_SECONDS = 60  # fixed: the limit and the 429 message are "per minute"
 _REDIS_RATE_LIMIT_LUA = """
 local count = redis.call('INCR', KEYS[1])
 local ttl = redis.call('TTL', KEYS[1])
@@ -36,7 +37,7 @@ class RateDecision:
 
 
 class RateLimiter(Protocol):
-    async def check(self, client_ip: str) -> RateDecision: ...
+    async def check(self, bucket: str) -> RateDecision: ...
 
 
 def client_ip_from_request(request: Request, *, trusted_proxy_hops: int = 0) -> str:
@@ -57,7 +58,7 @@ def client_ip_from_request(request: Request, *, trusted_proxy_hops: int = 0) -> 
 
 
 class InMemoryRateLimiter:
-    """Fixed-window per-IP counter for single-replica development and unit tests."""
+    """Fixed-window per-bucket counter for single-replica development and unit tests."""
 
     def __init__(
         self,
@@ -75,32 +76,34 @@ class InMemoryRateLimiter:
     def tracked_clients(self) -> int:
         return len(self._windows)
 
-    async def check(self, client_ip: str) -> RateDecision:
+    async def check(self, bucket: str) -> RateDecision:
         now = self._clock()
         # Forget closed windows so the table stays bounded by the clients of one window.
-        self._windows = {ip: entry for ip, entry in self._windows.items() if entry[1] > now}
-        entry = self._windows.get(client_ip)
+        # shortcut: O(n) sweep per request, switch to a periodic sweep if the in-memory
+        # mode ever serves many clients (production uses RedisRateLimiter).
+        self._windows = {key: entry for key, entry in self._windows.items() if entry[1] > now}
+        entry = self._windows.get(bucket)
         if entry is None or now >= entry[1]:
             expires_at = now + self._window_seconds
             count = 1
         else:
             count = entry[0] + 1
             expires_at = entry[1]
-        self._windows[client_ip] = (count, expires_at)
+        self._windows[bucket] = (count, expires_at)
         remaining = max(1, math.ceil(expires_at - now))
         return RateDecision(allowed=count <= self._limit, retry_after_seconds=remaining)
 
 
 class RedisRateLimiter:
-    """Atomic Redis counter on `ratelimit:ip:{client_ip}` with TTL = window_seconds."""
+    """Atomic Redis counter on `ratelimit:{bucket}` with TTL = window_seconds."""
 
     def __init__(self, redis: Redis, *, limit: int, window_seconds: int) -> None:
         self._redis = redis
         self._limit = limit
         self._window_seconds = window_seconds
 
-    async def check(self, client_ip: str) -> RateDecision:
-        key = f"{RATE_LIMIT_KEY_PREFIX}{client_ip}"
+    async def check(self, bucket: str) -> RateDecision:
+        key = f"{RATE_LIMIT_KEY_PREFIX}{bucket}"
         try:
             raw = await cast(
                 object,
@@ -113,5 +116,5 @@ class RedisRateLimiter:
         except RedisError:
             # Storage-level failures on session/chat routes still fail-closed via their
             # own handlers; rate limiter degrades gracefully rather than masking 503.
-            logger.warning("rate_limit_redis_unavailable", extra={"client_ip": client_ip})
+            logger.warning("rate_limit_redis_unavailable", extra={"bucket": bucket})
             return RateDecision(allowed=True, retry_after_seconds=0)

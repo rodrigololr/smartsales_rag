@@ -12,6 +12,7 @@ from app.main import create_app
 from app.ratelimit import InMemoryRateLimiter, RedisRateLimiter, client_ip_from_request
 from fastapi.testclient import TestClient
 from redis.asyncio import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
 from starlette.requests import Request
 from test_chat_routes import END, TOKEN, FakeBackend, ask, new_session
 
@@ -56,11 +57,11 @@ def test_ut_m01_01_thirty_first_request_within_one_minute_returns_429_with_retry
 def test_rate_limit_applies_to_chat_stream_and_uses_configured_threshold() -> None:
     settings = Settings(
         backend_internal_url="http://127.0.0.1:9",
-        rate_limit_requests_per_minute=2,
-        rate_limit_window_seconds=45,
+        rate_limit_per_minute=2,
     )
     with TestClient(create_app(settings, FakeBackend([TOKEN, END]))) as client:
         session_id = new_session(client)
+        assert ask(client, session_id, str(uuid.uuid4())).status_code == 200
         assert ask(client, session_id, str(uuid.uuid4())).status_code == 200
         third = ask(client, session_id, str(uuid.uuid4()))
         assert third.status_code == 429
@@ -79,9 +80,9 @@ def test_redis_rate_limiter_uses_ratelimit_ip_key_with_ttl_and_blocks_31st_reque
             await redis.delete(key)
             limiter = RedisRateLimiter(redis, limit=30, window_seconds=60)
             for _ in range(30):
-                decision = await limiter.check(client_ip)
+                decision = await limiter.check(f"ip:{client_ip}")
                 assert decision.allowed is True
-            blocked = await limiter.check(client_ip)
+            blocked = await limiter.check(f"ip:{client_ip}")
             assert blocked.allowed is False
             assert 1 <= blocked.retry_after_seconds <= 60
             assert await redis.get(key) == "31"
@@ -223,3 +224,38 @@ def test_in_memory_limiter_forgets_expired_windows() -> None:
     clock[0] += 61
     asyncio.run(limiter.check("203.0.113.1"))
     assert limiter.tracked_clients == 1
+
+
+def test_rate_limit_per_minute_env_var_from_spec_sets_the_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RATE_LIMIT_PER_MINUTE", "60")
+    assert Settings(backend_internal_url="http://127.0.0.1:9").rate_limit_per_minute == 60
+
+
+class _UnavailableRedis:
+    async def eval(self, *args: object) -> object:
+        raise RedisConnectionError("redis down")
+
+
+def test_redis_rate_limiter_fails_open_when_redis_is_unavailable() -> None:
+    # Security decision: Redis outage must not turn every request into 429/503.
+    limiter = RedisRateLimiter(_UnavailableRedis(), limit=1, window_seconds=60)  # type: ignore[arg-type]
+    decision = asyncio.run(limiter.check("198.51.100.1"))
+    assert decision.allowed is True
+
+
+def test_chat_stream_is_limited_per_session_not_per_shared_ip() -> None:
+    # Classroom demo: everyone behind one Wi-Fi IP must not share a single chat bucket.
+    settings = Settings(backend_internal_url="http://127.0.0.1:9", rate_limit_per_minute=3)
+    with TestClient(create_app(settings, FakeBackend([TOKEN, END]))) as client:
+        first, second = new_session(client), new_session(client)
+        assert [ask(client, first, str(uuid.uuid4())).status_code for _ in range(3)] == [200] * 3
+        blocked = ask(client, first, str(uuid.uuid4()))
+        assert blocked.status_code == 429
+        assert blocked.json()["error"]["code"] == "RATE_LIMITED"
+        assert ask(client, second, str(uuid.uuid4())).status_code == 200
+        # Chat turns do not consume the IP bucket used by the other routes.
+        assert client.post(
+            "/api/v1/sessions", json={"current_product_sku": "AF-400-220V"}
+        ).status_code == 201

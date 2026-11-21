@@ -2,6 +2,7 @@
 
 from app.ratelimit.limiter import (
     RATE_LIMIT_KEY_PREFIX,
+    RATE_LIMIT_WINDOW_SECONDS,
     InMemoryRateLimiter,
     RateDecision,
     RateLimiter,
@@ -12,6 +13,7 @@ from app.ratelimit.limiter import (
 __all__ = [
     "InMemoryRateLimiter",
     "RATE_LIMIT_KEY_PREFIX",
+    "RATE_LIMIT_WINDOW_SECONDS",
     "RateDecision",
     "RateLimiter",
     "RedisRateLimiter",
