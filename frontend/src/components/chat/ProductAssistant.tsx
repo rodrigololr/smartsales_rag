@@ -7,8 +7,9 @@ import type { ChatSession } from "@/hooks/use-chat-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AssistantMessage } from "@/components/chat/AssistantMessage";
+import { AssistantMessage, fallbackAnnouncement } from "@/components/chat/AssistantMessage";
 import { cn } from "@/lib/utils";
+import { voltageLabel } from "@/lib/format";
 
 export function suggestionsFor(product: Product): string[] {
   const first =
@@ -41,6 +42,14 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
   const { sessionId, messages, isStreaming, send, retry, reset, submitFeedback } = chat;
   const [prompt, setPrompt] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastMessage = messages.at(-1);
+  // Screen readers hear the finished answer once, not every token.
+  const announcement =
+    lastMessage?.role !== "assistant" || lastMessage.isStreaming
+      ? ""
+      : lastMessage.errorFallback
+        ? fallbackAnnouncement(lastMessage)
+        : lastMessage.content;
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -124,12 +133,21 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
         {product.voltage !== "N/A" ? (
           <Badge variant="secondary" className="font-bold text-primary">
             <span className="sr-only">Voltagem </span>
-            {product.voltage}
+            {voltageLabel(product.voltage)}
           </Badge>
         ) : null}
       </div>
 
-      <div ref={scrollRef} aria-live="polite" className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
+      <p data-testid="chat-announcer" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+
+      <div
+        ref={scrollRef}
+        data-testid="chat-log"
+        aria-busy={isStreaming}
+        className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-4"
+      >
         {messages.length === 0 ? (
           <>
             <div className="flex items-start gap-2.5 rounded-xl bg-muted p-3.5 text-xs leading-relaxed text-muted-foreground">
@@ -199,7 +217,6 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
             aria-label="Pergunta para o consultor"
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            disabled={isStreaming}
             placeholder="Faça uma pergunta sobre este produto"
             className="pr-12"
           />

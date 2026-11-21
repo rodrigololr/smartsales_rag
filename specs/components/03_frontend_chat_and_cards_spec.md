@@ -181,3 +181,13 @@ Carregar a vitrine e a pesquisa em `GET /api/v1/products` com os parâmetros/res
 - A escolha fica em `localStorage["smartsales-theme"]` (`light` | `dark`; `Sistema` remove a chave). Leituras e gravações ficam em `try/catch`: com o armazenamento bloqueado, a escolha vale só para a página aberta.
 - Um script inline em `<head>` (`app/layout.tsx` e `app/global-error.tsx`) aplica a classe `.dark` no `<html>` antes da primeira pintura, sem flash de tema errado; o `<html>` usa `suppressHydrationWarning`.
 - Cores: no escuro o índigo primário vira `indigo-400` com texto `indigo-950` (texto `text-primary` ≥ 5,7:1 sobre `card`); texto de estado usa os tokens `success`/`danger`/`warning` (700/800 no claro, 300/400 no escuro); selos tonais (voltagem, tipo de recomendação, meta) usam fundo 950 e texto 200 no escuro. Ilustrações de produto continuam sobre um bloco claro arredondado para manter a leitura da arte.
+
+## 7. Fallback, leitores de tela e foco no chat
+
+- **Alerta de fallback por código** (`data-testid="assistant-fallback-{id}"`, `data-tone`): o código bruto nunca aparece para o usuário. `LOW_SIMILARITY_FALLBACK` é uma resposta segura esperada (tom informativo, índigo/neutro, título `Informação não encontrada no manual`); `GUARDRAIL_BLOCKED` usa tom de aviso (`Pergunta fora do escopo do consultor`); `LLM_UNAVAILABLE` (`Consultor indisponível no momento`) e `INTERNAL_ERROR` (`Não foi possível concluir a resposta`) usam tom de erro e são os únicos com `Tentar novamente`. O botão fica na coluna do texto (`col-start-2`), sem espremer a mensagem a 390 px.
+- **Leitores de tela**: o histórico (`data-testid="chat-log"`) não é região viva; recebe `aria-busy="true"` durante o streaming. Uma região `sr-only` (`data-testid="chat-announcer"`, `aria-live="polite"`) anuncia uma única vez a resposta concluída (ou `Título. mensagem` do fallback).
+- **Foco**: o campo de pergunta permanece habilitado durante o streaming (o foco não se perde); apenas o envio (Enter e botão `Enviar pergunta`) fica bloqueado até o `done`.
+
+## 8. Filtro de voltagem
+
+O filtro da vitrine tem `Todas`, `127V`, `220V` e `Bivolt`. Produtos `BIVOLT` funcionam nas duas tensões e por isso aparecem também em `127V` e em `220V`, com o selo `Bivolt` e a nota `Inclui modelos bivolt, que funcionam em 127V e 220V.` na contagem; o filtro `Bivolt` mostra só eles. Em todos os selos e na ficha técnica, `BIVOLT` é exibido como `Bivolt`.
