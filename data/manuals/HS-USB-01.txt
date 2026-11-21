@@ -6,7 +6,7 @@ Leia este manual antes de usar o produto e guarde-o para consultas futuras.## I
 Evite ouvir em volume alto por longos períodos.
 Não puxe o headset pelo cabo para desconectá-lo.## Componentes
 1. Headset com arco ajustável e almofadas de couro sintético
-2. Microfone em haste flexível
+2. Microfone em haste flexível com redução de ruído
 3. Controle no cabo com volume e botão silenciar## Especificações técnicas
 Este produto não é ligado diretamente à tomada: é alimentado pela porta USB do computador.
 Cabo USB de 2 metros com controle de volume e botão para silenciar o microfone.## Instalação

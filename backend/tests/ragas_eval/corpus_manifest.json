@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "corpus_sha256": "72a6f5dc8e9fcea520fd16bf5b4f7b1d7a3763bca2158b9496c0f30bee513038",
+  "corpus_sha256": "99883a335f479071ca2e9d2fce69565cf5ecb1dfcc2265638ad56b9a0d4c9c61",
   "description": "Synthetic demonstration seed; source verification is not PO/manufacturer audit.",
   "entries": [
     {
@@ -1494,7 +1494,7 @@
     {
       "sku": "HS-USB-01",
       "source": "manual:HS-USB-01.txt",
-      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "source_sha256": "7d44693de09ed7ebf2a98cf78eb66c1104e2092316a937c4a028efb116719711",
       "page_number": 1,
       "chunk_index": 0,
       "quote": "Headset USB Cliqon Talk\nModelo HS-USB-01\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
@@ -1502,7 +1502,7 @@
     {
       "sku": "HS-USB-01",
       "source": "manual:HS-USB-01.txt",
-      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "source_sha256": "7d44693de09ed7ebf2a98cf78eb66c1104e2092316a937c4a028efb116719711",
       "page_number": 2,
       "chunk_index": 0,
       "quote": "## Instruções de segurança\nEvite ouvir em volume alto por longos períodos.\nNão puxe o headset pelo cabo para desconectá-lo."
@@ -1510,15 +1510,15 @@
     {
       "sku": "HS-USB-01",
       "source": "manual:HS-USB-01.txt",
-      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "source_sha256": "7d44693de09ed7ebf2a98cf78eb66c1104e2092316a937c4a028efb116719711",
       "page_number": 3,
       "chunk_index": 0,
-      "quote": "## Componentes\n1. Headset com arco ajustável e almofadas de couro sintético\n2. Microfone em haste flexível\n3. Controle no cabo com volume e botão silenciar"
+      "quote": "## Componentes\n1. Headset com arco ajustável e almofadas de couro sintético\n2. Microfone em haste flexível com redução de ruído\n3. Controle no cabo com volume e botão silenciar"
     },
     {
       "sku": "HS-USB-01",
       "source": "manual:HS-USB-01.txt",
-      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "source_sha256": "7d44693de09ed7ebf2a98cf78eb66c1104e2092316a937c4a028efb116719711",
       "page_number": 4,
       "chunk_index": 0,
       "quote": "## Especificações técnicas\nEste produto não é ligado diretamente à tomada: é alimentado pela porta USB do computador.\nCabo USB de 2 metros com controle de volume e botão para silenciar o microfone."
@@ -1526,7 +1526,7 @@
     {
       "sku": "HS-USB-01",
       "source": "manual:HS-USB-01.txt",
-      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "source_sha256": "7d44693de09ed7ebf2a98cf78eb66c1104e2092316a937c4a028efb116719711",
       "page_number": 5,
       "chunk_index": 0,
       "quote": "## Instalação\nConecte o cabo a uma porta USB do computador; não é necessário instalar programas.\nNo aplicativo de reuniões, selecione Cliqon Talk como alto-falante e microfone.\nA luz vermelha no controle indica que o microfone está silenciado."
@@ -1534,7 +1534,7 @@
     {
       "sku": "HS-USB-01",
       "source": "manual:HS-USB-01.txt",
-      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "source_sha256": "7d44693de09ed7ebf2a98cf78eb66c1104e2092316a937c4a028efb116719711",
       "page_number": 6,
       "chunk_index": 0,
       "quote": "## Limpeza e manutenção\nLimpe as almofadas com pano levemente úmido.\nGire a haste do microfone para cima ao guardar o headset."
@@ -1542,7 +1542,7 @@
     {
       "sku": "HS-USB-01",
       "source": "manual:HS-USB-01.txt",
-      "source_sha256": "3f5eb968a3a8ba3c636cfffaa73eb43ca678535c2077b5cbeb74d8e583aa2cb2",
+      "source_sha256": "7d44693de09ed7ebf2a98cf78eb66c1104e2092316a937c4a028efb116719711",
       "page_number": 7,
       "chunk_index": 0,
       "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
@@ -1814,7 +1814,7 @@
     {
       "sku": "ES-1000-127V",
       "source": "manual:ES-1000-127V.txt",
-      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "source_sha256": "395f9f5d43b8856e2a406f4a7cb69e78e23fc24fb12ce42272d18ba9c0a0cf0d",
       "page_number": 1,
       "chunk_index": 0,
       "quote": "Escova Rotativa Aurélia Volume 1000W\nModelo ES-1000-127V\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
@@ -1822,7 +1822,7 @@
     {
       "sku": "ES-1000-127V",
       "source": "manual:ES-1000-127V.txt",
-      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "source_sha256": "395f9f5d43b8856e2a406f4a7cb69e78e23fc24fb12ce42272d18ba9c0a0cf0d",
       "page_number": 2,
       "chunk_index": 0,
       "quote": "## Instruções de segurança\nNão use a escova perto de banheiras, pias ou outros recipientes com água.\nMantenha o cabelo afastado da entrada de ar traseira.\nDesligue a escova da tomada após o uso."
@@ -1830,15 +1830,15 @@
     {
       "sku": "ES-1000-127V",
       "source": "manual:ES-1000-127V.txt",
-      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "source_sha256": "395f9f5d43b8856e2a406f4a7cb69e78e23fc24fb12ce42272d18ba9c0a0cf0d",
       "page_number": 3,
       "chunk_index": 0,
-      "quote": "## Componentes\n1. Escova rotativa com cerdas mistas\n2. Botões de rotação para a direita e para a esquerda\n3. Chave de temperatura com jato frio\n4. Filtro traseiro removível"
+      "quote": "## Componentes\n1. Escova rotativa com cerdas mistas\n2. Botões de rotação para a direita e para a esquerda\n3. Chave com duas temperaturas de ar quente e jato frio\n4. Função íons, que reduz o frizz durante a escovação\n5. Filtro traseiro removível"
     },
     {
       "sku": "ES-1000-127V",
       "source": "manual:ES-1000-127V.txt",
-      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "source_sha256": "395f9f5d43b8856e2a406f4a7cb69e78e23fc24fb12ce42272d18ba9c0a0cf0d",
       "page_number": 4,
       "chunk_index": 0,
       "quote": "## Especificações elétricas\nEste modelo opera exclusivamente em 127V / 60 Hz, com potência nominal de 1000 W.\nNão utilize extensões ou adaptadores.\nLigar o aparelho em tensão diferente da indicada danifica o produto e anula a garantia."
@@ -1846,7 +1846,7 @@
     {
       "sku": "ES-1000-127V",
       "source": "manual:ES-1000-127V.txt",
-      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "source_sha256": "395f9f5d43b8856e2a406f4a7cb69e78e23fc24fb12ce42272d18ba9c0a0cf0d",
       "page_number": 5,
       "chunk_index": 0,
       "quote": "## Modo de uso\n1. Retire o excesso de água do cabelo com uma toalha e divida-o em mechas.\n2. Escolha a temperatura e posicione a escova na raiz da mecha.\n3. Pressione o botão de rotação no sentido desejado e deslize até as pontas.\n4. Finalize com o jato frio para fixar o volume."
@@ -1854,7 +1854,7 @@
     {
       "sku": "ES-1000-127V",
       "source": "manual:ES-1000-127V.txt",
-      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "source_sha256": "395f9f5d43b8856e2a406f4a7cb69e78e23fc24fb12ce42272d18ba9c0a0cf0d",
       "page_number": 6,
       "chunk_index": 0,
       "quote": "## Limpeza e manutenção\nDesligue a escova da tomada e aguarde esfriar.\nRetire os fios presos nas cerdas após cada uso.\nLimpe o filtro traseiro a cada 15 dias."
@@ -1862,7 +1862,7 @@
     {
       "sku": "ES-1000-127V",
       "source": "manual:ES-1000-127V.txt",
-      "source_sha256": "faf0d834b71aa1f24f20effdd0cf4ea8d653e49baf03e59d81748611379b3b7e",
+      "source_sha256": "395f9f5d43b8856e2a406f4a7cb69e78e23fc24fb12ce42272d18ba9c0a0cf0d",
       "page_number": 7,
       "chunk_index": 0,
       "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros."
