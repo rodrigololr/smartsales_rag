@@ -25,7 +25,7 @@ flowchart TD
 
     MSGLIST --> BUBBLE["<b>AssistantMessageBubble</b><br/>Renderizador Markdown incremental"]
     BUBBLE --> CIT["<b>CitationBadgeList</b><br/>Badges clicáveis: 📄 Manual Airfryer 4L, p. 14"]
-    CIT --> MODAL_CIT["<b>CitationPreviewPopover</b><br/>Exibe o trecho original exato do manual"]
+    CIT --> MODAL_CIT["<b>CitationList (acordeão)</b><br/>Exibe o trecho original exato do manual"]
 
     BUBBLE --> CARDS["<b>ProductRecommendationCarousel</b><br/>Lista até 3 cards: PRIMARY, UPSELL e CROSS_SELL"]
     CARDS --> CARD["<b>ProductCard</b><br/>Foto, SKU, Selo, Voltagem, Preço R$ e CTA 'Comprar na Amazon/ML/Shopee'"]
@@ -156,7 +156,7 @@ Cada card renderizado na vitrine da mensagem deve exibir obrigatoriamente:
   - O botão de ação primária **`Comprar na {Marketplace}`** (`data-testid="buy-now-btn-{sku}"`) dispara `POST /api/v1/checkout/mock` (validando estoque/preço em tempo real e registrando a métrica de conversão CTR no PostgreSQL) e, ao confirmar `status: "CONFIRMED"`, abre o modal de confirmação/redireciona para o `redirect_checkout_url` (link de afiliado/anúncio do marketplace). Em `HTTP 409` (`OUT_OF_STOCK` ou `PRICE_CHANGED`), atualiza o card com `current_stock`/`current_price` e exibe alerta amigável sugerindo um item alternativo no chat (`UC05`).
 
 ### 4.2. Interação de Citação Verificável (`CitationBadge` — `EAP 4.9`)
-- Clicar no badge `[📄 Manual Airfryer SmartChef 4L, p. 14]` abre um *popover* acessível (`role="dialog"`) exibindo o `excerpt` literal extraído da página 14 do PDF e a seção técnica correspondente.
+- Clicar no item `Manual Airfryer SmartChef 4L — p. 14` expande um acordeão acessível (`button` com `aria-expanded`/`aria-controls`, operável por teclado) exibindo o `excerpt` literal extraído da página 14 do PDF e a seção técnica correspondente (quando houver). Decisão da issue #12 (F03).
 
 ### 4.3. Interação de Feedback (`MessageFeedbackBar` — `EAP 4.11`)
 - Clicar em `👍` dispara imediatamente `POST /api/v1/feedback` com `rating: "LIKE"` e exibe confirmação `"Obrigado pelo feedback!"`.

@@ -40,4 +40,22 @@ describe("UT-F03-02: MessageFeedbackBar", () => {
       /Obrigado pelo feedback/i
     );
   });
+
+  it("marca como pressionado o motivo escolhido e liga o botão ao grupo de motivos", async () => {
+    const onSubmit = vi.fn(() => new Promise<void>(() => undefined));
+    render(<MessageFeedbackBar message={message} onSubmit={onSubmit} />);
+
+    const dislike = screen.getByTestId("feedback-dislike-message-1");
+    fireEvent.click(dislike);
+    const group = screen.getByRole("group", { name: /Motivo da avaliação negativa/i });
+    expect(dislike).toHaveAttribute("aria-controls", group.id);
+    expect(group.id).not.toBe("");
+
+    fireEvent.click(screen.getByTestId("feedback-reason-WRONG_VOLTAGE"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("feedback-reason-WRONG_VOLTAGE")).toHaveAttribute("aria-pressed", "true")
+    );
+    expect(screen.getByTestId("feedback-reason-HALLUCINATION")).toHaveAttribute("aria-pressed", "false");
+  });
 });

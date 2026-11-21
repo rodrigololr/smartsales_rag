@@ -60,11 +60,25 @@ export interface MetricsSummary {
   top_questions: { question: string; count: number }[];
 }
 
-export interface FeedbackCreate {
+/** openapi.yaml `FeedbackCreate`: DISLIKE requires `reason_category`. */
+export type FeedbackCreate = {
   session_id: string;
   message_id: string;
-  rating: FeedbackRating;
-  reason_category?: FeedbackReasonCategory;
+  /** maxLength 1000 on the gateway. */
+  comment?: string | null;
+} & (
+  | { rating: "LIKE"; reason_category?: FeedbackReasonCategory | null }
+  | { rating: "DISLIKE"; reason_category: FeedbackReasonCategory }
+);
+
+/** openapi.yaml `Error` envelope returned by every 4xx/5xx of the gateway. */
+export interface ApiErrorEnvelope {
+  error: {
+    code: string;
+    message: string;
+    trace_id: string;
+    details: unknown;
+  };
 }
 
 export interface FeedbackRecorded {
@@ -150,8 +164,12 @@ export interface ChatMessage {
   cacheHit?: boolean;
   citations: ManualCitation[];
   recommendations: ProductCardData[];
+  /** `message_id` from the SSE `metadata` event (the gateway's id for this turn). */
+  serverMessageId?: string;
   feedback?: FeedbackRating | null;
   feedbackReason?: FeedbackReasonCategory | null;
+  /** The gateway answered 409 FEEDBACK_ALREADY_RECORDED: rated before (e.g. another tab). */
+  feedbackAlreadyRecorded?: boolean;
   errorFallback?: string | null;
   errorCode?: StreamErrorCode | null;
   wasCorrected?: boolean;
