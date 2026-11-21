@@ -1,0 +1,34 @@
+Twitch — qualidade de transmissão (resolução, fps e bitrate)
+Base de conhecimento curada — verificada em 21/11/2026
+Diretrizes oficiais da central de ajuda da Twitch.
+## Configurações recomendadas (Broadcasting Guidelines)
+1080p a 60 fps: 1920x1080, bitrate de 6000 kbps, CBR, intervalo de keyframe de 2 segundos.
+1080p a 30 fps: 1920x1080, bitrate de 4500 kbps, CBR, intervalo de keyframe de 2 segundos.
+720p a 60 fps: 1280x720, bitrate de 4500 kbps, CBR, intervalo de keyframe de 2 segundos.
+720p a 30 fps: 1280x720, bitrate de 3000 kbps, CBR, intervalo de keyframe de 2 segundos.
+A Twitch recomenda bitrate constante (CBR) em vez de variável (VBR).
+Áudio: codec AAC-LC, 96 kbps recomendado, máximo de 160 kbps.
+A duração máxima de uma transmissão é de 48 horas.
+## Bitrate máximo e internet
+O guia de saúde da transmissão da Twitch orienta respeitar o máximo de 6000 kbps na transmissão padrão.
+Bitrate acima do máximo não garante mais qualidade e pode causar instabilidade.
+Se a conexão estiver no limite, a Twitch recomenda reduzir o bitrate de 200 a 500 kbps.
+A Twitch não publica, nesses artigos, uma velocidade de upload mínima única para 1080p ou 720p.
+Para 2K (1440p), a Twitch indica upload de 20 Mbps sem transcodificação no servidor ou 9 Mbps com Enhanced Broadcasting e transcodificação no servidor.
+O streaming em 2K exige Enhanced Broadcasting e é limitado a Afiliados e Parceiros.
+## Processamento (encoder)
+O encoder x264 usa muito a CPU e pode reduzir o fps do jogo.
+O encoder de GPU (ex.: NVIDIA NVENC) usa um chip dedicado e permite jogar e transmitir sem perder desempenho no jogo.
+Presets do x264 acima de "faster" exigem CPU com 6 ou mais núcleos.
+O NVENC das GPUs NVIDIA RTX 20 e GTX 1660/Ti tem qualidade típica superior ao x264 "fast" e semelhante ao x264 "medium".
+Para 2K, a Twitch exige GPU NVIDIA GeForce 2000 ou mais nova, AMD Radeon RX 6000 ou mais nova, Intel Arc A580 ou mais nova, ou Apple M4 (ou M1–M3 Max), com OBS Studio 32.0 ou mais novo.
+## Webcam versus qualidade da transmissão
+A resolução e o fps da transmissão são definidos no software de transmissão (ex.: OBS) e limitados pelo bitrate, pelo encoder e pela internet.
+Por isso, a resolução da webcam sozinha não define a qualidade da transmissão.
+Uma webcam 1080p não garante transmissão em 1080p se o PC ou o upload não suportarem 4500 a 6000 kbps.
+A webcam só precisa ter resolução e fps iguais ou maiores que os da área em que aparece na cena.
+Observação: os dois itens acima são inferências a partir das diretrizes da Twitch; a Twitch não publica requisitos específicos para webcam.
+## Fontes
+https://help.twitch.tv/s/article/broadcasting-guidelines?language=en_US (verificado em 21/11/2026)
+https://help.twitch.tv/s/article/guide-to-broadcast-health?language=en_US (verificado em 21/11/2026)
+https://help.twitch.tv/s/article/stream-quality?language=en_US (2K Streaming on Twitch; verificado em 21/11/2026)

@@ -1,0 +1,45 @@
+Grand Theft Auto V no PC e GTA RP (FiveM)
+Base de conhecimento curada — verificada em 21/11/2026
+Requisitos oficiais da Rockstar Games (página atualizada em 10/12/2025) e da Cfx.re.
+## Versões de GTA V no PC
+A Rockstar mantém duas versões de GTA V no PC: Enhanced e Legacy.
+Os requisitos da versão Enhanced são maiores que os da Legacy.
+A Rockstar avisa que conteúdos futuros podem alterar os requisitos e que componentes não listados podem não ser suportados.
+Placas de vídeo integradas, de chipset móvel ou AGP podem ser incompatíveis.
+## GTA V Enhanced — requisitos mínimos
+Sistema operacional: Windows 10 (build 1909 ou superior).
+Processador: Intel Core i7-4770 ou AMD FX-9590.
+Memória: 8 GB de RAM.
+Placa de vídeo: NVIDIA GeForce GTX 1630 (4 GB de VRAM) ou AMD Radeon RX 6400 (4 GB de VRAM).
+Armazenamento: 105 GB em SSD (obrigatório).
+## GTA V Enhanced — requisitos recomendados
+Sistema operacional: Windows 11.
+Processador: Intel Core i5-9600K ou AMD Ryzen 5 3600.
+Memória: 16 GB de RAM em dual-channel.
+Placa de vídeo: NVIDIA GeForce RTX 3060 (8 GB de VRAM) ou AMD Radeon RX 6600 XT (8 GB de VRAM).
+Armazenamento: 105 GB em unidade compatível com DirectStorage.
+## GTA V Legacy — requisitos mínimos e recomendados
+Mínimo: Windows 10 64 bits, Intel Core 2 Quad Q6600 2,4 GHz ou AMD Phenom 9850 2,5 GHz, 4 GB de RAM, NVIDIA 9800 GT ou AMD HD 4870 (1 GB de VRAM), 125 GB em HDD.
+Recomendado: Windows 10 64 bits, Intel Core i5 3470 3,2 GHz ou AMD FX-8350 4 GHz, 8 GB de RAM, NVIDIA GTX 660 ou AMD HD 7870 (2 GB de VRAM), 125 GB em HDD.
+Ambas as versões exigem conta Rockstar Games e conexão à internet para ativação e jogo online.
+## GTA RP (roleplay) e FiveM
+GTA RP é o jogo de interpretação de personagens (roleplay) em servidores multiplayer personalizados de GTA V no PC.
+Esses servidores rodam principalmente no FiveM, um framework de modificação multiplayer para GTA V da Cfx.re.
+O site oficial do FiveM cita roleplay, drift, corrida e deathmatch como tipos de servidor possíveis.
+A Cfx.re (FiveM e RedM) passou a fazer parte da Rockstar Games em 11/08/2023.
+RedM é a modificação equivalente para Red Dead Redemption 2.
+O FiveM roda no PC com Windows 10 ou 11, conforme os requisitos da Cfx.re; não há FiveM para consoles.
+## Requisitos do FiveM
+O FiveM exige uma cópia legítima e totalmente atualizada de GTA V para PC.
+O FiveM não funciona com cópias piratas de GTA V.
+"FiveM" (Legacy) exige GTA V Legacy; "FiveM for GTAV Enhanced" exige GTA V Enhanced.
+Os requisitos de hardware do FiveM acompanham os de GTA V, com espaço extra em disco.
+FiveM Legacy: 125 GB + 4 GB (mínimo) ou 125 GB + 8 GB (recomendado).
+FiveM for GTAV Enhanced: 105 GB + 4 GB (mínimo) ou 105 GB + 8 GB (recomendado), com 16 GB de RAM em dual-channel no recomendado.
+## Fontes
+https://support.rockstargames.com/articles/lMQXeP2Z1mN3g9oZiBZFR/grand-theft-auto-v-pc-system-requirements (verificado em 21/11/2026)
+https://fivem.net/ (verificado em 21/11/2026)
+https://docs.fivem.net/docs/client-manual/installing-fivem/ (verificado em 21/11/2026)
+https://docs.fivem.net/docs/client-manual/where-to-buy-gtav/ (verificado em 21/11/2026)
+https://redm.net/ (verificado em 21/11/2026)
+https://forum.cfx.re/t/cfx-re-officially-joins-rockstar-games/5158920 (anúncio de 11/08/2023; verificado em 21/11/2026)
