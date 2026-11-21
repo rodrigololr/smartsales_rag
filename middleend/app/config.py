@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -37,6 +37,8 @@ class Settings(BaseSettings):
         default=60, ge=1
     )  # SET NX EX: one turn at a time per session
     turn_retry_after_seconds: int = 1
+    # M04: X-Admin-Token for GET /metrics/summary. Unset or blank = endpoint always answers 401.
+    admin_token: SecretStr | None = None
     app_version: str = "0.1.0-mvp"
 
     @model_validator(mode="after")
@@ -48,6 +50,14 @@ class Settings(BaseSettings):
         ):
             raise ValueError("session_heartbeat_seconds must be below session and lock TTL")
         return self
+
+    @field_validator("admin_token", mode="before")
+    @classmethod
+    def blank_admin_token_is_unset(cls, value: object) -> object:
+        """docker-compose passes ADMIN_TOKEN=${ADMIN_TOKEN:-} as an empty string."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod

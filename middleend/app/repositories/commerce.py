@@ -23,8 +23,46 @@ from app.commerce import (
     SessionEnded,
     checkout_conflict,
 )
+from app.metrics import MEDIAN, P95, TOP_QUESTIONS_LIMIT, Metrics, MetricsWindow, TopQuestion
 
 SCHEMA_FILE = Path(__file__).with_suffix(".sql")
+# M04 definitions over [from, to): turns = assistant answers (failed turns included);
+# card_ctr = answers with cards that got >= 1 mock checkout click (any status) / answers
+# with cards; like_ratio = likes / (likes + dislikes); feedback and checkouts by their own
+# created_at. Every ratio and percentile is 0 when its denominator is empty.
+METRICS_SQL = """
+WITH answers AS (
+    SELECT id, ttft_ms, total_latency_ms, cache_hit,
+           jsonb_array_length(recommended_skus) > 0 AS has_cards
+    FROM chat_messages
+    WHERE role = 'assistant' AND created_at >= %(from)s AND created_at < %(to)s
+), ratings AS (
+    SELECT count(*) FILTER (WHERE rating = 'LIKE') AS likes, count(*) AS rated
+    FROM feedback_logs WHERE created_at >= %(from)s AND created_at < %(to)s
+)
+SELECT
+    (SELECT count(*) FROM answers) AS turns,
+    (SELECT coalesce(percentile_cont(%(median)s) WITHIN GROUP (ORDER BY ttft_ms), 0)
+     FROM answers) AS ttft_p50_ms,
+    (SELECT coalesce(percentile_cont(%(p95)s) WITHIN GROUP (ORDER BY ttft_ms), 0)
+     FROM answers) AS ttft_p95_ms,
+    (SELECT coalesce(percentile_cont(%(p95)s) WITHIN GROUP (ORDER BY total_latency_ms), 0)
+     FROM answers) AS total_latency_p95_ms,
+    (SELECT coalesce(avg(cache_hit::int), 0)::float8 FROM answers) AS cache_hit_ratio,
+    (SELECT coalesce(likes::float8 / nullif(rated, 0), 0) FROM ratings) AS like_ratio,
+    (SELECT coalesce(avg((EXISTS (
+         SELECT 1 FROM checkout_events c WHERE c.message_id = a.id))::int), 0)::float8
+     FROM answers a WHERE has_cards) AS card_ctr,
+    (SELECT count(*) FROM checkout_events
+     WHERE status = 'CONFIRMED' AND created_at >= %(from)s AND created_at < %(to)s
+    ) AS confirmed_checkouts
+"""
+TOP_QUESTIONS_SQL = """
+SELECT lower(btrim(content)) AS question, count(*) AS count
+FROM chat_messages
+WHERE role = 'user' AND created_at >= %(from)s AND created_at < %(to)s
+GROUP BY 1 ORDER BY count DESC, question LIMIT %(limit)s
+"""
 PRODUCT_COLUMNS = sql.SQL("""
     sku, name, price, stock_quantity, voltage, capacity_liters, power_watts,
     image_url, marketplace, checkout_url, category, subcategory, brand, specs_json, updated_at
@@ -193,6 +231,26 @@ class PostgresCommerce:
             total_amount=product.price * request.quantity,
             remaining_stock=remaining_stock,
             message="Conversão registrada com sucesso.",
+        )
+
+    async def metrics_summary(self, window: MetricsWindow, error_5xx_rate: float) -> Metrics:
+        await self._require_schema()
+        params = {
+            "from": window.window_from,
+            "to": window.window_to,
+            "median": MEDIAN,
+            "p95": P95,
+            "limit": TOP_QUESTIONS_LIMIT,
+        }
+        async with await self._connect() as connection:
+            await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            cursor = await connection.execute(METRICS_SQL, params)
+            totals = await cursor.fetchone()
+            assert totals is not None
+            cursor = await connection.execute(TOP_QUESTIONS_SQL, params)
+            questions = [TopQuestion.model_validate(row) for row in await cursor.fetchall()]
+        return Metrics(
+            window=window, error_5xx_rate=error_5xx_rate, top_questions=questions, **totals
         )
 
 

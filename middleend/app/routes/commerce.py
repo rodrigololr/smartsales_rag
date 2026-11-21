@@ -1,16 +1,18 @@
 """Public JSON routes for products, feedback and checkout."""
 
 import logging
+import secrets
 import uuid
 from collections.abc import Callable, Coroutine
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from pydantic import BaseModel
+from pydantic import AwareDatetime, BaseModel
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
@@ -29,8 +31,10 @@ from app.commerce import (
     ProductNotFound,
     SessionEnded,
 )
+from app.metrics import InvalidMetricsWindow, Metrics, resolve_window
 from app.repositories.commerce import PostgresCommerce
 from app.routes.chat import error_response
+from app.telemetry.http_errors import error_5xx_rate
 
 logger = logging.getLogger(__name__)
 CATALOG_VERSION_KEY = "catalog:version"
@@ -49,6 +53,10 @@ class ErrorEnvelope(BaseModel):
 
 class DatabaseNotConfigured(Exception):
     """Legacy chat-only startup without DATABASE_URL."""
+
+
+class AdminUnauthorized(Exception):
+    """Missing or wrong X-Admin-Token, or ADMIN_TOKEN not configured."""
 
 
 class CommerceRoute(APIRoute):
@@ -71,6 +79,12 @@ class CommerceRoute(APIRoute):
                     "details": {"errors": errors},
                 }
                 return JSONResponse({"error": envelope}, status_code=422)
+            except AdminUnauthorized:
+                return error_response(401, "UNAUTHORIZED", "Token administrativo inválido.")
+            except InvalidMetricsWindow:
+                return error_response(
+                    422, "VALIDATION_ERROR", "O início da janela deve ser anterior ao fim."
+                )
             except ProductNotFound:
                 return error_response(404, "PRODUCT_NOT_FOUND", "Produto não encontrado.")
             except MessageNotFound:
@@ -107,6 +121,17 @@ def get_repository(request: Request) -> PostgresCommerce:
 
 
 Repository = Annotated[PostgresCommerce, Depends(get_repository)]
+
+
+def require_admin(
+    request: Request, token: Annotated[str | None, Header(alias="X-Admin-Token")] = None
+) -> None:
+    expected = request.app.state.settings.admin_token
+    # No ADMIN_TOKEN configured: closed, never open.
+    if expected is None or token is None:
+        raise AdminUnauthorized
+    if not secrets.compare_digest(token.encode(), expected.get_secret_value().encode()):
+        raise AdminUnauthorized
 
 
 @router.get("/products", operation_id="listProducts")
@@ -152,3 +177,21 @@ async def mock_checkout(
     if isinstance(result, CheckoutConflict):
         return JSONResponse(result.model_dump(mode="json"), status_code=409)
     return result
+
+
+@router.get(
+    "/metrics/summary",
+    operation_id="metricsSummary",
+    dependencies=[Depends(require_admin)],  # runs before the query and the database
+    responses={401: {"model": ErrorEnvelope}},
+)
+async def metrics_summary(
+    repository: Repository,
+    request: Request,
+    window_from: Annotated[AwareDatetime | None, Query(alias="from")] = None,
+    window_to: Annotated[AwareDatetime | None, Query(alias="to")] = None,
+) -> Metrics:
+    now = datetime.now(UTC)
+    window = resolve_window(window_from, window_to, now)
+    rate = await error_5xx_rate(request.app.state.redis, window.window_from, window.window_to, now)
+    return await repository.metrics_summary(window, rate)
