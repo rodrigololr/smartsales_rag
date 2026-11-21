@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
 
@@ -17,6 +16,7 @@ from redis.asyncio import Redis
 from redis.asyncio.retry import Retry
 from redis.backoff import NoBackoff
 from redis.exceptions import RedisError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.cache.redis_storage import RedisCacheStorage
 from app.cache.service import SemanticCacheService
@@ -39,8 +39,14 @@ from app.sessions.postgres_store import PostgresSessionStore
 from app.sessions.redis_store import RedisSessionStore
 from app.sessions.store import InMemorySessionStore, SessionStore
 from app.telemetry.http_errors import ResponseCounter
+from app.telemetry.tracing import (
+    REQUEST_ID_HEADER,
+    RequestIdMiddleware,
+    configure_logging,
+    current_trace_id,
+)
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 # /chat/stream: per session_id in the route, plus a coarse per-IP bucket here.
@@ -99,11 +105,42 @@ async def validation_failed(request: Request, failure: Exception) -> JSONRespons
         "error": {
             "code": "VALIDATION_ERROR",
             "message": "Payload de requisição inválido.",
-            "trace_id": str(uuid.uuid4()),
+            "trace_id": current_trace_id(),
             "details": {"errors": errors},
         }
     }
     return JSONResponse(body, status_code=422)
+
+
+_HTTP_ERROR_CODES = {
+    404: ("NOT_FOUND", "Recurso não encontrado."),
+    405: ("METHOD_NOT_ALLOWED", "Método não permitido para este recurso."),
+}
+
+
+async def http_error(request: Request, failure: Exception) -> JSONResponse:
+    """Router-level 404/405 (and any other HTTPException) in the REST error envelope."""
+    status = failure.status_code if isinstance(failure, StarletteHTTPException) else 500
+    headers = failure.headers if isinstance(failure, StarletteHTTPException) else None
+    code, message = _HTTP_ERROR_CODES.get(status, ("HTTP_ERROR", "Requisição não atendida."))
+    return error_response(status, code, message, headers=headers)
+
+
+async def unhandled_error(request: Request, failure: Exception) -> JSONResponse:
+    """Last resort: logged with its trace_id, never a stack trace to the client."""
+    trace_id = current_trace_id()
+    logger.error(
+        "unhandled_error",
+        exc_info=failure,
+        extra={"trace_id": trace_id, "session_id": getattr(request.state, "session_id", None)},
+    )
+    # Sent by Starlette's outermost middleware, outside RequestIdMiddleware: add the header here.
+    return error_response(
+        500,
+        "INTERNAL_ERROR",
+        "Erro interno. Tente novamente.",
+        headers={REQUEST_ID_HEADER: trace_id},
+    )
 
 
 async def maintain_sessions(store: PostgresSessionStore, interval: float) -> None:
@@ -265,14 +302,18 @@ def create_app(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Accept", "X-Admin-Token"],
-        expose_headers=["Retry-After"],
+        allow_headers=["Content-Type", "Accept", "X-Admin-Token", REQUEST_ID_HEADER],
+        expose_headers=["Retry-After", REQUEST_ID_HEADER],
     )
     # Added last = outside CORS: counts every response, CORS preflights included (M04).
     app.add_middleware(ResponseCounter)
+    # Outermost: every response, 429 and CORS preflight included, carries the request id.
+    app.add_middleware(RequestIdMiddleware)
     app.add_exception_handler(RedisError, redis_unavailable)
     app.add_exception_handler(DatabaseError, storage_unavailable)
     app.add_exception_handler(RequestValidationError, validation_failed)
+    app.add_exception_handler(StarletteHTTPException, http_error)
+    app.add_exception_handler(Exception, unhandled_error)
     app.include_router(router)
     app.include_router(commerce_router)
     return app

@@ -2,7 +2,6 @@
 
 import logging
 import secrets
-import uuid
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
 from typing import Annotated, Any
@@ -36,6 +35,7 @@ from app.metrics import InvalidMetricsWindow, Metrics, resolve_window
 from app.repositories.commerce import PostgresCommerce
 from app.routes.chat import error_response
 from app.telemetry.http_errors import error_5xx_rate
+from app.telemetry.tracing import current_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ class CommerceRoute(APIRoute):
                 envelope = {
                     "code": "VALIDATION_ERROR",
                     "message": "Verifique os parâmetros enviados.",
-                    "trace_id": str(uuid.uuid4()),
+                    "trace_id": current_trace_id(),
                     "details": {"errors": errors},
                 }
                 return JSONResponse({"error": envelope}, status_code=422)

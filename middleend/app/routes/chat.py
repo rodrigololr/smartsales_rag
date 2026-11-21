@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -23,6 +24,7 @@ from app.sessions.response import SessionStreamingResponse
 from app.sessions.store import HistoryItem, SessionSnapshot, SessionStore, TurnDecision, TurnState
 from app.sse import sse_chat_generator
 from app.sse.models import BackendStream, CompletedTurn, ProductCard
+from app.telemetry.tracing import current_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +50,10 @@ class RagBackend(Protocol):
 
 
 def error_response(
-    status: int, code: str, message: str, headers: dict[str, str] | None = None
+    status: int, code: str, message: str, headers: Mapping[str, str] | None = None
 ) -> JSONResponse:
     body = {
-        "error": {"code": code, "message": message, "trace_id": str(uuid.uuid4()), "details": {}}
+        "error": {"code": code, "message": message, "trace_id": current_trace_id(), "details": {}}
     }
     return JSONResponse(body, status_code=status, headers=headers)
 

@@ -1613,7 +1613,8 @@
                 "type": "string"
               },
               "trace_id": {
-                "type": "string"
+                "type": "string",
+                "description": "Id de correlação da requisição: o X-Request-ID recebido (se for UUID válido) ou um UUID gerado; é devolvido no cabeçalho X-Request-ID e repassado ao backend."
               },
               "details": {}
             },

@@ -12,6 +12,7 @@ from app.config import BACKEND_FIRST_EVENT_TIMEOUT_SECONDS
 from app.schemas import Filters
 from app.sessions.store import HistoryItem
 from app.sse.models import CompletedTurn
+from app.telemetry.tracing import REQUEST_ID_HEADER, current_trace_id
 
 InternalEvent = Mapping[str, object]
 FIRST_EVENT_RETRIES = 1
@@ -49,10 +50,12 @@ class NdjsonBackendStream:
         url: str,
         payload: Mapping[str, object],
         first_event_timeout_seconds: float = BACKEND_FIRST_EVENT_TIMEOUT_SECONDS,
+        headers: Mapping[str, str] | None = None,
     ) -> None:
         self._client = client
         self._url = url
         self._payload = payload
+        self._headers = dict(headers or {})
         self._first_timeout = first_event_timeout_seconds
         self._published = False
         self._retries = 0
@@ -91,7 +94,9 @@ class NdjsonBackendStream:
                 return cast(InternalEvent, json.loads(line))
 
     async def _open(self) -> AsyncIterator[str]:
-        self._context = self._client.stream("POST", self._url, json=dict(self._payload))
+        self._context = self._client.stream(
+            "POST", self._url, json=dict(self._payload), headers=self._headers
+        )
         response = await self._context.__aenter__()
         if response.is_error:
             raise BackendHttpError(response.status_code)
@@ -135,7 +140,11 @@ class BackendClient:
             if filters.budget_max is not None:
                 # JSON number at the transport boundary; money arithmetic stays Decimal.
                 payload["budget_max"] = float(filters.budget_max)
-        return NdjsonBackendStream(self._client, self._url, payload, self._first_timeout)
+        # Captured here, in the request context: the stream is read later by the SSE generator.
+        headers = {REQUEST_ID_HEADER: current_trace_id()}
+        return NdjsonBackendStream(
+            self._client, self._url, payload, self._first_timeout, headers=headers
+        )
 
 
 class ReplayStream:
