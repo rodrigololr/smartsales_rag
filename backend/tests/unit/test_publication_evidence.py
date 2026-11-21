@@ -159,3 +159,47 @@ def test_thousands_separator_is_not_read_as_a_decimal_point(
     text: str, claim: tuple[str, str]
 ) -> None:
     assert technical_claims(text) == {claim}
+
+
+@pytest.mark.parametrize("manual,answer", [
+    ("Peso de 1,500 kg.", "Peso de 1.500 kg."),
+    ("Peso de 1.500 kg.", "Peso de 1,500 kg."),
+    ("Pressão de 1,5 bar.", "Pressão de 15 bar."),
+    ("Aquece até 200 °C em 3 min.", "Aquece até 200 °C em 30 min."),
+    ("Peso de 1,500 kg de batatas.", "Peso de 1.500 kg"),
+])
+def test_manual_only_figures_must_be_numerically_equal_to_the_evidence(
+    manual: str, answer: str
+) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=manual)])
+    assert verifier.approve(answer) is None
+    assert verifier.approve(f"{answer} [Fonte: Manual Airfryer SmartChef 4L, p. 7].") is None
+
+
+@pytest.mark.parametrize("manual,answer", [
+    ("Peso de 1,500 kg.", "Peso de 1,500 kg."),
+    ("Peso de 1.500 kg.", "Peso de 1.500 kg."),
+    ("Pressão de 1,5 bar.", "Pressão de 1.5 bar."),
+    ("O cesto suporta até 1,2 kg de batatas.", "O cesto suporta até 1,2 kg."),
+])
+def test_numerically_identical_manual_figures_are_still_published(manual: str, answer: str) -> None:
+    approved = SentenceVerifier(PRODUCT, [chunk(content=manual)]).approve(answer)
+    assert approved is not None and "[Fonte: Manual Airfryer SmartChef 4L, p. 7]" in approved
+
+
+@pytest.mark.parametrize("manual,answer", [
+    ("Peso de 2 kg a 3 kg, conforme o modelo.", "Peso de 2 kg."),
+    ("Peso de 2 kg - 3 kg.", "Peso de 2 kg."),
+    ("Peso de 2 kg – 3 kg.", "Peso de 2 kg."),
+    ("Tempo de 10 min até 15 min.", "Tempo de 10 min."),
+    ("Tempo de 10 min ou mais.", "Tempo de 10 min."),
+    ("Aquece a 200 °C quando pré-aquecida.", "Aquece a 200 °C."),
+    ("Aquece a 200 °C em modo turbo.", "Aquece a 200 °C."),
+    ("Consome 1.500 W no modo turbo e no modo eco é de 800 W.", "Consome 1.500 W."),
+])
+def test_truncated_ranges_and_mode_qualifiers_are_not_literal_support(
+    manual: str, answer: str
+) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=manual)])
+    assert verifier.approve(answer) is None
+    assert verifier.approve(f"{answer[:-1]} [Fonte: Manual Airfryer SmartChef 4L, p. 7].") is None

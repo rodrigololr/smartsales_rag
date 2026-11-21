@@ -33,7 +33,7 @@ _MONEY = re.compile(
 _SENTENCE_END = ".!?"
 
 
-def _number(raw: str) -> str:
+def pt_br_number(raw: str) -> str:
     if re.fullmatch(_THOUSANDS, raw):
         raw = raw.replace(".", "")
     try:
@@ -46,7 +46,7 @@ def technical_claims(text: str) -> set[Claim]:
     claims: set[Claim] = set()
     for value, raw_unit in _FIGURE.findall(text):
         unit = _UNITS[raw_unit.lower()]
-        amount = _number(value)
+        amount = pt_br_number(value)
         if unit in {"mL", "kW"}:
             scaled = Decimal(amount) * (Decimal("0.001") if unit == "mL" else 1000)
             amount = format(scaled.normalize(), "f")
@@ -58,7 +58,7 @@ def technical_claims(text: str) -> set[Claim]:
             raw = raw.replace(".", "").replace(",", ".")
         elif raw.count(".") > 1 or ("." in raw and len(raw.rsplit(".", 1)[1]) == 3):
             raw = raw.replace(".", "")
-        claims.add((_number(raw), "BRL"))
+        claims.add((pt_br_number(raw), "BRL"))
     if _BIVOLT.search(text):
         claims.add(("bivolt", "V"))
     return claims

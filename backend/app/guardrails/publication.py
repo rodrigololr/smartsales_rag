@@ -9,7 +9,7 @@ import unicodedata
 from collections.abc import Sequence
 from uuid import UUID
 
-from app.guardrails.output import Claim, technical_claims
+from app.guardrails.output import Claim, pt_br_number, technical_claims
 from app.models.schemas import CatalogProduct, ProductRecommendation, RetrievedChunk
 
 CITATION_MARK = re.compile(r"\[Fonte:\s*(.+?),\s*p\.\s*(\d+)\]")
@@ -28,6 +28,9 @@ _SQL_STATEMENTS = tuple(re.compile(pattern) for pattern in (
     r"(?:e |(?:a )?voltagem(?: e)? )?bivolt",
 ))
 _QUALIFIERS = {"nao", "apenas", "somente", "exceto", "desde", "proibido", "proibida"}
+# A prefix extract must not cut a range or condition off its figure ("2 kg a 3 kg").
+_CONTINUATIONS = re.compile(r"(?:a|ate|ou|exceto|quando|(?:no|em) modo)(?: |$)")
+_NUMERAL = re.compile(r"\d+(?:[.,]\d+)*")
 _PRICE_WORDS = re.compile(r"\b(?:pre[cç]o|custa|custo|valor|reais)\b|R\$", re.IGNORECASE)
 
 
@@ -41,17 +44,26 @@ def _body(chunk: RetrievedChunk) -> str:
     return re.sub(r"^\[PRODUTO:[^\n]*\]\s*", "", chunk.content)
 
 
+def _numbers(text: str) -> list[str]:
+    return [pt_br_number(numeral) for numeral in _NUMERAL.findall(text)]
+
+
 def _literal_support(sentence: str, chunk: RetrievedChunk) -> bool:
     wanted = normalized_words(sentence)
+    figures = _numbers(sentence)
     for fragment in re.split(r"(?<=[.!?])\s+|\n", _body(chunk)):
         evidence = normalized_words(fragment)
-        if wanted and wanted == evidence:
+        # Word folding drops separators ("1,500 kg" == "1.500 kg"): compare values too.
+        if not wanted or _numbers(fragment)[:len(figures)] != figures:
+            continue
+        if wanted == evidence:
             return True
         # Numeric extracts may omit a trailing noun ("1,2 kg de batatas"), but
-        # must retain the subject/predicate and all restrictive qualifiers.
+        # must retain the subject/predicate, restrictive qualifiers and ranges.
         if technical_claims(sentence) and evidence.startswith(wanted + " "):
-            remainder = set(evidence[len(wanted):].split())
-            if not remainder & _QUALIFIERS:
+            remainder = evidence[len(wanted) + 1:]
+            if not (set(remainder.split()) & _QUALIFIERS or _NUMERAL.search(remainder)
+                    or _CONTINUATIONS.match(remainder)):
                 return True
     return False
 
