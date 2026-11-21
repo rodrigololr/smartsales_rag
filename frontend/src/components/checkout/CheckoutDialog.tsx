@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -12,8 +12,9 @@ import type {
   CheckoutConflict,
   ProductCardData,
 } from "@/types/chat";
-import { formatBRL, marketplaceLabel } from "@/lib/format";
-import { mockCheckout } from "@/lib/mock-api";
+import { formatBRL, marketplaceLabel, safeHttpUrl } from "@/lib/format";
+import { MockApiError, mockCheckout } from "@/lib/mock-api";
+import { ChatApiError, USE_REAL_API, postCheckout } from "@/lib/chat-api";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,12 +33,38 @@ type CheckoutState =
   | { phase: "conflict"; data: CheckoutConflict }
   | { phase: "error"; message: string };
 
+/** Price and stock the gateway just validated in SQL (R09). */
+export interface ValidatedStock {
+  price: number;
+  stock: number;
+}
+
+const GENERIC_CHECKOUT_ERROR =
+  "O checkout está indisponível no momento. Tente novamente em instantes.";
+
+const CHECKOUT_ERROR_BY_STATUS: Record<number, string> = {
+  404: "Este item não está mais disponível no catálogo. Peça ao consultor uma alternativa.",
+  410: "Sua sessão expirou. Faça a pergunta de novo para receber recomendações atualizadas.",
+  422: "O pedido não pôde ser validado pelo servidor. Tente novamente.",
+  429: "Muitas tentativas seguidas. Aguarde alguns segundos e tente de novo.",
+};
+
+export const describeCheckoutError = (error: unknown): string =>
+  ((error instanceof ChatApiError || error instanceof MockApiError) &&
+    CHECKOUT_ERROR_BY_STATUS[error.status]) ||
+  GENERIC_CHECKOUT_ERROR;
+
+const requestCheckout = USE_REAL_API ? postCheckout : mockCheckout;
+
 export interface CheckoutDialogProps {
   card: ProductCardData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sessionId: string;
+  /** Server `message_id` of the turn that showed the card (SSE `metadata`). */
   messageId: string;
+  /** Called on close with the price/stock the checkout validated, so the card can update. */
+  onValidated?: (sku: string, validated: ValidatedStock) => void;
 }
 
 export function CheckoutDialog({
@@ -46,26 +73,32 @@ export function CheckoutDialog({
   onOpenChange,
   sessionId,
   messageId,
+  onValidated,
 }: CheckoutDialogProps) {
   const [state, setState] = useState<CheckoutState>({ phase: "loading" });
+  // Every explicit user action (open, retry, accept new price) is one attempt = one POST.
   const [attempt, setAttempt] = useState(0);
+  // Attempt already posted: re-runs of the effect (StrictMode, new props) never re-post,
+  // because the gateway decrements stock on each CONFIRMED.
+  const postedAttemptRef = useRef<number | null>(null);
+  // Set only when the user accepts a PRICE_CHANGED: the next request carries the new price.
+  const [acceptedPrice, setAcceptedPrice] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!open || !card) return;
-    const controller = new AbortController();
+    if (!open || !card || postedAttemptRef.current === attempt) return;
+    postedAttemptRef.current = attempt;
+    const isCurrent = () => postedAttemptRef.current === attempt;
 
-    mockCheckout(
-      {
-        session_id: sessionId,
-        message_id: messageId,
-        sku: card.sku,
-        recommendation_type: card.recommendation_type,
-        quantity: 1,
-        displayed_price: card.price,
-      },
-      controller.signal
-    )
+    requestCheckout({
+      session_id: sessionId,
+      message_id: messageId,
+      sku: card.sku,
+      recommendation_type: card.recommendation_type,
+      quantity: 1,
+      displayed_price: acceptedPrice ?? card.price,
+    })
       .then((result) => {
+        if (!isCurrent()) return;
         if (result.status === "CONFIRMED") {
           setState({ phase: "confirmed", data: result });
         } else {
@@ -73,23 +106,42 @@ export function CheckoutDialog({
         }
       })
       .catch((error: unknown) => {
-        if (error instanceof Error && error.name === "AbortError") return;
-        setState({
-          phase: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Não foi possível validar o checkout agora.",
-        });
+        if (!isCurrent()) return;
+        console.warn("checkout_failed", error);
+        setState({ phase: "error", message: describeCheckoutError(error) });
       });
+  }, [acceptedPrice, attempt, card, messageId, open, sessionId]);
 
-    return () => controller.abort();
-  }, [attempt, card, messageId, open, sessionId]);
+  const retry = (price: number | null) => {
+    setState({ phase: "loading" });
+    setAcceptedPrice(price);
+    setAttempt((value) => value + 1);
+  };
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) setState({ phase: "loading" });
+    if (!nextOpen) {
+      if (state.phase === "confirmed") {
+        onValidated?.(state.data.sku, {
+          price: state.data.confirmed_unit_price,
+          stock: state.data.remaining_stock,
+        });
+      } else if (state.phase === "conflict") {
+        onValidated?.(state.data.sku, {
+          price: state.data.current_price,
+          stock: state.data.current_stock,
+        });
+      }
+      setState({ phase: "loading" });
+      setAcceptedPrice(null);
+      // Drop a late answer of this attempt; the next open is a new attempt.
+      postedAttemptRef.current = null;
+      setAttempt((value) => value + 1);
+    }
     onOpenChange(nextOpen);
   };
+
+  const redirectHref =
+    state.phase === "confirmed" ? safeHttpUrl(state.data.redirect_checkout_url) : null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -165,16 +217,18 @@ export function CheckoutDialog({
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                 Fechar
               </Button>
-              <a
-                href={state.data.redirect_checkout_url}
-                target="_blank"
-                rel="noreferrer"
-                data-testid="checkout-redirect-link"
-                className={cn(buttonVariants(), "gap-1.5")}
-              >
-                <ShoppingCart />
-                Abrir na {marketplaceLabel(state.data.marketplace)}
-              </a>
+              {redirectHref ? (
+                <a
+                  href={redirectHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="checkout-redirect-link"
+                  className={cn(buttonVariants(), "gap-1.5")}
+                >
+                  <ShoppingCart />
+                  Abrir na {marketplaceLabel(state.data.marketplace)}
+                </a>
+              ) : null}
             </DialogFooter>
           </div>
         ) : null}
@@ -190,7 +244,12 @@ export function CheckoutDialog({
                   ? "Item esgotado"
                   : "Preço atualizado"}
               </DialogTitle>
-              <DialogDescription>{state.data.message}</DialogDescription>
+              <DialogDescription>
+                {state.data.message}
+                {state.data.status === "OUT_OF_STOCK"
+                  ? " Peça ao consultor uma alternativa em estoque."
+                  : " Confira o novo valor antes de seguir para o marketplace."}
+              </DialogDescription>
             </DialogHeader>
 
             <div className="my-2 grid grid-cols-2 gap-2 text-sm">
@@ -209,15 +268,26 @@ export function CheckoutDialog({
             </div>
 
             <DialogFooter>
-              <Button type="button" onClick={() => handleOpenChange(false)}>
-                Entendi
-              </Button>
+              {state.data.status === "PRICE_CHANGED" ? (
+                <>
+                  <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={() => retry(state.data.current_price)}>
+                    Confirmar por {formatBRL(state.data.current_price)}
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" onClick={() => handleOpenChange(false)}>
+                  Entendi
+                </Button>
+              )}
             </DialogFooter>
           </div>
         ) : null}
 
         {state.phase === "error" ? (
-          <div>
+          <div data-testid="checkout-error">
             <DialogHeader>
               <DialogTitle>Não foi possível validar</DialogTitle>
               <DialogDescription>{state.message}</DialogDescription>
@@ -226,10 +296,7 @@ export function CheckoutDialog({
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                 Fechar
               </Button>
-              <Button type="button" onClick={() => {
-                setState({ phase: "loading" });
-                setAttempt((value) => value + 1);
-              }}>
+              <Button type="button" onClick={() => retry(acceptedPrice)}>
                 Tentar novamente
               </Button>
             </DialogFooter>

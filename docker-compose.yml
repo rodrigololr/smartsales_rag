@@ -75,6 +75,8 @@ services:
     environment:
       # Lido pelo navegador, por isso aponta para a porta publicada no host.
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      # Lido pelo servidor Next (catálogo SSR) dentro da rede do compose.
+      API_INTERNAL_BASE_URL: http://middleend:8000
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
