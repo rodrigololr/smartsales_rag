@@ -190,9 +190,23 @@ export async function postCheckout(
     signal,
   });
   if (response.ok) return (await response.json()) as Checkout;
-  if (response.status === 409) return (await response.json()) as CheckoutConflict;
+  if (response.status === 409) {
+    const body: unknown = await response.clone().json().catch(() => null);
+    if (isCheckoutConflict(body)) return body;
+  }
   throw await toApiError(response);
 }
+
+/** A 409 is only a business answer when it carries the CheckoutConflict shape. */
+const isCheckoutConflict = (body: unknown): body is CheckoutConflict => {
+  if (typeof body !== "object" || body === null) return false;
+  const { status, current_price, current_stock } = body as Record<string, unknown>;
+  return (
+    (status === "PRICE_CHANGED" || status === "OUT_OF_STOCK") &&
+    Number.isFinite(current_price) &&
+    Number.isFinite(current_stock)
+  );
+};
 
 /** GET /api/v1/metrics/summary. The token only travels in the X-Admin-Token header. */
 export async function getMetricsSummary(

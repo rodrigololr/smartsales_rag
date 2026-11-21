@@ -5,6 +5,8 @@ import { API_BASE_URL, USE_REAL_API, toApiError } from "@/lib/chat-api";
 import { CATALOG_PRODUCTS, findProduct } from "@/lib/mock-data";
 
 const MAX_PAGE_SIZE = 100;
+/** Hard stop for a gateway whose pagination metadata is wrong (5000 products at 100/page). */
+const MAX_CATALOG_PAGES = 50;
 
 /**
  * Server-side gateway origin. NEXT_PUBLIC_API_BASE_URL is what the browser reaches
@@ -15,14 +17,16 @@ const serverBaseUrl = (): string => process.env.API_INTERNAL_BASE_URL || API_BAS
 /** GET /api/v1/products, every page. Price/stock always fresh from SQL (R09). */
 export async function fetchCatalog(): Promise<ApiProduct[]> {
   const products: ApiProduct[] = [];
-  for (let page = 1; ; page++) {
+  for (let page = 1; page <= MAX_CATALOG_PAGES; page++) {
     const query = new URLSearchParams({ page: String(page), page_size: String(MAX_PAGE_SIZE) });
     const response = await fetch(`${serverBaseUrl()}/api/v1/products?${query}`, { cache: "no-store" });
     if (!response.ok) throw await toApiError(response);
     const catalog = (await response.json()) as Catalog;
     products.push(...catalog.items);
-    if (!catalog.items.length || products.length >= catalog.total) return products;
+    const lastPage = Math.ceil(catalog.total / (catalog.page_size || MAX_PAGE_SIZE));
+    if (!catalog.items.length || products.length >= catalog.total || page >= lastPage) break;
   }
+  return products;
 }
 
 /** GET /api/v1/products/{sku}; `null` on 404. Sold-out products still come back (R03). */

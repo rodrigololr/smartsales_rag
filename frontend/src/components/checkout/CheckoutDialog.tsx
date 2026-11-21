@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -12,7 +12,7 @@ import type {
   CheckoutConflict,
   ProductCardData,
 } from "@/types/chat";
-import { formatBRL, marketplaceLabel } from "@/lib/format";
+import { formatBRL, marketplaceLabel, safeHttpUrl } from "@/lib/format";
 import { MockApiError, mockCheckout } from "@/lib/mock-api";
 import { ChatApiError, USE_REAL_API, postCheckout } from "@/lib/chat-api";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -76,26 +76,29 @@ export function CheckoutDialog({
   onValidated,
 }: CheckoutDialogProps) {
   const [state, setState] = useState<CheckoutState>({ phase: "loading" });
+  // Every explicit user action (open, retry, accept new price) is one attempt = one POST.
   const [attempt, setAttempt] = useState(0);
+  // Attempt already posted: re-runs of the effect (StrictMode, new props) never re-post,
+  // because the gateway decrements stock on each CONFIRMED.
+  const postedAttemptRef = useRef<number | null>(null);
   // Set only when the user accepts a PRICE_CHANGED: the next request carries the new price.
   const [acceptedPrice, setAcceptedPrice] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!open || !card) return;
-    const controller = new AbortController();
+    if (!open || !card || postedAttemptRef.current === attempt) return;
+    postedAttemptRef.current = attempt;
+    const isCurrent = () => postedAttemptRef.current === attempt;
 
-    requestCheckout(
-      {
-        session_id: sessionId,
-        message_id: messageId,
-        sku: card.sku,
-        recommendation_type: card.recommendation_type,
-        quantity: 1,
-        displayed_price: acceptedPrice ?? card.price,
-      },
-      controller.signal
-    )
+    requestCheckout({
+      session_id: sessionId,
+      message_id: messageId,
+      sku: card.sku,
+      recommendation_type: card.recommendation_type,
+      quantity: 1,
+      displayed_price: acceptedPrice ?? card.price,
+    })
       .then((result) => {
+        if (!isCurrent()) return;
         if (result.status === "CONFIRMED") {
           setState({ phase: "confirmed", data: result });
         } else {
@@ -103,12 +106,10 @@ export function CheckoutDialog({
         }
       })
       .catch((error: unknown) => {
-        if (error instanceof Error && error.name === "AbortError") return;
+        if (!isCurrent()) return;
         console.warn("checkout_failed", error);
         setState({ phase: "error", message: describeCheckoutError(error) });
       });
-
-    return () => controller.abort();
   }, [acceptedPrice, attempt, card, messageId, open, sessionId]);
 
   const retry = (price: number | null) => {
@@ -132,9 +133,15 @@ export function CheckoutDialog({
       }
       setState({ phase: "loading" });
       setAcceptedPrice(null);
+      // Drop a late answer of this attempt; the next open is a new attempt.
+      postedAttemptRef.current = null;
+      setAttempt((value) => value + 1);
     }
     onOpenChange(nextOpen);
   };
+
+  const redirectHref =
+    state.phase === "confirmed" ? safeHttpUrl(state.data.redirect_checkout_url) : null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -210,16 +217,18 @@ export function CheckoutDialog({
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                 Fechar
               </Button>
-              <a
-                href={state.data.redirect_checkout_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-testid="checkout-redirect-link"
-                className={cn(buttonVariants(), "gap-1.5")}
-              >
-                <ShoppingCart />
-                Abrir na {marketplaceLabel(state.data.marketplace)}
-              </a>
+              {redirectHref ? (
+                <a
+                  href={redirectHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="checkout-redirect-link"
+                  className={cn(buttonVariants(), "gap-1.5")}
+                >
+                  <ShoppingCart />
+                  Abrir na {marketplaceLabel(state.data.marketplace)}
+                </a>
+              ) : null}
             </DialogFooter>
           </div>
         ) : null}

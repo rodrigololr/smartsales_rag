@@ -41,9 +41,11 @@ const subcategoryOf = (card: ProductCardData): string => {
 
 function RecommendationCard({
   card,
+  canBuy,
   onBuy,
 }: {
   card: ProductCardData;
+  canBuy: boolean;
   onBuy: (card: ProductCardData) => void;
 }) {
   const tone = toneByType[card.recommendation_type];
@@ -101,7 +103,7 @@ function RecommendationCard({
         <Button
           type="button"
           size="sm"
-          disabled={!inStock}
+          disabled={!inStock || !canBuy}
           data-testid={`buy-now-btn-${card.sku}`}
           onClick={() => onBuy(card)}
           className="mt-1 w-full gap-1.5"
@@ -117,7 +119,8 @@ function RecommendationCard({
 export interface ProductRecommendationCarouselProps {
   products: ProductCardData[];
   sessionId: string;
-  messageId: string;
+  /** Server `message_id` of the turn; `null` disables checkout (the gateway would answer 404). */
+  messageId: string | null;
 }
 
 export function ProductRecommendationCarousel({
@@ -143,7 +146,14 @@ export function ProductRecommendationCarousel({
           const shown = current
             ? { ...card, price: current.price, stock_quantity: current.stock }
             : card;
-          return <RecommendationCard key={card.sku} card={shown} onBuy={setSelected} />;
+          return (
+            <RecommendationCard
+              key={card.sku}
+              card={shown}
+              canBuy={messageId !== null}
+              onBuy={setSelected}
+            />
+          );
         })}
       </div>
 
@@ -151,18 +161,20 @@ export function ProductRecommendationCarousel({
         Preço e estoque são revalidados antes de abrir o marketplace.
       </p>
 
-      <CheckoutDialog
-        card={selected}
-        open={selected !== null}
-        onOpenChange={(open) => {
-          if (!open) setSelected(null);
-        }}
-        sessionId={sessionId}
-        messageId={messageId}
-        onValidated={(sku, stock) =>
-          setValidated((previous) => ({ ...previous, [sku]: stock }))
-        }
-      />
+      {messageId !== null ? (
+        <CheckoutDialog
+          card={selected}
+          open={selected !== null}
+          onOpenChange={(open) => {
+            if (!open) setSelected(null);
+          }}
+          sessionId={sessionId}
+          messageId={messageId}
+          onValidated={(sku, stock) =>
+            setValidated((previous) => ({ ...previous, [sku]: stock }))
+          }
+        />
+      ) : null}
     </div>
   );
 }
