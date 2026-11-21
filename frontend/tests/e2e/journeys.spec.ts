@@ -5,6 +5,7 @@ import {
   AIRFRYER_55L,
   CACHE_HIT_LIMIT_MS,
   CHAT_STREAM_PATH,
+  CHECKOUT_PATH,
   FEEDBACK_PATH,
   FIRST_TEXT_SMOKE_LIMIT_MS,
   SESSIONS_PATH,
@@ -69,8 +70,22 @@ test("E2E-02: família grande recebe upsell e cross-sell em estoque", async ({ p
   }
 });
 
-test.fixme("E2E-03: conversão pelo mock checkout com link do marketplace", async () => {
-  // Depende de POST /api/v1/checkout/mock no gateway (pacote M05, issue #16).
+test("E2E-03: conversão pelo mock checkout com link do marketplace", async ({ page }) => {
+  const assistant = await openProduct(page, AIRFRYER_4L);
+  const answer = await ask(assistant, "A capacidade de 4L atende uma família de 5 pessoas?");
+  await waitForDone(assistant);
+
+  const checkout = page.waitForResponse(
+    (response) => response.request().method() === "POST" && response.url().endsWith(CHECKOUT_PATH)
+  );
+  await answer.getByTestId(`buy-now-btn-${AIRFRYER_55L}`).click();
+  const request = (await checkout).request().postDataJSON() as { message_id: string; sku: string };
+  expect(request.sku).toBe(AIRFRYER_55L);
+
+  await expect(page.getByTestId("checkout-confirmed")).toBeVisible();
+  const redirect = page.getByTestId("checkout-redirect-link");
+  await expect(redirect).toHaveAttribute("href", /^https:\/\//);
+  await expect(redirect).toHaveAttribute("target", "_blank");
 });
 
 test.fixme("E2E-04: estoque zerado antes do clique em Comprar agora", async () => {
@@ -166,6 +181,17 @@ test("E2E-07: reiniciar a conversa encerra a sessão e não herda o contexto", a
   await waitForDone(assistant);
 });
 
-test.fixme("E2E-08: painel de métricas com ADMIN_TOKEN após a ingestão", async () => {
-  // Depende de GET /api/v1/metrics/summary no gateway (pacote M04, issue #15).
+test("E2E-08: painel de métricas com ADMIN_TOKEN após a ingestão", async ({ page }) => {
+  const adminToken = process.env.E2E_ADMIN_TOKEN;
+  test.skip(!adminToken, "defina E2E_ADMIN_TOKEN com o ADMIN_TOKEN do gateway");
+
+  await page.goto("/admin/metricas");
+  await page.getByTestId("admin-token-input").fill("token-errado");
+  await page.getByTestId("admin-token-submit").click();
+  await expect(page.getByTestId("admin-error")).toBeVisible();
+
+  await page.getByTestId("admin-token-input").fill(adminToken ?? "");
+  await page.getByTestId("admin-token-submit").click();
+  await expect(page.getByTestId("admin-dashboard")).toBeVisible();
+  expect(page.url()).not.toContain(adminToken ?? "");
 });

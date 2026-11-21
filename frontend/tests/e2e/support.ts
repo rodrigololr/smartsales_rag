@@ -7,6 +7,7 @@ export const SILICONE_KIT = "KIT-SIL-01";
 export const CHAT_STREAM_PATH = "/api/v1/chat/stream";
 export const SESSIONS_PATH = "/api/v1/sessions";
 export const FEEDBACK_PATH = "/api/v1/feedback";
+export const CHECKOUT_PATH = "/api/v1/checkout/mock";
 /**
  * Teto folgado para o primeiro texto aparecer: só detecta resposta travada.
  * O SLA de TTFT (p95) é aferido por `python -m app.telemetry.sla_probe`, não aqui.

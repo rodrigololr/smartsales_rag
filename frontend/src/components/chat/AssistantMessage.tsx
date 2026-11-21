@@ -115,7 +115,7 @@ export function AssistantMessage({
         <ProductRecommendationCarousel
           products={message.recommendations}
           sessionId={sessionId}
-          messageId={message.id}
+          messageId={canReferenceServerMessage(message) ? (message.serverMessageId ?? message.id) : null}
         />
       ) : null}
 

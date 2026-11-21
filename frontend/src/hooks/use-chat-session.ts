@@ -12,7 +12,7 @@ import type {
 import { createId } from "@/lib/format";
 import { mockFeedback, streamMockChat } from "@/lib/mock-api";
 import {
-  API_BASE_URL,
+  USE_REAL_API,
   ChatApiError,
   StreamInterruptedError,
   createSession,
@@ -21,7 +21,6 @@ import {
   streamChat,
 } from "@/lib/chat-api";
 
-const USE_REAL_API = API_BASE_URL !== "";
 const MAX_AUTOMATIC_RECONNECTS = 1;
 const FAILURE_MESSAGE =
   "Não foi possível concluir a consulta agora. Tente novamente em instantes.";

@@ -100,6 +100,8 @@ em `http://localhost:8001/docs`.
 | middleend | `RATE_LIMIT_PER_MINUTE` | `30` | Limite de requisições por minuto, em janela fixa de 60 s (`429 RATE_LIMITED` com cabeçalho `Retry-After`): por sessão em `POST /chat/stream` (`ratelimit:session:{session_id}`, com um teto grosso de 10× por IP em `ratelimit:ip-chat:{client_ip}` que barra `session_id` inventados antes da consulta ao banco) e por IP nas demais rotas (`ratelimit:ip:{client_ip}`). Se o Redis cair, o limitador deixa as requisições passarem (*fail-open*, decisão de disponibilidade coberta por teste). |
 | middleend | `RATE_LIMIT_TRUSTED_PROXY_HOPS` | `0` | Quantos proxies reversos confiáveis ficam na frente do gateway. Com `0`, o `X-Forwarded-For` é ignorado e o IP é o da conexão; com `N`, usa o endereço anexado pelo proxy mais externo (o cliente não consegue forjar o próprio IP). |
 | middleend | `CACHE_TTL_SECONDS`, `CACHE_POLICY_VERSION` | `3600`, `p1` | TTL das respostas em cache; mude a versão ao alterar prompts, guardrails, ranking ou modelo. |
+| frontend | `NEXT_PUBLIC_API_BASE_URL` | vazia | Endereço do gateway visto pelo navegador (chat, feedback, checkout, métricas). Vazia: a vitrine usa o mock local. Entra no bundle no `next build`. |
+| frontend | `API_INTERNAL_BASE_URL` | `NEXT_PUBLIC_API_BASE_URL` | Endereço do gateway visto pelo servidor Next, usado na vitrine e na página do produto (`GET /api/v1/products`, renderizadas a cada requisição, sem cache). No Docker, use `http://middleend:8000`: `localhost` dentro do contêiner do frontend não é o gateway. |
 
 ## Arquitetura implementada
 

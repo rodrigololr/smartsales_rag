@@ -15,6 +15,7 @@ const api = vi.hoisted(() => {
 
 vi.mock("@/lib/chat-api", () => ({
   API_BASE_URL: "http://middleend.test",
+  USE_REAL_API: true,
   ChatApiError: class ChatApiError extends Error {},
   ...api,
 }));
