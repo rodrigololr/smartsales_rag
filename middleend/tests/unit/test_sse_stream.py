@@ -497,3 +497,24 @@ def test_backend_diagnostic_intent_completes_and_is_not_stored():
     events = run(harness.collect())
     assert events[-1][1]["finish_reason"] == "fallback"
     assert harness.completed[0].intent is None
+
+
+def test_session_state_is_persisted_only_when_it_changes_not_per_event():
+    # Each transition is a PostgreSQL transaction; one per token would load the DB per word.
+    citations_event = {"event": "citations", "data": {"citations": []}}
+    harness = Harness(Backend([token("a"), token("b"), token("c"), citations_event, end()]))
+    states = []
+
+    async def transition(state):
+        states.append(state)
+
+    async def consume():
+        stream = api().sse_chat_generator(
+            harness.request, "session", "message", harness.backend, False,
+            harness.release, harness.fallback, harness.complete, transition=transition,
+        )
+        return [unpack(frame) async for frame in stream]
+
+    events = run(consume())
+    assert events[-1][1]["finish_reason"] == "stop"
+    assert states == ["STREAMING_TOKENS", "EMITTING_CARDS_AND_CITATIONS"]

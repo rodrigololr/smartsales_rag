@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -17,30 +18,23 @@ from app.cache.service import CachedAnswer, SemanticCacheService
 from app.clients.backend import ReplayStream
 from app.config import Settings
 from app.ratelimit import RateDecision, RateLimiter
-from app.schemas import ChatStreamRequest, Error, Filters, SessionCreate
+from app.schemas import (
+    ERROR_RESPONSES,
+    JSON_ERROR_RESPONSES,
+    ChatStreamRequest,
+    Filters,
+    SessionCreate,
+)
 from app.sessions.lease import LeaseStream
 from app.sessions.response import SessionStreamingResponse
 from app.sessions.store import HistoryItem, SessionSnapshot, SessionStore, TurnDecision, TurnState
 from app.sse import sse_chat_generator
 from app.sse.models import BackendStream, CompletedTurn, ProductCard
+from app.telemetry.tracing import current_trace_id
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1")
-
-REST_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
-    422: {"model": Error, "description": "Error"},
-    429: {
-        "model": Error,
-        "description": "Error",
-        "headers": {
-            "Retry-After": {
-                "description": "Segundos até uma nova tentativa permitida.",
-                "schema": {"type": "integer", "minimum": 1},
-            }
-        },
-    },
-}
 
 SSE_HEADERS = {
     "Cache-Control": "no-cache, no-transform",
@@ -62,10 +56,10 @@ class RagBackend(Protocol):
 
 
 def error_response(
-    status: int, code: str, message: str, headers: dict[str, str] | None = None
+    status: int, code: str, message: str, headers: Mapping[str, str] | None = None
 ) -> JSONResponse:
     body = {
-        "error": {"code": code, "message": message, "trace_id": str(uuid.uuid4()), "details": {}}
+        "error": {"code": code, "message": message, "trace_id": current_trace_id(), "details": {}}
     }
     return JSONResponse(body, status_code=status, headers=headers)
 
@@ -175,7 +169,12 @@ def _session_body(
     }
 
 
-@router.post("/sessions", status_code=201, responses=REST_ERROR_RESPONSES)
+@router.post(
+    "/sessions",
+    status_code=201,
+    operation_id="createSession",
+    responses={**ERROR_RESPONSES, 200: {"description": "Sessão ativa restaurada com o histórico"}},
+)
 async def create_session(body: SessionCreate, request: Request) -> JSONResponse:
     """201 for a new session; 200 with the history window when `session_id` is still active."""
     store: SessionStore = request.app.state.store
@@ -190,7 +189,11 @@ async def create_session(body: SessionCreate, request: Request) -> JSONResponse:
 
 
 @router.delete(
-    "/sessions/{session_id}", status_code=204, response_model=None, responses=REST_ERROR_RESPONSES
+    "/sessions/{session_id}",
+    status_code=204,
+    response_model=None,
+    operation_id="endSession",
+    responses={status: ERROR_RESPONSES[status] for status in (404, 422, 429, 503)},
 )
 async def end_session(session_id: uuid.UUID, request: Request) -> Response:
     store: SessionStore = request.app.state.store
@@ -200,7 +203,14 @@ async def end_session(session_id: uuid.UUID, request: Request) -> Response:
     return Response(status_code=204)
 
 
-@router.post("/chat/stream", response_model=None, responses=REST_ERROR_RESPONSES)
+@router.post(
+    "/chat/stream",
+    status_code=200,
+    response_model=None,
+    response_class=SessionStreamingResponse,  # documents text/event-stream as the 200 body
+    operation_id="streamChat",
+    responses={**JSON_ERROR_RESPONSES, 200: {"description": "Eventos SSE (CLAUDE.md §5)"}},
+)
 async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
     started_at = time.perf_counter()
     store: SessionStore = request.app.state.store
@@ -310,7 +320,12 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
     return SessionStreamingResponse(frames, headers=SSE_HEADERS)
 
 
-@router.get("/health")
+# Exempt from rate limiting, so no 429 (openapi.yaml).
+@router.get(
+    "/health",
+    operation_id="health",
+    responses={status: body for status, body in ERROR_RESPONSES.items() if status != 429},
+)
 async def health(request: Request) -> JSONResponse:
     settings: Settings = request.app.state.settings
     http: httpx.AsyncClient = request.app.state.http

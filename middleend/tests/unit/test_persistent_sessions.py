@@ -366,3 +366,21 @@ def test_replay_never_reuses_cards_whose_sql_facts_changed(mutation: str) -> Non
             await execute("DELETE FROM products WHERE sku=%s", (sku,))
 
     asyncio.run(scenario())
+
+
+def test_create_session_does_not_run_retention_maintenance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Retention sweeps every table; the periodic task in main.py already runs it.
+    async def scenario() -> None:
+        async with stores() as (first, _, _redis):
+            sweeps: list[None] = []
+
+            async def counting_maintain() -> None:
+                sweeps.append(None)
+
+            monkeypatch.setattr(first, "maintain", counting_maintain)
+            await first.create("AF-400-220V")
+            assert sweeps == []
+
+    asyncio.run(scenario())
