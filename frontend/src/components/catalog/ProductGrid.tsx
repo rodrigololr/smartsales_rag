@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CheckCircle, SearchX, ShieldAlert, Star } from "lucide-react";
 import type { Product } from "@/types/catalog";
-import { formatBRL, formatNumber, hasVoltage, voltageBadgeClass } from "@/lib/format";
+import { formatBRL, formatNumber, hasVoltage, voltageBadgeClass, voltageLabel } from "@/lib/format";
 import { ProductThumb } from "@/components/shared/ProductThumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,7 +68,7 @@ export function ProductGrid({
                 <span className="text-lg font-bold tabular-nums text-foreground">{formatBRL(product.price)}</span>
                 {hasVoltage(product.voltage) ? (
                   <Badge variant="outline" className={cn("text-[10px]", voltageBadgeClass(product.voltage))}>
-                    {product.voltage}
+                    {voltageLabel(product.voltage)}
                   </Badge>
                 ) : null}
               </div>

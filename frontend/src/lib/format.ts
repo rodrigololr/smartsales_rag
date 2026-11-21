@@ -17,7 +17,7 @@ export const marketplaceLabel = (marketplace: MarketplaceType): string =>
 /** Products without mains power (USB, battery, cosmetics) come as "N/A" from the catalog. */
 export const hasVoltage = (voltage: VoltageType): boolean => voltage !== "N/A";
 export const voltageLabel = (voltage: VoltageType): string =>
-  hasVoltage(voltage) ? voltage : "Não se aplica";
+  voltage === "BIVOLT" ? "Bivolt" : hasVoltage(voltage) ? voltage : "Não se aplica";
 
 export const voltageBadgeClass = (voltage: VoltageType): string => {
   if (voltage === "220V") return "border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200";
