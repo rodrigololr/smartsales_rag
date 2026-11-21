@@ -190,24 +190,63 @@ def test_prompt_asks_for_no_preamble_and_dash_bullets() -> None:
     assert "cordial" not in SYSTEM_PROMPT
 
 
-def test_blocked_sentences_are_logged_with_their_text_and_sku(
+def test_blocked_sentences_log_sku_and_reason_at_info_and_text_only_at_debug(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     model = ChatModel(["O cesto suporta até 1,2 kg. ", "Ele também funciona em 127V. "])
-    with caplog.at_level(logging.INFO, logger="app.rag.orchestrator"):
+    with caplog.at_level(logging.DEBUG, logger="app.rag.orchestrator"):
         run(Catalog(PRODUCT, [chunk()]), model)
-    [record] = [r for r in caplog.records if r.msg.startswith("gout_blocked_sentence")]
-    assert record.levelno == logging.INFO
-    assert record.sku == PRODUCT.sku  # type: ignore[attr-defined]
-    assert record.sentence == "Ele também funciona em 127V."  # type: ignore[attr-defined]
+    [info] = [r for r in caplog.records if r.msg.startswith("gout_blocked_sentence")]
+    assert info.levelno == logging.INFO
+    assert info.sku == PRODUCT.sku  # type: ignore[attr-defined]
+    assert info.reason == "UNSUPPORTED_TECHNICAL_CLAIM"  # type: ignore[attr-defined]
+    assert "127V" not in info.getMessage() and not hasattr(info, "sentence")
+    [debug] = [r for r in caplog.records if r.msg.startswith("gout_blocked_text")]
+    assert debug.levelno == logging.DEBUG
+    assert debug.sentence == "Ele também funciona em 127V."  # type: ignore[attr-defined]
 
 
 def test_blocked_sentence_log_is_truncated(caplog: pytest.LogCaptureFixture) -> None:
     model = ChatModel(["O cesto suporta até 1,2 kg. ", "Funciona em 127V " + "x" * 1000 + "."])
-    with caplog.at_level(logging.INFO, logger="app.rag.orchestrator"):
+    with caplog.at_level(logging.DEBUG, logger="app.rag.orchestrator"):
         run(Catalog(PRODUCT, [chunk()]), model)
-    [record] = [r for r in caplog.records if r.msg.startswith("gout_blocked_sentence")]
+    [record] = [r for r in caplog.records if r.msg.startswith("gout_blocked_text")]
     assert len(record.sentence) == BLOCKED_SENTENCE_LOG_MAX_CHARS  # type: ignore[attr-defined]
+
+
+class _CatalogDown(Exception):
+    pass
+
+
+def test_failed_product_lookup_cancels_the_embedding_and_surfaces_its_own_error() -> None:
+    embedding_cancelled = asyncio.Event()
+
+    class FailingCatalog(Catalog):
+        async def get_product(self, sku: str) -> CatalogProduct | None:
+            await asyncio.sleep(0)
+            raise _CatalogDown
+
+    class SlowEmbedder(Embedder):
+        async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+            try:
+                await asyncio.sleep(10)
+            except asyncio.CancelledError:
+                embedding_cancelled.set()
+                raise
+            return []
+
+    orchestrator = RAGOrchestrator(
+        FailingCatalog(PRODUCT, []), FailingCatalog(PRODUCT, []), SlowEmbedder(),
+        ChatModel([]), Settings(), count_tokens=len,
+    )
+
+    async def consume() -> None:
+        with pytest.raises(_CatalogDown):
+            async for _ in orchestrator.stream(RagRequest(sku=PRODUCT.sku, question="Quantos kg cabem?")):
+                pass
+        assert embedding_cancelled.is_set()
+
+    asyncio.run(asyncio.wait_for(consume(), timeout=2))
 
 
 def test_answer_with_no_approved_sentence_becomes_fallback() -> None:

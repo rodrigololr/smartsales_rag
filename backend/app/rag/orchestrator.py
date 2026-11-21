@@ -7,9 +7,9 @@ mandatory `end` marker.
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Callable, Sequence
+from collections.abc import AsyncIterator, Callable, Coroutine, Sequence
 from decimal import Decimal
-from typing import Protocol
+from typing import Any, Protocol, TypeVar
 
 from pydantic import ValidationError
 
@@ -26,6 +26,8 @@ from app.recommendation.models import Voltage
 logger = logging.getLogger(__name__)
 
 InternalEvent = dict[str, object]
+_First = TypeVar("_First")
+_Second = TypeVar("_Second")
 
 LOW_SIMILARITY_MESSAGE = (
     "Essa especificação não consta no manual técnico oficial nem no catálogo ativo "
@@ -119,6 +121,18 @@ def _planned_cards(events: list[InternalEvent]) -> list[ProductRecommendation]:
         return []
 
 
+async def _concurrently(
+    first: Coroutine[Any, Any, _First], second: Coroutine[Any, Any, _Second]
+) -> tuple[_First, _Second]:
+    """Run two reads concurrently; a failure cancels the sibling and re-raises unwrapped."""
+    try:
+        async with asyncio.TaskGroup() as group:
+            first_task, second_task = group.create_task(first), group.create_task(second)
+    except BaseExceptionGroup as failures:
+        raise failures.exceptions[0] from None
+    return first_task.result(), second_task.result()
+
+
 class RAGOrchestrator:
     def __init__(
         self,
@@ -159,7 +173,7 @@ class RAGOrchestrator:
             return
         # Independent reads: the prompt's card snapshot does not need the chunks. On a
         # fallback turn it is discarded and the substitutes branch is read instead.
-        evidence_chunks, planned_events = await asyncio.gather(
+        evidence_chunks, planned_events = await _concurrently(
             self._evidence(request, query_embedding),
             self._recommendations(request, product, query_embedding, substitutes=False),
         )
@@ -180,7 +194,7 @@ class RAGOrchestrator:
         """Catalog lookup and query embedding in parallel; None embedding = provider down."""
         if not embed:
             return await self._products.get_product(request.sku), None
-        return await asyncio.gather(
+        return await _concurrently(
             self._products.get_product(request.sku), self._embed_question(request)
         )
 
@@ -305,16 +319,21 @@ class _PublicationGate:
             return []
         approved = self._verifier.approve(sentence)
         if approved is None:
-            blocked_text = sentence.strip()[:BLOCKED_SENTENCE_LOG_MAX_CHARS]
-            # Values in the message too: the default basicConfig format drops `extra`.
-            logger.info(
-                "gout_blocked_sentence sku=%s sentence=%r", self._sku, blocked_text,
-                extra={"sku": self._sku, "sentence": blocked_text},
-            )
             # Only a dropped spec (number + unit, price, bivolt) is "missing from the
             # manual"; a dropped courtesy or paraphrase is discarded silently.
-            if technical_claims(CITATION_MARK.sub("", sentence)):
-                self._notice_pending = True
+            technical = bool(technical_claims(CITATION_MARK.sub("", sentence)))
+            reason = "UNSUPPORTED_TECHNICAL_CLAIM" if technical else "UNSUPPORTED_SENTENCE"
+            # Values in the message too: the default basicConfig format drops `extra`.
+            logger.info(
+                "gout_blocked_sentence sku=%s reason=%s", self._sku, reason,
+                extra={"sku": self._sku, "reason": reason},
+            )
+            blocked_text = sentence.strip()[:BLOCKED_SENTENCE_LOG_MAX_CHARS]
+            logger.debug(
+                "gout_blocked_text sku=%s sentence=%r", self._sku, blocked_text,
+                extra={"sku": self._sku, "sentence": blocked_text},
+            )
+            self._notice_pending = self._notice_pending or technical
             return []
         self.approved += 1
         return [*self._notice(), approved]
