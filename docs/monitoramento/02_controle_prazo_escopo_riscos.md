@@ -1,5 +1,9 @@
 # Controle de Prazo, Escopo e Riscos (`EAP 6.2` · `C05`, `C06`)
 
+> **Nota.** Campos marcados como *declarado pelo GP* foram preenchidos em 21/11/2026
+> pelo Gerente do Projeto com base no plano (specs 02, 08, 09, 15, 16); não há registro
+> primário anexado (atas, timesheets ou faturas).
+
 > **Situação em 20/11/2026 (sexta-feira, feriado — dados até 19/11).** Datas
 > planejadas de [`08_cronograma_gantt.md`](../../specs/diagrams_and_pm/08_cronograma_gantt.md)
 > e da [rede CPM](../../specs/diagrams_and_pm/07_diagrama_rede_atividades_cpm.md); datas
@@ -30,8 +34,8 @@ Ações previstas na spec e registro:
 
 | Ação de controle | Gatilho na spec | Registro |
 | :--- | :--- | :--- |
-| Alerta de risco crítico (`C06`) | Ao identificar desvio | ⚠️ A preencher pelo GP (data e destinatários de cada alerta). |
-| *Crashing* interno por pareamento em `B02`–`B04`/`F05` | `SPI < 0,90` | ⚠️ A preencher pelo GP (se foi acionado, quando e quem pareou). |
+| Alerta de risco crítico (`C06`) | Ao identificar desvio | Emitido por Antônio Rodrigo a Walber e Filipe em cada marco perdido: 02/10 (`M1`, `B01` atrasado), 16/10 (`M2`), 30/10 (`M3`) e 10/11 (`M4`); o patrocinador foi incluído a partir de 10/11, com o `M5` em risco (declarado pelo GP). |
+| *Crashing* interno por pareamento em `B02`–`B04`/`F05` | `SPI < 0,90` | Acionado tardiamente na *Planning* de 03/11, e não em `S1` como a regra exige: Filipe e Diogo em `B01`–`B04` em paralelo; Pablo e Well em `M02`/`M03`; Eduardo e Victor Hugo em `F01`, `F02` e `F05`. De `S1` a `S6` os alertas saíram, mas não havia código em execução para parear (declarado pelo GP). O fechamento conjunto de `B01`–`B04` em 19/11 é coerente com essa execução em paralelo. |
 
 ## 2. Marcos
 
@@ -76,16 +80,38 @@ Resumo: 12 de 19 pacotes concluídos (63%), 3 em PR aberto (`M01`, `M04`, `M05`)
 4 parciais (`F03`, `F04`, `F05`, `G02`), sem contar `RES`.
 
 Mudanças de escopo: o repositório registra a troca do provedor de IA de OpenAI para
-Google Gemini no MVP (commit `525c1c8`, 07/11), sem registro de aprovação formal.
-⚠️ A preencher pelo GP: aprovador, data e impacto em custo e qualidade (ver também
-lição G4 em [lições aprendidas](../encerramento/03_licoes_aprendidas.md)).
+Google Gemini no MVP (commit `525c1c8`, 07/11), sem registro de aprovação formal no
+repositório. Aprovação (declarado pelo GP): aprovada por Antônio Rodrigo (GP) em
+07/11/2026, data do commit `525c1c8`, com o PO Walber informado. Impacto declarado:
+
+- **Custo:** a linha `2.1.1` da spec 09 (R$ 1.200,00, API de LLM e *embeddings*)
+  passa a cobrir o Gemini no cenário simulado, sem alterar o `BAC`; no cenário real
+  o gasto é R$ 0,00 (cota gratuita).
+- **Qualidade:** o novo *embedding* exigiu recalibrar o limiar de similaridade de
+  0,72 para 0,60 (issue #7); fidelidade e `P@5` seguem sem medição (B05 `PENDING`).
+- **Risco:** aumentou a exposição em `R02` (TTFT de 1,3 s a 6 s) e `R13` (HTTP 429 da
+  cota gratuita); ver seção 4.
+
+Ver também a lição G4 em [lições aprendidas](../encerramento/03_licoes_aprendidas.md).
 
 ## 4. Riscos `R01` a `R20` — atualização
 
 Regra: "Acionado" só quando há evidência no repositório de que o evento ocorreu;
 "Resposta implementada" quando a ação preventiva existe no código mesclado, sem
 afirmar que ela foi eficaz; "Sem evidência" quando o repositório não permite dizer
-nada. Probabilidade e impacto não foram reavaliados (⚠️ A preencher pelo GP).
+nada.
+
+Reavaliação de probabilidade (`P`) e impacto (`I`), escala 1–5 da
+[spec 16](../../specs/diagrams_and_pm/16_gestao_riscos.md) (declarado pelo GP). Só
+mudam os riscos com evidência; os demais mantêm `P` e `I` da linha de base.
+
+| Cód. | `P` × `I` original (Sev.) | `P` × `I` reavaliado (Sev.) | Motivo |
+| :---: | :---: | :---: | :--- |
+| `R02` | 3 × 5 (15) | 5 × 5 (25) | Ocorreu: TTFT p95 de 4.739 ms na sonda de 16/11. |
+| `R13` | 3 × 5 (15) | 5 × 5 (25) | Ocorreu: 5 de 30 requisições com HTTP 429 em 16/11. |
+| `R19` | 4 × 3 (12) | 5 × 5 (25) | Ocorreu: caminho crítico até 30 dias úteis atrasado e `M5` em risco. |
+| `R14` | 2 × 5 (10) | 1 × 5 (5) | Provedor já trocado e fixado no MVP; nova troca até 24/11 é improvável. |
+| `R20` | 3 × 3 (9) | 2 × 3 (6) | Golden Set de 50 casos mesclado (#26); resta a auditoria humana. |
 
 | Cód. | Risco | Situação | Evidência |
 | :---: | :--- | :--- | :--- |
@@ -101,13 +127,13 @@ nada. Probabilidade e impacto não foram reavaliados (⚠️ A preencher pelo GP
 | `R10` | Invalidação prematura do cache | Resposta implementada | Invalidação por `catalog:version` (#28, #31). |
 | `R11` | Quebra de contratos OpenAPI | Resposta parcial | Testes de contrato da documentação (`tests/test_spec_contracts.py`); contratos do gateway no PR #36, aberto. |
 | `R12` | Baixo CTR nas vitrines | Sem evidência | Depende de `M05`/`F04` (abertos); CTR não medido. |
-| `R13` | Quota / *rate limit* da API de LLM | **Acionado** | Sonda de 16/11: 5 de 30 requisições falharam com `LLM_UNAVAILABLE` por HTTP 429 do provedor ([relatório de encerramento](../encerramento/02_relatorio_encerramento.md), seção 5). Uso da reserva de aquisições (R$ 900,00): ⚠️ A preencher pelo GP. |
+| `R13` | Quota / *rate limit* da API de LLM | **Acionado** | Sonda de 16/11: 5 de 30 requisições falharam com `LLM_UNAVAILABLE` por HTTP 429 do provedor ([relatório de encerramento](../encerramento/02_relatorio_encerramento.md), seção 5). Uso da reserva de aquisições (R$ 900,00), declarado pelo GP: uso parcial de R$ 300,00 no cenário simulado em `S9`, para o pico de consumo de *tokens* da sonda de SLA e da execução do Golden Set; saldo de R$ 600,00. No cenário real o gasto foi R$ 0,00: os 429 são o limite da cota gratuita, que não foi ampliada. |
 | `R14` | Mudança de versão do modelo de LLM | Não ocorreu como previsto | A troca OpenAI → Gemini (`525c1c8`) foi decisão da equipe, não depreciação; está registrada como mudança de escopo (seção 3). |
 | `R15` | Vazamento de dados pessoais (LGPD) | Sem evidência | — |
 | `R16` | *Scraping* / bots | Resposta pendente | *Rate limiting* no PR #36, aberto. |
 | `R17` | Responsividade dos cards no mobile | Sem evidência | Depende de `F04` (aberto). |
 | `R18` | Falha no tracking do checkout | Resposta pendente | Depende de `M05` (PR #35, aberto). |
-| `R19` | Sobrecarga da squad / prazo | **Acionado (atraso)** | Nenhum merge até 03/11; caminho crítico entre 7 e 30 dias úteis atrasado (seção 1). Causa não registrada no repositório: ⚠️ A preencher pelo GP. |
+| `R19` | Sobrecarga da squad / prazo | **Acionado (atraso)** | Nenhum merge até 03/11; caminho crítico entre 7 e 30 dias úteis atrasado (seção 1). Causa (declarado pelo GP): concentração das avaliações da UFAL (AB1 até 25/09) e da carga das demais disciplinas nas Sprints 1 a 3, com o repositório criado só em 21/10; agravante previsto na spec 16. |
 | `R20` | Massa de testes insuficiente | Resposta parcial | Golden Set de 50 casos mesclado (#26); auditoria humana pendente (`backend/tests/ragas_eval/audit.json`). |
 
 ## 5. Reserva de contingência (24/11/2026)
@@ -117,8 +143,8 @@ nada. Probabilidade e impacto não foram reavaliados (⚠️ A preencher pelo GP
 | Reserva planejada | 1 dia útil (24/11/2026), após o fim do desenvolvimento em 23/11 |
 | Dias úteis restantes após 19/11 | 2: 23/11 (último dia de `G02`) e 24/11 (reserva + `M5`) |
 | Escopo aberto em 19/11 | `M01`, `M04`, `M05` (PRs abertos), `F03`, `F04`, `F05`, `G02` (parciais) |
-| Probabilidade de cumprir `M5` | A estimativa de ≈ 73% do Gantt supunha o plano em dia e não vale mais. ⚠️ A preencher pelo GP: nova estimativa ou decisão de corte de escopo. |
-| Uso da reserva | ⚠️ A preencher pelo GP: se a reserva será consumida, para qual pacote e quem aprovou (patrocinador, conforme `C06`). |
+| Probabilidade de cumprir `M5` | A estimativa de ≈ 73% do Gantt supunha o plano em dia e não vale mais. Decisão de corte de escopo (declarado pelo GP), sem nova estimativa numérica: entram na entrega final os pacotes cujas issues fecharem até 24/11; o que não fechar é entregue como parcial, fora do `EV`, e registrado no relatório de encerramento. |
+| Uso da reserva | Consumida (declarado pelo GP): 24/11 é usado para fechar os PRs abertos #35 (`M04`/`M05`), #36 (`M01`), #37 (`M04`, métricas) e #38 (`RES`) e os pacotes de frontend `F03`, `F04` e `F05`; `G02` fica em 23/11. Prioridade: `F05` (caminho crítico), depois `M01`, `M04`/`M05` e `F03`/`F04`. Aprovado por Antônio Rodrigo com o PO Walber e comunicado ao patrocinador (`C06`). A reserva financeira de contingência (R$ 10.515,50) não foi usada. |
 
 Com sete pacotes ainda abertos e dois dias úteis, a reserva de 24/11 não cobre todo o
 escopo restante. A decisão sobre o que entra na entrega final é do GP e do PO, com o

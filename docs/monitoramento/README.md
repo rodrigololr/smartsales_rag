@@ -1,9 +1,14 @@
 # Monitoramento e Controle (`EAP 6.0` · pacote `RES` · issue #21)
 
+> **Nota.** Campos marcados como *declarado pelo GP* foram preenchidos em 21/11/2026
+> pelo Gerente do Projeto com base no plano (specs 02, 08, 09, 15, 16); não há registro
+> primário anexado (atas, timesheets ou faturas).
+
 > **Situação em 20/11/2026.** Os relatórios desta pasta foram reconstituídos
 > retroativamente a partir das specs, do histórico Git da `develop` e do GitHub
 > (PRs e issues). Não há atas, listas de presença, horas apontadas nem custos reais
-> no repositório: esses campos aparecem como **⚠️ A preencher pelo GP**.
+> no repositório: esses campos foram preenchidos como declaração do GP e aparecem
+> marcados com **(declarado pelo GP)**, separados dos dados verificáveis no GitHub.
 > Aprovador: Antônio Rodrigo. Responsável: Walber.
 
 ## 1. Conteúdo
@@ -12,7 +17,7 @@
 | :--- | :---: | :---: | :--- |
 | [01_rituais_ageis.md](01_rituais_ageis.md) | `6.1` | `C02`, `C03`, `C08` | Calendário de *Plannings*, *Dailies* e *Reviews* e o que foi entregue em cada janela de sprint. |
 | [02_controle_prazo_escopo_riscos.md](02_controle_prazo_escopo_riscos.md) | `6.2` | `C05`, `C06` | Caminho crítico (planejado × real), marcos, escopo por pacote, riscos `R01`–`R20` e reserva de contingência. |
-| [03_relatorios_evm_semanais.md](03_relatorios_evm_semanais.md) | `6.3` | `C05` | Relatórios EVM semanais `S1`–`S9` (`PV`, `EV`, `SV`, `SPI`; `AC` e `CPI` pendentes). |
+| [03_relatorios_evm_semanais.md](03_relatorios_evm_semanais.md) | `6.3` | `C05` | Relatórios EVM semanais `S1`–`S9` (`PV`, `EV`, `SV`, `SPI`; `AC`, `CPI` e `EAC` declarados pelo GP). |
 
 Documentos relacionados, sem repetir o conteúdo deles:
 
@@ -54,8 +59,8 @@ Documentos relacionados, sem repetir o conteúdo deles:
 3. Em `03_relatorios_evm_semanais.md`, somar ao `EV` o orçamento dos pacotes cujas
    issues fecharam até a sexta-feira da semana e recalcular `SPI = EV / PV`. Não
    alterar o `PV`: ele é a linha de base.
-4. Preencher os campos **⚠️ A preencher pelo GP** apenas com dados que tenham
-   registro (ata, planilha de horas, fatura). Se o dado não existir, escrever
-   "não registrado" em vez de estimar.
+4. Campos sem registro no repositório (ata, planilha de horas, fatura) só entram
+   como declaração do GP, marcados com **(declarado pelo GP)**. Quando houver registro
+   primário, anexá-lo e substituir a declaração pelo dado registrado.
 5. Na semana de `20/11` (feriado), o relatório `C05` sai em `19/11`; o fechamento
    definitivo de `S9` é em `24/11/2026` (Marco `M5`).

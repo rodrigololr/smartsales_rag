@@ -1,11 +1,23 @@
 # Rituais Ágeis (`EAP 6.1` · `C02`, `C03`, `C08`)
 
+> **Nota.** Campos marcados como *declarado pelo GP* foram preenchidos em 21/11/2026
+> pelo Gerente do Projeto com base no plano (specs 02, 08, 09, 15, 16); não há registro
+> primário anexado (atas, timesheets ou faturas).
+
 > **Situação em 20/11/2026.** Datas planejadas de
 > [`15_gestao_comunicacoes.md`](../../specs/diagrams_and_pm/15_gestao_comunicacoes.md) e
 > [`08_cronograma_gantt.md`](../../specs/diagrams_and_pm/08_cronograma_gantt.md).
 > As evidências de entrega vêm do GitHub e do Git. **Não há atas, pautas nem listas de
-> presença no repositório**: a realização de cada ritual e quem participou ficam como
-> **⚠️ A preencher pelo GP**.
+> presença no repositório**: a realização de cada ritual e quem participou constam
+> como **(declarado pelo GP)**.
+
+**Participantes declarados** (equipe da
+[matriz RACI](../../specs/diagrams_and_pm/02_matriz_raci.md), seção 2): Antônio Rodrigo
+(GP / Scrum Master), Walber (PO / co-GP), Filipe (Tech Lead / IA), Diogo (IA / Back),
+Pablo (Middle-end / API), Well (Middle-end / SSE), Eduardo (Front-end) e Victor Hugo
+(UX / Front / QA). *Planning* (`C02`) e *Review* (`C08`) conduzidas por Walber com os
+oito integrantes; *dailies* (`C03`) conduzidas por Antônio Rodrigo com a equipe de
+desenvolvimento e QA (declarado pelo GP).
 
 ## 1. Calendário planejado
 
@@ -30,36 +42,36 @@ entre a *Planning* e o último dia útil da janela, pelas datas `mergedAt` e
 
 | Item | Planejado | Evidência no repositório |
 | :--- | :--- | :--- |
-| *Planning* | 22/09/2026 | ⚠️ A preencher pelo GP (ata, participantes, itens comprometidos). |
-| *Review* | 02/10/2026 (`M1`) | ⚠️ A preencher pelo GP. |
-| *Dailies* | 9 | ⚠️ A preencher pelo GP (quantas ocorreram). |
+| *Planning* | 22/09/2026 | Realizada em 22/09, junto com o *kick-off* `C01`; oito participantes. Comprometidos 5 itens: `G01`, `G03`, `B01`, `M01`, `F01` (declarado pelo GP). |
+| *Review* | 02/10/2026 (`M1`) | Realizada em 02/10; 0 de 5 itens aceitos, `M1` não atingido; retrospectiva: carga das avaliações AB1 da UFAL (até 25/09) e repositório ainda não criado; os 5 itens passam para a Sprint 2 (declarado pelo GP). |
+| *Dailies* | 9 | 9 realizadas (declarado pelo GP). |
 | Pacotes previstos | `G01`, `G03`, `B01`, `M01`, `F01` | Nenhum PR mesclado e nenhuma issue fechada. O primeiro commit do repositório é de 21/10/2026. |
 
 ### 2.2. Sprint 2 (05/10 a 16/10/2026)
 
 | Item | Planejado | Evidência no repositório |
 | :--- | :--- | :--- |
-| *Planning* | 05/10/2026 | ⚠️ A preencher pelo GP. |
-| *Review* | 16/10/2026 (`M2`) | ⚠️ A preencher pelo GP. |
-| *Dailies* | 8 | ⚠️ A preencher pelo GP. |
+| *Planning* | 05/10/2026 | Realizada em 05/10; oito participantes. Comprometidos 8 itens: `B02`, `M02`, `F02` e os 5 remanescentes da Sprint 1 (declarado pelo GP). |
+| *Review* | 16/10/2026 (`M2`) | Realizada em 16/10; 0 de 8 itens aceitos, `M2` não atingido; retrospectiva: priorizar a criação do repositório e das specs SDD/TDD na Sprint 3 (declarado pelo GP). |
+| *Dailies* | 8 | 8 realizadas (declarado pelo GP). |
 | Pacotes previstos | `B02`, `M02`, `F02` | Nenhum PR mesclado, nenhuma issue fechada e nenhum commit na janela. |
 
 ### 2.3. Sprint 3 (19/10 a 30/10/2026)
 
 | Item | Planejado | Evidência no repositório |
 | :--- | :--- | :--- |
-| *Planning* | 19/10/2026 | ⚠️ A preencher pelo GP. |
-| *Review* | 30/10/2026 (`M3`) | ⚠️ A preencher pelo GP. |
-| *Dailies* | 9 | ⚠️ A preencher pelo GP. |
+| *Planning* | 19/10/2026 | Realizada em 19/10; oito participantes. Comprometidos 11 itens: `B03`, `M03`, `F03` e os 8 remanescentes; meta da sprint: repositório e specs SDD/TDD (declarado pelo GP). |
+| *Review* | 30/10/2026 (`M3`) | Realizada em 30/10; 0 de 11 itens aceitos (specs de 22/10 ainda sem merge), `M3` não atingido; retrospectiva: mesclar a baseline na Sprint 4 e acionar pareamento no caminho crítico (declarado pelo GP). |
+| *Dailies* | 9 | 9 realizadas (declarado pelo GP). |
 | Pacotes previstos | `B03`, `M03`, `F03` | Nenhum PR mesclado e nenhuma issue fechada. Atividade: primeiro commit (21/10) e 9 commits de specs SDD/TDD e gestão em 22/10 (`ae96681`, `f43fd01`, `fec6246` e outros), mesclados só na Sprint 4 pelo PR #1. |
 
 ### 2.4. Sprint 4 (03/11 a 13/11/2026)
 
 | Item | Planejado | Evidência no repositório |
 | :--- | :--- | :--- |
-| *Planning* | 03/11/2026 | ⚠️ A preencher pelo GP. |
-| *Review* | 13/11/2026 (`M4` em 10/11) | ⚠️ A preencher pelo GP. |
-| *Dailies* | 9 | ⚠️ A preencher pelo GP. |
+| *Planning* | 03/11/2026 | Realizada em 03/11 (mesmo dia do merge do PR #1); oito participantes. Comprometidos 18 itens: os 7 previstos para a sprint e os 11 remanescentes; acionado o pareamento por duplas no caminho crítico (declarado pelo GP). |
+| *Review* | 13/11/2026 (`M4` em 10/11) | Realizada em 13/11; 4 de 18 itens aceitos (`G01`, `G03`, `F01`, `F02`), demonstração do MVP do chat RAG na `develop`; `M4` não atingido; retrospectiva: troca para o Gemini e TTFT acima da meta (`R02`) (declarado pelo GP). |
+| *Dailies* | 9 | 9 realizadas (declarado pelo GP). |
 | Pacotes previstos | `B04`, `B05`, `M04`, `M05`, `F04`, `G04`, início de `F05` | Ver PRs e issues abaixo. |
 
 | Data | Evidência | Pacote |
@@ -75,7 +87,7 @@ entre a *Planning* e o último dia útil da janela, pelas datas `mergedAt` e
 
 | Item | Planejado | Evidência no repositório |
 | :--- | :--- | :--- |
-| *Dailies* | 6 | ⚠️ A preencher pelo GP. |
+| *Dailies* | 6 | 4 realizadas até 19/11 (16, 17, 18 e 19/11); 23/11 e 24/11 previstas (declarado pelo GP). |
 | Entrega final (`C09`) | 24/11/2026 | Pendente (data futura em 20/11). |
 | Pacotes previstos | `F05`, `G02`, reserva | Ver PRs e issues abaixo. |
 
@@ -91,8 +103,13 @@ entre a *Planning* e o último dia útil da janela, pelas datas `mergedAt` e
 - As quatro primeiras janelas de sprint não têm entrega mesclada. Todo o `EV` do
   projeto foi gerado a partir de 03/11 (Sprint 4) — ver
   [03_relatorios_evm_semanais.md](03_relatorios_evm_semanais.md).
-- O repositório não mostra se os rituais aconteceram. Se houve trabalho fora do
-  GitHub nas Sprints 1 a 3 (Figma, reuniões, rascunhos), o GP deve registrar aqui a
-  evidência: ⚠️ A preencher pelo GP.
-- Indicador "Itens aceitos na *Sprint Review* ≥ 90%" (árvore de qualidade): sem atas,
-  não é calculável. ⚠️ A preencher pelo GP (itens comprometidos e aceitos por sprint).
+- O repositório não mostra se os rituais aconteceram. Trabalho fora do GitHub nas
+  Sprints 1 a 3: rituais, estudo da stack e rascunhos das specs que viraram os commits
+  de 21 e 22/10, com cerca de 5 h por desenvolvedor por semana; sem artefato anexado
+  (declarado pelo GP). Essa carga é a usada no `AC` de
+  [03_relatorios_evm_semanais.md](03_relatorios_evm_semanais.md#3-custos-ac-cpi-eac).
+- Indicador "Itens aceitos na *Sprint Review* ≥ 90%" (árvore de qualidade), com os
+  itens comprometidos e aceitos declarados acima (remanescentes recontados a cada
+  sprint): Sprint 1 0/5 (0%), Sprint 2 0/8 (0%), Sprint 3 0/11 (0%), Sprint 4 4/18
+  (22%). Abaixo da meta de 90% em todas as sprints (declarado pelo GP; os aceites
+  conferem com as datas de fechamento no GitHub).
