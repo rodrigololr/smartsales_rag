@@ -1,0 +1,28 @@
+Notebook Gamer Nimbus 16
+Modelo NB-NX16-BIV
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o notebook e guarde-o para consultas futuras.
+## Instruções de segurança
+Opere o notebook sobre superfície rígida para preservar a entrada de ar na base do chassi.
+Evite expor o equipamento a calor excessivo ou líquidos próximos ao teclado.
+Utilize apenas o adaptador de energia original que acompanha o produto.## Especificações técnicas
+Processador Intel Core i7-13620H.
+Placa de vídeo dedicada NVIDIA GeForce RTX 4060.
+Memória instalada de 16 GB e armazenamento em SSD NVMe de 1000 GB.
+Tela IPS de 16 polegadas com taxa de atualização de 165 Hz.
+Saída HDMI compatível com monitores externos de alta frequência e portas USB de alta velocidade.## Especificações elétricas
+Fonte de 230 W com seleção automática de tensão (bivolt automática).
+Funciona em tomadas de 127V ou 220V com ajuste automático.
+Mantenha a fonte de 230 W conectada durante jogos para liberar o limite total de potência gráfica.## Desempenho em jogos
+| Jogo | Resolução | Predefinição | Desempenho médio |
+| Roblox | 1080p | Alto | 185 fps |
+| GTA V | 1080p | Muito alto | 95 fps |
+| Fortnite | 1080p | Alto | 110 fps |
+| Counter-Strike 2 | 1080p | Alto | 165 fps |
+Valores medidos pelo fabricante em ambiente de teste.## Dimensões e estrutura
+Estrutura em liga metálica e polímero reforçado com peso aproximado de 2,4 kg.
+Sistema térmico com múltiplas saídas de ar traseiras e laterais.
+Limpe o teclado e o chassi externo somente com pano de microfibra levemente seco.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre quedas, danos por líquidos, desgaste natural ou abertura por assistência não credenciada.

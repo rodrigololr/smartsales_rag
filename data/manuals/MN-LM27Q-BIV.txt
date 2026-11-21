@@ -1,0 +1,21 @@
+Monitor Gamer Lumina 27 QHD
+Modelo MN-LM27Q-BIV
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o monitor e guarde-o para consultas futuras.
+## Instruções de segurança
+Instale o monitor sobre bancada firme com espaço livre para ventilação traseira.
+Evite tocar na tela com objetos pontiagudos ou produtos químicos solventes.
+Utilize apenas o cabo e a fonte de alimentação fornecidos pelo fabricante.## Especificações técnicas
+Tela de 27 polegadas com painel IPS e resolução Quad HD de 2560 x 1440 pixels.
+Taxa de atualização de até 170 Hz e tempo de resposta de 1 ms.
+Amplo ângulo de visão de 178 graus e fidelidade de cores para jogos e criação.## Especificações elétricas
+Fonte de 35 W com seleção automática de tensão (bivolt automática).
+Opera em redes de 127V ou 220V de forma automática.
+Potência nominal em uso contínuo de 35 W.## Entradas e compatibilidade
+Possui 2x HDMI 2.0 e 1x DisplayPort 1.4 para conexão simultânea de computador e notebook.
+Para atingir 170 Hz na resolução nativa de 2560 x 1440, utilize preferencialmente a entrada DisplayPort 1.4.## Montagem VESA e ergonomia
+Suporte com regulagem de altura, inclinação e rotação, além de padrão VESA 100 x 100 mm.
+Limpe a superfície do painel somente com pano de microfibra seco após desligar o monitor.## Garantia
+Garantia de 24 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre danos físicos ao painel, mau uso, oxidação ou reparos por terceiros.

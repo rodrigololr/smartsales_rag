@@ -1,0 +1,28 @@
+PC Gamer Vortex X3
+Modelo PC-VX3-BIV
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o computador e guarde-o para consultas futuras.
+## Instruções de segurança
+Instale o gabinete sobre superfície plana, firme e ventilada.
+Deixe pelo menos 10 cm livres nas aberturas frontal, superior e traseira para circulação de ar.
+Desligue o computador e desconecte o cabo da tomada antes de abrir a tampa lateral.## Especificações técnicas
+Processador AMD Ryzen 5 5600 de 6 núcleos e 12 threads.
+Placa de vídeo dedicada NVIDIA GeForce RTX 3050 com 6 GB de VRAM GDDR6.
+Memória instalada de 16 GB DDR4 em dual-channel.
+Armazenamento em SSD NVMe M.2 de 512 GB.
+Conexões de vídeo da placa dedicada: HDMI 2.1 e DisplayPort 1.4.## Especificações elétricas
+Fonte de 500 W com seleção automática de tensão (bivolt automática).
+Opera em tomadas de 127V ou 220V sem chave seletora manual.
+Utilize cabo de alimentação certificado com pino de aterramento.## Desempenho em jogos
+| Jogo | Resolução | Predefinição | Desempenho médio |
+| Roblox | 1080p | Alto | 160 fps |
+| GTA V | 1080p | Muito alto | 75 fps |
+| Fortnite | 1080p | Médio | 90 fps |
+| Counter-Strike 2 | 1080p | Alto | 140 fps |
+Valores medidos pelo fabricante em ambiente de teste.## Dimensões e gabinete
+Gabinete mid-tower com lateral em vidro temperado e filtro de poeira magnético.
+Largura de 21 cm, altura de 45 cm e profundidade de 42 cm.
+Limpe os filtros de poeira mensalmente com pincel macio ou pano seco.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre danos físicos por queda, oxidação, líquidos ou modificações não autorizadas.
