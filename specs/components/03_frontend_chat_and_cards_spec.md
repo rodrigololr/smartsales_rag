@@ -137,7 +137,7 @@ O hook `useSSEChatStream` gerencia o ciclo de vida da requisição `POST /api/v1
    - `COMPLETED`: Ao receber `done` (sempre o último evento), habilita a barra de feedback (`👍` / `👎`) e reabilita o campo de envio.
    - *Estes estados são apenas visuais; não correspondem a `chat_sessions.state` (`ACTIVE | ENDED`).*
 2. **Resiliência em Conexões Móveis Instáveis (Mitigação do Risco `R07`)**:
-   - Se a conexão cair antes do evento `done`, o hook descarta o texto parcial e **reenvia a mesma requisição `POST`, incluindo o mesmo `client_request_id`, uma única vez**; caso persista a falha, exibe botão `"Tentar novamente"` mantendo a pergunta do usuário preservada.
+   - Se a conexão cair antes do evento `done`, o hook descarta o texto parcial e **reenvia a mesma requisição `POST`, incluindo o mesmo `client_request_id`, uma única vez**; caso persista a falha, exibe botão `"Tentar novamente"` mantendo a pergunta do usuário preservada. Como o estado do turno no servidor é desconhecido após a interrupção, esse `Tentar novamente` manual **reutiliza o mesmo `client_request_id`**; um novo ID só é gerado depois que o turno terminou de forma conhecida (`done` ou erro terminal, como HTTP 5xx).
 
 ---
 
@@ -174,3 +174,25 @@ Cada card renderizado na vitrine da mensagem deve exibir obrigatoriamente:
 ## 5. Vitrine, retry e texto seguro
 
 Carregar a vitrine e a pesquisa em `GET /api/v1/products` com os parâmetros/resultado normativos da seção 5 do contrato. A vitrine (`app/page.tsx`) e a página do produto (`app/produto/[sku]/page.tsx`) são Server Components renderizados a cada requisição (`connection()` + `fetch` com `cache: "no-store"`): a vitrine percorre todas as páginas com `page_size=100`, a página do produto usa `GET /api/v1/products/{sku}` e `404` vira `notFound()`. O `next build` não depende do gateway. No servidor, o endereço é `API_INTERNAL_BASE_URL` (padrão: `NEXT_PUBLIC_API_BASE_URL`). Sem `NEXT_PUBLIC_API_BASE_URL`, ambas usam o mock local. Criar `client_request_id` UUID v4 antes de enviar a pergunta e preservar o mesmo ID/payload na única reconexão automática. Tratar 409 TURN_IN_PROGRESS aguardando Retry-After sem criar outro turno; 409 IDEMPOTENCY_CONFLICT é erro de cliente, não retry; 410 pede novo envio explícito. No evento error, descartar todo conteúdo parcial e mostrar fallback. Nenhum token recebido pode depender de correction posterior para se tornar factualmente seguro.
+
+## 6. Tema claro/escuro
+
+- O `StoreHeader` (e o cabeçalho do painel `/admin/metricas`) exibe um grupo de botões `role="group"` rotulado `Tema` com três opções: `Tema do sistema` (padrão, segue `prefers-color-scheme` e acompanha mudanças do sistema em tempo real), `Tema claro` e `Tema escuro`. Cada botão tem `aria-label` e `aria-pressed`; o grupo é operável por teclado (Tab + Enter/Espaço).
+- A escolha fica em `localStorage["smartsales-theme"]` (`light` | `dark`; `Sistema` remove a chave). Leituras e gravações ficam em `try/catch`: com o armazenamento bloqueado, a escolha vale só para a página aberta.
+- Um script inline em `<head>` (`app/layout.tsx` e `app/global-error.tsx`) aplica a classe `.dark` no `<html>` antes da primeira pintura, sem flash de tema errado; o `<html>` usa `suppressHydrationWarning`. Um `ThemeSync` (cliente, montado uma vez no layout) reaplica a classe a partir do armazenamento caso o React recrie o `<html>` no cliente (ex.: 404 em dev) e acompanha o sistema enquanto a escolha for `Sistema`.
+- Cores: no escuro o índigo primário vira `indigo-400` com texto `indigo-950` (texto `text-primary` ≥ 5,7:1 sobre `card`); texto de estado usa os tokens `success`/`danger`/`warning` (700/800 no claro, 300/400 no escuro); selos tonais (voltagem, tipo de recomendação, meta) usam fundo 950 e texto 200 no escuro. Ilustrações de produto continuam sobre um bloco claro arredondado para manter a leitura da arte.
+
+## 7. Fallback, leitores de tela e foco no chat
+
+- **Alerta de fallback por código** (`data-testid="assistant-fallback-{id}"`, `data-tone`): o código bruto nunca aparece para o usuário. `LOW_SIMILARITY_FALLBACK` é uma resposta segura esperada (tom informativo, índigo/neutro, título `Informação não encontrada no manual`); `GUARDRAIL_BLOCKED` usa tom de aviso (`Pergunta fora do escopo do consultor`); `LLM_UNAVAILABLE` (`Consultor indisponível no momento`) e `INTERNAL_ERROR` (`Não foi possível concluir a resposta`) usam tom de erro e são os únicos com `Tentar novamente`. O botão fica na coluna do texto (`col-start-2`), sem espremer a mensagem a 390 px.
+- **Leitores de tela**: o histórico (`data-testid="chat-log"`) não é região viva; recebe `aria-busy="true"` durante o streaming. Uma região `sr-only` (`data-testid="chat-announcer"`, `aria-live="polite"`) anuncia uma única vez a resposta concluída (ou `Título. mensagem` do fallback).
+- **Foco**: o campo de pergunta permanece habilitado durante o streaming (o foco não se perde); apenas o envio (Enter e botão `Enviar pergunta`) fica bloqueado até o `done`.
+
+## 8. Filtro de voltagem
+
+O filtro da vitrine tem `Todas`, `127V`, `220V` e `Bivolt`. Produtos `BIVOLT` funcionam nas duas tensões e por isso aparecem também em `127V` e em `220V`, com o selo `Bivolt` e a nota `Inclui modelos bivolt, que funcionam em 127V e 220V.` na contagem; o filtro `Bivolt` mostra só eles. Em todos os selos e na ficha técnica, `BIVOLT` é exibido como `Bivolt`.
+
+## 9. Modo demonstração (mock)
+
+- O mock (`lib/mock-api.ts`, `lib/mock-data.ts`) é um *fallback* de desenvolvimento: componentes e hooks só o carregam com `await import()` quando `USE_REAL_API` é falso, então ele fica num *chunk* separado que o caminho com gateway nunca baixa. Os produtos do mock já trazem `marketplace`/`checkout_url`, como os do gateway; `MockApiError` estende `ChatApiError`.
+- Recomendações do mock seguem a regra do backend: `UPSELL` é o próximo modelo da mesma subcategoria com capacidade e preço maiores, em estoque e até `+35%` do preço (nunca o próprio SKU); `CROSS_SELL` é o acessório compatível da subcategoria. Subcategorias sem "manual" no mock (acessórios, por exemplo) respondem `LOW_SIMILARITY_FALLBACK` com apenas o card `PRIMARY` do item.

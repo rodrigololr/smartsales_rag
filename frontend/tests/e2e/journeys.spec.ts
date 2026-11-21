@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { CheckoutConflict } from "../../src/types/chat";
 
 import {
   AIRFRYER_4L,
@@ -19,9 +20,8 @@ import {
 
 /**
  * Jornadas E2E-01 a E2E-08 de specs/tdd_and_quality/02_test_cases_unit_int_e2e.md.
- * Rodam contra a pilha real (docker compose), com LLM e manuais de demonstração.
- * As jornadas que dependem de rotas ainda não implementadas no gateway ficam em
- * `test.fixme`, com o pacote que as destrava.
+ * Rodam contra a pilha real (docker compose), com LLM e manuais de demonstração, em
+ * desktop (1440 px) e celular (390 px).
  */
 
 test("E2E-01: dúvida técnica com streaming SSE e citação da página do manual", async ({ page }) => {
@@ -88,8 +88,35 @@ test("E2E-03: conversão pelo mock checkout com link do marketplace", async ({ p
   await expect(redirect).toHaveAttribute("target", "_blank");
 });
 
-test.fixme("E2E-04: estoque zerado antes do clique em Comprar agora", async () => {
-  // Depende de POST /api/v1/checkout/mock com 409 OUT_OF_STOCK (pacote M05, issue #16).
+test("E2E-04: estoque zerado antes do clique em Comprar agora", async ({ page }) => {
+  const assistant = await openProduct(page, AIRFRYER_4L);
+  const answer = await ask(assistant, "A capacidade de 4L atende uma família de 5 pessoas?");
+  await waitForDone(assistant);
+
+  // O último item foi vendido entre a recomendação e o clique: o gateway responde 409.
+  const conflict: CheckoutConflict = {
+    checkout_event_id: "00000000-0000-4000-8000-000000000004",
+    status: "OUT_OF_STOCK",
+    sku: AIRFRYER_55L,
+    current_price: 629.9,
+    current_stock: 0,
+    redirect_checkout_url: null,
+    message: "Este item acabou de esgotar.",
+  };
+  await page.route(`**${CHECKOUT_PATH}`, (route) => route.fulfill({ status: 409, json: conflict }));
+
+  await answer.getByTestId(`buy-now-btn-${AIRFRYER_55L}`).click();
+  const dialog = page.getByTestId("checkout-conflict");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Item esgotado");
+  await expect(dialog).toContainText("0 un.");
+  await expect(page.getByTestId("checkout-redirect-link")).toHaveCount(0);
+
+  await dialog.getByRole("button", { name: "Entendi" }).click();
+  const card = answer.getByTestId(`recommendation-card-${AIRFRYER_55L}`);
+  await expect(card).toContainText("Esgotado");
+  await expect(answer.getByTestId(`buy-now-btn-${AIRFRYER_55L}`)).toBeDisabled();
+  await expect(answer.getByTestId(`buy-now-btn-${AIRFRYER_55L}`)).toContainText("Indisponível");
 });
 
 const UNANSWERABLE_QUESTIONS = {
@@ -106,7 +133,10 @@ for (const [kind, question] of Object.entries(UNANSWERABLE_QUESTIONS)) {
 
     const fallback = answer.locator('[data-testid^="assistant-fallback-"]');
     await expect(fallback).toBeVisible();
-    await expect(fallback).toContainText("LOW_SIMILARITY_FALLBACK");
+    // LOW_SIMILARITY_FALLBACK é resposta segura esperada: tom informativo, sem o código bruto.
+    await expect(fallback).toHaveAttribute("data-tone", "info");
+    await expect(fallback).toContainText("Informação não encontrada no manual");
+    await expect(fallback).not.toContainText("LOW_SIMILARITY_FALLBACK");
     await expect(answer.getByTestId("citation-list")).toHaveCount(0);
     await expect(answerText(answer)).toHaveCount(0);
 

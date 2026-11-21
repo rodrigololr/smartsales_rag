@@ -37,6 +37,12 @@
 		var(--chart-1);
 	--color-ring:
 		var(--ring);
+	--color-success:
+		var(--success);
+	--color-danger:
+		var(--danger);
+	--color-warning:
+		var(--warning);
 	--color-input:
 		var(--input);
 	--color-border:
@@ -88,6 +94,7 @@
 }
 
 :root {
+	color-scheme: light;
 	--background:
 		oklch(1 0 0);
 	--foreground:
@@ -152,9 +159,21 @@
 		oklch(0.922 0 0);
 	--sidebar-ring:
 		oklch(0.708 0 0);
+	/* Status text (The Dark-Status Rule): emerald-700, rose-700, amber-800. */
+	--success:
+		oklch(0.508 0.118 165.612);
+	--danger:
+		oklch(0.514 0.222 16.935);
+	--warning:
+		oklch(0.473 0.137 46.201);
 }
 
+/*
+ * Dark: the indigo flips to a light tint (indigo-400) with indigo-950 text, so `text-primary`
+ * stays AA on the dark surfaces (5.7:1 on card) and buttons keep 5.1:1.
+ */
 .dark {
+	color-scheme: dark;
 	--background:
 		oklch(0.145 0 0);
 	--foreground:
@@ -168,9 +187,9 @@
 	--popover-foreground:
 		oklch(0.985 0 0);
 	--primary:
-		oklch(0.398 0.195 277.366);
+		oklch(0.673 0.182 276.935);
 	--primary-foreground:
-		oklch(0.962 0.018 272.314);
+		oklch(0.257 0.09 281.288);
 	--secondary:
 		oklch(0.274 0.006 286.033);
 	--secondary-foreground:
@@ -188,9 +207,9 @@
 	--border:
 		oklch(1 0 0 / 10%);
 	--input:
-		oklch(1 0 0 / 15%);
+		oklch(1 0 0 / 18%);
 	--ring:
-		oklch(0.556 0 0);
+		oklch(0.673 0.182 276.935);
 	--chart-1:
 		oklch(0.785 0.115 274.713);
 	--chart-2:
@@ -217,6 +236,13 @@
 		oklch(1 0 0 / 10%);
 	--sidebar-ring:
 		oklch(0.556 0 0);
+	/* emerald-400, rose-400, amber-300: >= 6:1 on card. */
+	--success:
+		oklch(0.765 0.177 163.223);
+	--danger:
+		oklch(0.712 0.194 13.428);
+	--warning:
+		oklch(0.879 0.169 91.605);
 }
 
 @layer base {

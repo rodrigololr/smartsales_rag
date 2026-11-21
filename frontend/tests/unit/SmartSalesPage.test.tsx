@@ -31,4 +31,22 @@ describe("UT-F01-01: catálogo comum com imagens", () => {
     });
     expect(screen.getByText("Nenhum produto encontrado")).toBeInTheDocument();
   });
+
+  it("Bivolt tem filtro próprio e aparece, rotulado, em 127V e em 220V", () => {
+    const bivolt = { ...CATALOG_PRODUCTS[0], sku: "SEC-BIV", name: "Secador Bivolt", voltage: "BIVOLT" as const };
+    render(<CatalogView products={[...CATALOG_PRODUCTS, bivolt]} />);
+
+    for (const filter of ["127V", "220V"]) {
+      fireEvent.click(screen.getByRole("button", { name: filter }));
+      expect(screen.getByTestId("product-card-SEC-BIV")).toBeInTheDocument();
+      expect(within(screen.getByTestId("product-card-SEC-BIV")).getByText("Bivolt")).toBeInTheDocument();
+      expect(screen.getByText(/Inclui modelos bivolt/)).toBeInTheDocument();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Bivolt" }));
+    expect(screen.getByTestId("product-card-SEC-BIV")).toBeInTheDocument();
+    expect(screen.queryByTestId("product-card-AF-400-220V")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("product-card-CF-15B-127V")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Inclui modelos bivolt/)).not.toBeInTheDocument();
+  });
 });

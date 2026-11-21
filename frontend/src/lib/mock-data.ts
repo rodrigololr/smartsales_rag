@@ -1,5 +1,4 @@
 import type {
-  FeedbackReasonCategory,
   ManualCitation,
   MarketplaceType,
   MetricsSummary,
@@ -25,7 +24,13 @@ const checkoutUrl = (marketplace: MarketplaceType, name: string): string => {
   return `https://smartsales.example.com/produto/${query}`;
 };
 
-export const CATALOG_PRODUCTS: Product[] = [
+/** Mock products carry their marketplace link like gateway products do. */
+const withStoreLinks = (product: Product): Product => {
+  const marketplace = marketplaceForSku[product.sku] ?? "LOJA_OFICIAL";
+  return { ...product, marketplace, checkout_url: checkoutUrl(marketplace, product.name) };
+};
+
+export const CATALOG_PRODUCTS: Product[] = ([
   {
     sku: "AF-400-220V",
     name: "Airfryer SmartChef 4L",
@@ -86,10 +91,10 @@ export const CATALOG_PRODUCTS: Product[] = [
     rating: 4.7,
     reviews_count: 318,
   },
-];
+] satisfies Product[]).map(withStoreLinks);
 
 /** Catálogo estendido usado apenas pelo motor de recomendação mockado. */
-export const RECOMMENDATION_PRODUCTS: Product[] = [
+export const RECOMMENDATION_PRODUCTS: Product[] = ([
   {
     sku: "AF-800-220V",
     name: "Airfryer SmartChef 8L Family Plus",
@@ -159,7 +164,7 @@ export const RECOMMENDATION_PRODUCTS: Product[] = [
     rating: 4.5,
     reviews_count: 63,
   },
-];
+] satisfies Product[]).map(withStoreLinks);
 
 const ALL_PRODUCTS = [...CATALOG_PRODUCTS, ...RECOMMENDATION_PRODUCTS];
 
@@ -203,65 +208,85 @@ export const toPrimaryCard = (product: Product): ProductCardData =>
     "Item que originou esta conversa e está ancorado no manual oficial."
   );
 
-const isCafeteira = (product: Product) => product.subcategory === "Cafeteiras";
+/** Same ceiling as the backend rule (CLAUDE.md §7: UPSELL_MAX_PRICE_RATIO). */
+const UPSELL_MAX_PRICE_RATIO = 1.35;
+
+/** Subcategories the mock can answer about, with their compatible accessory line. */
+const MOCK_KNOWLEDGE: Record<string, { accessorySubcategory: string; crossJustification: string }> = {
+  "Fritadeiras Elétricas": {
+    accessorySubcategory: "Acessórios para Airfryer",
+    crossJustification: "Formas de silicone que preservam o cesto antiaderente no uso diário.",
+  },
+  Cafeteiras: {
+    accessorySubcategory: "Acessórios para Cafeteira",
+    crossJustification: "Mantém a pressão e o sabor com a descalcificação recomendada pelo fabricante.",
+  },
+};
+
+export const mockKnowsSubcategory = (product: Product): boolean => product.subcategory in MOCK_KNOWLEDGE;
+
+/** Next tier up in the same subcategory (bigger capacity, pricier, within +35%), in stock. */
+const upsellFor = (base: Product): Product | undefined =>
+  ALL_PRODUCTS.filter(
+    (candidate) =>
+      candidate.sku !== base.sku &&
+      candidate.subcategory === base.subcategory &&
+      candidate.stock_quantity > 0 &&
+      (candidate.capacity_liters ?? 0) > (base.capacity_liters ?? 0) &&
+      candidate.price > base.price &&
+      candidate.price <= base.price * UPSELL_MAX_PRICE_RATIO
+  ).sort((a, b) => a.price - b.price)[0];
+
+const crossSellFor = (base: Product): Product | undefined => {
+  const knowledge = MOCK_KNOWLEDGE[base.subcategory];
+  return ALL_PRODUCTS.find(
+    (candidate) =>
+      candidate.subcategory === knowledge?.accessorySubcategory && candidate.stock_quantity > 0
+  );
+};
+
+export const upsellCardOf = (cards: ProductCardData[]): ProductCardData | undefined =>
+  cards.find((card) => card.recommendation_type === "UPSELL");
 
 export const buildRecommendations = (base: Product): ProductCardData[] => {
-  const primary = toPrimaryCard(base);
-  if (isCafeteira(base)) {
-    const upsell = findProduct("CF-20B-127V");
-    const cross = findProduct("KIT-CAF-01");
-    return [
-      primary,
-      ...(upsell
-        ? [
-            toCard(
-              upsell,
-              "UPSELL",
-              "Upgrade Recomendado — Maior Capacidade",
-              "Reservatório de 2L e moedor integrado para quem prepara mais cafés por dia."
-            ),
-          ]
-        : []),
-      ...(cross
-        ? [
-            toCard(
-              cross,
-              "CROSS_SELL",
-              "Compre Junto Compatível",
-              "Mantém a pressão e o sabor com a descalcificação recomendada pelo fabricante."
-            ),
-          ]
-        : []),
-    ];
-  }
-
-  const upsell = findProduct("AF-550-220V");
-  const cross = findProduct("KIT-SIL-01");
+  const upsell = upsellFor(base);
+  const cross = crossSellFor(base);
   return [
-    primary,
+    toPrimaryCard(base),
     ...(upsell
       ? [
           toCard(
             upsell,
             "UPSELL",
             "Upgrade Recomendado — Maior Capacidade",
-            "Cesto de 5,5L atende de 5 a 6 pessoas em uma única fornada."
+            `Capacidade de ${formatLiters(upsell.capacity_liters)}, acima dos ${formatLiters(base.capacity_liters)} deste modelo.`
           ),
         ]
       : []),
     ...(cross
-      ? [
-          toCard(
-            cross,
-            "CROSS_SELL",
-            "Compre Junto Compatível",
-            "Formas de silicone que preservam o cesto antiaderente no uso diário."
-          ),
-        ]
+      ? [toCard(cross, "CROSS_SELL", "Compre Junto Compatível", MOCK_KNOWLEDGE[base.subcategory].crossJustification)]
       : []),
   ];
 };
 
+const formatLiters = (liters: number | null | undefined): string =>
+  `${(liters ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}L`;
+
+/** Demo portions per basket size; only used by the mock answers and their citation. */
+export const airfryerServings = (liters: number): string =>
+  liters <= 4.5 ? "3 a 4 pessoas" : liters <= 6 ? "5 a 6 pessoas" : "até 8 pessoas";
+
+const electricalCitation = (product: Product, page: number, score: number): ManualCitation => ({
+  chunk_id: `c-${String(page).padStart(2, "0")}-${product.sku}`,
+  sku: product.sku,
+  manual_title: `Manual ${product.name}`,
+  page_number: page,
+  section_title: "Especificações elétricas",
+  similarity_score: score,
+  excerpt: `Este modelo opera exclusivamente em ${product.voltage} / 60 Hz, com potência nominal de ${product.power_watts ?? "N/A"} W. Não utilize extensões ou adaptadores.`,
+});
+
+/** Mock manual chunks; empty for subcategories the mock does not know (answered with a fallback). */
 export const citationsForProduct = (product: Product): ManualCitation[] => {
   if (product.subcategory === "Cafeteiras") {
     return [
@@ -275,42 +300,12 @@ export const citationsForProduct = (product: Product): ManualCitation[] => {
         excerpt:
           "Execute a descalcificação a cada 2 meses ou após 60 ciclos de extração. Utilize apenas a solução descalcificante original diluída em 500 ml de água.",
       },
-      {
-        chunk_id: `c-05-${product.sku}`,
-        sku: product.sku,
-        manual_title: `Manual ${product.name}`,
-        page_number: 5,
-        section_title: "Especificações elétricas",
-        similarity_score: 0.87,
-        excerpt: `Este modelo opera exclusivamente em ${product.voltage} / 60 Hz, com potência nominal de ${product.power_watts ?? 1050} W.`,
-      },
+      electricalCitation(product, 5, 0.87),
     ];
   }
+  if (product.subcategory !== "Fritadeiras Elétricas") return [];
 
-  if (product.capacity_liters && product.capacity_liters >= 5) {
-    return [
-      {
-        chunk_id: `c-18-${product.sku}`,
-        sku: product.sku,
-        manual_title: `Manual ${product.name}`,
-        page_number: 18,
-        section_title: "Capacidade e porções",
-        similarity_score: 0.92,
-        excerpt:
-          "O cesto de 5,5 litros comporta até 1,8 kg de batatas pré-preparadas, atendendo de 5 a 6 pessoas com uma única fornada.",
-      },
-      {
-        chunk_id: `c-07-${product.sku}`,
-        sku: product.sku,
-        manual_title: `Manual ${product.name}`,
-        page_number: 7,
-        section_title: "Especificações elétricas",
-        similarity_score: 0.89,
-        excerpt: `Este modelo opera exclusivamente em ${product.voltage} / 60 Hz, com potência nominal de ${product.power_watts ?? 1800} W.`,
-      },
-    ];
-  }
-
+  const liters = product.capacity_liters ?? 0;
   return [
     {
       chunk_id: `c-14-${product.sku}`,
@@ -322,27 +317,18 @@ export const citationsForProduct = (product: Product): ManualCitation[] => {
       excerpt:
         "Formas de alumínio com diâmetro de até 20 cm podem ser utilizadas no cesto, desde que mantida uma folga mínima de 2 cm em relação à resistência superior.",
     },
+    electricalCitation(product, 6, 0.9),
     {
-      chunk_id: `c-06-${product.sku}`,
+      chunk_id: `c-18-${product.sku}`,
       sku: product.sku,
       manual_title: `Manual ${product.name}`,
-      page_number: 6,
-      section_title: "Especificações elétricas",
-      similarity_score: 0.9,
-      excerpt: `Este modelo opera exclusivamente em ${product.voltage} / 60 Hz, com potência nominal de ${product.power_watts ?? 1500} W. Não utilize extensões ou adaptadores.`,
+      page_number: 18,
+      section_title: "Capacidade e porções",
+      similarity_score: 0.92,
+      excerpt: `O cesto de ${formatLiters(liters)} atende ${airfryerServings(liters)} em uma única fornada.`,
     },
   ];
 };
-
-export const feedbackReasons: {
-  value: FeedbackReasonCategory;
-  label: string;
-}[] = [
-  { value: "HALLUCINATION", label: "Informação imprecisa" },
-  { value: "WRONG_VOLTAGE", label: "Voltagem/medida incorreta" },
-  { value: "SLOW", label: "Demorou a responder" },
-  { value: "OTHER", label: "Outro" },
-];
 
 export const MOCK_METRICS: MetricsSummary = {
   window: {
