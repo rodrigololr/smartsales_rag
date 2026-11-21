@@ -5,6 +5,7 @@ import {
   AIRFRYER_55L,
   CACHE_HIT_LIMIT_MS,
   CHAT_STREAM_PATH,
+  FEEDBACK_PATH,
   FIRST_TEXT_SMOKE_LIMIT_MS,
   SESSIONS_PATH,
   SILICONE_KIT,
@@ -33,11 +34,13 @@ test("E2E-01: dúvida técnica com streaming SSE e citação da página do manua
   await expect(badge).toContainText("Manual Airfryer SmartChef 4L");
   await expect(badge).toContainText(/p\. ?\d+/);
 
+  await expect(badge).toHaveAttribute("aria-expanded", "false");
   await badge.click();
-  const dialog = page.getByTestId("citation-dialog");
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("Manual Airfryer SmartChef 4L");
-  await expect(dialog).toContainText(/alumínio/i);
+  await expect(badge).toHaveAttribute("aria-expanded", "true");
+  const excerpt = page.locator(`[id="${await badge.getAttribute("aria-controls")}"]`);
+  await expect(excerpt).toBeVisible();
+  await expect(excerpt).toContainText(/p[aá]gina \d+/i);
+  await expect(excerpt).toContainText(/alumínio/i);
 });
 
 test("E2E-02: família grande recebe upsell e cross-sell em estoque", async ({ page }) => {
@@ -118,8 +121,18 @@ test("E2E-06 (cache): a mesma pergunta em nova sessão volta por cache hit", asy
   expect(await shownTtftMs(repeated)).toBeLessThan(CACHE_HIT_LIMIT_MS);
 });
 
-test.fixme("E2E-06 (feedback): like persistido no banco", async () => {
-  // Depende de POST /api/v1/feedback no gateway (pacote F03/M04, issues #12 e #15).
+test("E2E-06 (feedback): like persistido no banco", async ({ page }) => {
+  const assistant = await openProduct(page, AIRFRYER_4L);
+  const answer = await ask(assistant, "Posso usar formas de alumínio no cesto?");
+  await waitForDone(assistant);
+
+  const recorded = page.waitForResponse(
+    (response) => response.request().method() === "POST" && response.url().endsWith(FEEDBACK_PATH)
+  );
+  await answer.locator('[data-testid^="feedback-like-"]').click();
+
+  expect((await recorded).status()).toBe(201);
+  await expect(answer.getByText("Obrigado pelo feedback!")).toBeVisible();
 });
 
 test("E2E-07: reiniciar a conversa encerra a sessão e não herda o contexto", async ({ page }) => {

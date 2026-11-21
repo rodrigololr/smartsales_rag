@@ -1,4 +1,9 @@
-import type { StreamEvent } from "@/types/chat";
+import type {
+  ApiErrorEnvelope,
+  FeedbackCreate,
+  FeedbackRecorded,
+  StreamEvent,
+} from "@/types/chat";
 import { SSEParser } from "@/lib/sse-parser";
 
 /** Middle-end origin. Empty means the UI runs on the local mock API. */
@@ -41,7 +46,7 @@ async function toApiError(response: Response): Promise<ChatApiError> {
   let code = `HTTP_${response.status}`;
   let message = response.statusText;
   try {
-    const body = (await response.json()) as { error?: { code?: string; message?: string } };
+    const body = (await response.json()) as Partial<ApiErrorEnvelope>;
     code = body.error?.code ?? code;
     message = body.error?.message ?? message;
   } catch {
@@ -151,4 +156,19 @@ export async function* streamChat(
     });
   }
   if (!receivedDone) throw new StreamInterruptedError();
+}
+
+/** POST /api/v1/feedback. 409 FEEDBACK_ALREADY_RECORDED surfaces as a ChatApiError like any other code. */
+export async function postFeedback(
+  feedback: FeedbackCreate,
+  signal?: AbortSignal
+): Promise<FeedbackRecorded> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(feedback),
+    signal,
+  });
+  if (!response.ok) throw await toApiError(response);
+  return (await response.json()) as FeedbackRecorded;
 }
