@@ -66,7 +66,9 @@ def get_orchestrator() -> ConsultantOrchestrator:
         first_token_attempts=settings.llm_first_token_attempts,
         fallback_model=settings.llm_fallback_model,
     )
-    count_tokens = lambda text: len(encoding.encode(text))
+    def count_tokens(text: str) -> int:
+        return len(encoding.encode(text))
+
     rag = RAGOrchestrator(
         catalog,
         catalog,

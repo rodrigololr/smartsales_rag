@@ -14,6 +14,14 @@ from app.consultant.slots import (
 )
 from app.models.schemas import ConsultantRequest
 
+__all__ = [
+    "CategoryTarget",
+    "ConversationState",
+    "Slots",
+    "conversation_state",
+    "merge_slots",
+]
+
 MAX_SHOWN_SKUS = 6
 
 

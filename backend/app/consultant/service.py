@@ -4,7 +4,6 @@ import logging
 import re
 from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import replace
-from decimal import Decimal
 from typing import Literal, Protocol
 
 from app.clients.openai_client import LLMUnavailableError

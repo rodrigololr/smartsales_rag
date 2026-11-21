@@ -118,6 +118,8 @@ def webcam_capability(
     product_or_resolution: CatalogProduct | object,
     fps: object = None,
 ) -> tuple[int, int] | None:
+    raw_res: object
+    raw_fps: object
     if isinstance(product_or_resolution, CatalogProduct):
         specs = product_or_resolution.specs_json
         raw_res = specs.get("resolucao")

@@ -3,12 +3,7 @@
 from decimal import Decimal
 
 import pytest
-from app.consultant.conversation import (
-    CategoryTarget,
-    ConversationState,
-    Slots,
-    conversation_state,
-)
+from app.consultant.conversation import conversation_state
 from app.consultant.router import Route, comparison_set, route, route_intent
 from app.models.schemas import CatalogProduct, ChatTurn, ConsultantRequest
 
