@@ -70,16 +70,19 @@ describe("UT-F01-01: catálogo comum com imagens", () => {
     fireEvent.click(screen.getByTestId("open-assistant-btn"));
 
     const drawer = screen.getByTestId("contextual-chat-drawer");
-    expect(within(drawer).getByText("Catálogo completo")).toBeInTheDocument();
-    expect(within(drawer).getByText("Catálogo, manuais e base de conhecimento")).toBeInTheDocument();
+    const assistantInDrawer = within(drawer).getByTestId("product-assistant");
+    expect(within(assistantInDrawer).getByText("Catálogo completo")).toBeInTheDocument();
+    expect(
+      within(assistantInDrawer).getByText("Catálogo, manuais e base de conhecimento")
+    ).toBeInTheDocument();
     for (const suggestion of CATALOG_SUGGESTIONS) {
-      expect(within(drawer).getByText(suggestion)).toBeInTheDocument();
+      expect(within(assistantInDrawer).getByText(suggestion)).toBeInTheDocument();
     }
 
     fireEvent.click(within(drawer).getByTestId("quick-suggestion-0"));
-    expect(
-      await within(drawer).findByText("O consultor do catálogo exige a API real.")
-    ).toBeInTheDocument();
+    expect(await within(drawer).findByTestId("assistant-text")).toHaveTextContent(
+      "O consultor do catálogo exige a API real."
+    );
 
     rerender(
       <ConsultantProvider>
@@ -91,9 +94,9 @@ describe("UT-F01-01: catálogo comum com imagens", () => {
     expect(screen.getByTestId("context-sku")).toHaveTextContent("AF-400-220V");
     const dockedAssistant = screen.getByTestId("product-assistant");
     expect(within(dockedAssistant).getByText(CATALOG_SUGGESTIONS[0])).toBeInTheDocument();
-    expect(
-      within(dockedAssistant).getByText("O consultor do catálogo exige a API real.")
-    ).toBeInTheDocument();
+    expect(within(dockedAssistant).getByTestId("assistant-text")).toHaveTextContent(
+      "O consultor do catálogo exige a API real."
+    );
 
     rerender(
       <ConsultantProvider>

@@ -48,7 +48,7 @@ Implementar a camada Frontend do Consultor Unificado:
   - Commit: `feat(P4): add ConsultantProvider and update useChatSession for catalog and product modes`
 - [x] **Task 5 (Red)**: Adicionar testes unitarios para `ProductAssistant` em modo catalogo, `CATALOG_SUGGESTIONS`, `suggestionsFor` para novas categorias, botao flutuante na `CatalogView` e continuidade da conversa para `ProductPageView`.
   - Commit: `test(P4): add unit tests for catalog assistant drawer, suggestions and home-to-product handoff`
-- [ ] **Task 6 (Green)**: Atualizar `ProductAssistant.tsx`, `ContextualChatDrawer.tsx`, `CatalogView.tsx` e `ProductPageView.tsx`.
+- [x] **Task 6 (Green)**: Atualizar `ProductAssistant.tsx`, `ContextualChatDrawer.tsx`, `CatalogView.tsx` e `ProductPageView.tsx`.
   - Commit: `feat(P4): enable unified consultant across CatalogView, ProductPageView and ProductAssistant`
 - [ ] **Task 7 (E2E)**: Adicionar teste E2E Playwright (`tests/e2e/consultor.spec.ts`) com SSE mockado via `page.route` validando o fluxo home -> pergunta -> cards `OPTION` -> `"Ver detalhes"` -> pagina de produto mantendo mensagens e enviando `current_product_sku` no proximo turno.
   - Commit: `test(P4): add Playwright E2E test for unified consultant home-to-product handoff`
