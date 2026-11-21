@@ -51,6 +51,18 @@ _EXEMPT_IP_LIMIT_PATHS = {
     "/openapi.json",
     "/redoc",
 }
+# Read-only catalog: the Next.js SSR fetches it for every visitor from one container IP.
+_CATALOG_PATH = "/api/v1/products"
+
+
+def _ip_limit_exempt(request: Request) -> bool:
+    path = request.url.path
+    if request.method == "OPTIONS" or path in _EXEMPT_IP_LIMIT_PATHS:
+        return True
+    if request.method != "GET":
+        return False
+    sku = path.removeprefix(_CATALOG_PATH + "/")  # GET /products/{sku}, nothing deeper
+    return path == _CATALOG_PATH or (sku != path and sku != "" and "/" not in sku)
 
 
 async def redis_unavailable(request: Request, failure: Exception) -> JSONResponse:
@@ -235,7 +247,7 @@ def create_app(
     async def enforce_rate_limit(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        if request.method != "OPTIONS" and request.url.path not in _EXEMPT_IP_LIMIT_PATHS:
+        if not _ip_limit_exempt(request):
             client_ip = client_ip_from_request(
                 request, trusted_proxy_hops=settings.rate_limit_trusted_proxy_hops
             )

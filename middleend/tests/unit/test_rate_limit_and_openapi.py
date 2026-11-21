@@ -276,3 +276,17 @@ def test_chat_stream_has_a_coarse_ip_bucket_before_the_session_lookup() -> None:
         ]
     assert statuses[:-1] == [404] * CHAT_SESSIONS_PER_IP
     assert statuses[-1] == 429
+
+
+def test_catalog_reads_skip_the_ip_bucket_but_writes_stay_limited() -> None:
+    # The Next.js server renders the storefront from a single container IP (SSR).
+    with _limited_app(limit=1) as client:
+        reads = [
+            client.get(path).status_code
+            for path in ("/api/v1/products", "/api/v1/products/AF-400-220V") * 3
+        ]
+        assert 429 not in reads
+        writes = [client.post("/api/v1/feedback", json={}).status_code for _ in range(2)]
+        assert writes[-1] == 429
+        # Only the list and the single-product route are exempt, not deeper paths.
+        assert client.get("/api/v1/products/AF-400-220V/extra").status_code == 429
