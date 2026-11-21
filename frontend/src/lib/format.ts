@@ -14,6 +14,11 @@ export const marketplaceLabel = (marketplace: MarketplaceType): string =>
     LOJA_OFICIAL: "Loja Oficial",
   })[marketplace];
 
+/** Products without mains power (USB, battery, cosmetics) come as "N/A" from the catalog. */
+export const hasVoltage = (voltage: VoltageType): boolean => voltage !== "N/A";
+export const voltageLabel = (voltage: VoltageType): string =>
+  hasVoltage(voltage) ? voltage : "Não se aplica";
+
 export const voltageBadgeClass = (voltage: VoltageType): string => {
   if (voltage === "220V") return "border-amber-200 bg-amber-100 text-amber-800";
   if (voltage === "127V") return "border-sky-200 bg-sky-100 text-sky-800";
@@ -57,6 +62,9 @@ const SPEC_UNITS: Record<string, string> = {
   g: "g",
   cm: "cm",
   mm: "mm",
+  horas: "h",
+  dias: "dias",
+  meses: "meses",
 };
 
 /** Words of `specs_json` keys written without accents in the data. */
@@ -94,6 +102,19 @@ const SPEC_WORDS: Record<string, string> = {
   energetica: "energética",
   liquido: "líquido",
   rapido: "rápido",
+  conexao: "conexão",
+  iluminacao: "iluminação",
+  botoes: "botões",
+  navegacao: "navegação",
+  resolucao: "resolução",
+  xicaras: "xícaras",
+  giratoria: "giratória",
+  ions: "íons",
+  resistencia: "resistência",
+  ruido: "ruído",
+  dpi: "DPI",
+  fps: "FPS",
+  led: "LED",
 };
 
 /**
