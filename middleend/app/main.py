@@ -150,17 +150,6 @@ def build_cache(settings: Settings, redis: Redis | None) -> SemanticCacheService
     )
 
 
-def build_commerce(settings: Settings) -> PostgresCommerce | None:
-    if not settings.database_url:
-        return None
-    return PostgresCommerce(
-        settings.database_url,
-        decrement_stock=settings.checkout_decrement_stock,
-        connect_timeout_seconds=settings.database_connect_timeout_seconds,
-        query_timeout_ms=settings.session_db_query_timeout_ms,
-    )
-
-
 def build_rate_limiter(
     settings: Settings, redis: Redis | None, *, per_ip_factor: int = 1
 ) -> RateLimiter:
@@ -168,6 +157,18 @@ def build_rate_limiter(
     if redis is not None:
         return RedisRateLimiter(redis, limit=limit, window_seconds=RATE_LIMIT_WINDOW_SECONDS)
     return InMemoryRateLimiter(limit=limit, window_seconds=RATE_LIMIT_WINDOW_SECONDS)
+
+
+def build_commerce(settings: Settings) -> PostgresCommerce | None:
+    if not settings.database_url:
+        return None
+    return PostgresCommerce(
+        settings.database_url,
+        decrement_stock=settings.checkout_decrement_stock,
+        session_ttl_seconds=settings.session_ttl_seconds,
+        connect_timeout_seconds=settings.database_connect_timeout_seconds,
+        query_timeout_ms=settings.session_db_query_timeout_ms,
+    )
 
 
 def create_app(
@@ -225,7 +226,6 @@ def create_app(
 
     app = FastAPI(title="SmartSales RAG Gateway", version=settings.app_version, lifespan=lifespan)
     app.state.settings = settings
-    app.state.commerce = build_commerce(settings)
     app.state.rate_limiter = rate_limiter or build_rate_limiter(settings, None)
     app.state.chat_ip_limiter = build_rate_limiter(
         settings, None, per_ip_factor=CHAT_SESSIONS_PER_IP
@@ -249,6 +249,7 @@ def create_app(
                 return rate_limited(decision, settings.rate_limit_per_minute * factor)
         return await call_next(request)
 
+    app.state.commerce = build_commerce(settings)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,

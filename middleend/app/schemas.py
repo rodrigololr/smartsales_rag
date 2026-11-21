@@ -1,4 +1,4 @@
-"""Public request contracts (openapi.yaml: SessionCreate, ChatStreamRequest, Filters)."""
+"""Public REST request and error contracts (openapi.yaml)."""
 
 from decimal import Decimal
 from typing import Literal
@@ -29,3 +29,18 @@ class ChatStreamRequest(BaseModel):
     client_request_id: UUID4
     message: str = Field(min_length=1, max_length=1000)
     context_filters: Filters | None = None
+
+
+class RestError(BaseModel):
+    """Error fields shared by REST validation and rate-limit responses."""
+
+    code: str
+    message: str
+    trace_id: str
+    details: object
+
+
+class Error(BaseModel):
+    """Normative openapi.yaml Error envelope (including arbitrary JSON details)."""
+
+    error: RestError

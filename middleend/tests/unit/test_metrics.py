@@ -57,6 +57,40 @@ def test_hour_keys_are_clamped_to_retention_and_to_now() -> None:
     assert hour_keys(datetime(2000, 1, 1, tzinfo=UTC), datetime(2000, 1, 2, tzinfo=UTC), NOW) == []
 
 
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        (NOW, NOW + timedelta(minutes=1)),
+        (NOW + timedelta(minutes=1), NOW + timedelta(minutes=2)),
+        (
+            NOW - COUNTER_RETENTION - timedelta(minutes=2),
+            NOW - COUNTER_RETENTION - timedelta(minutes=1),
+        ),
+    ],
+)
+def test_hour_keys_are_empty_when_the_clamped_window_is_empty(
+    start: datetime, end: datetime
+) -> None:
+    assert hour_keys(start, end, NOW) == []
+
+
+class _UnexpectedRedis:
+    def pipeline(self, transaction: bool = False) -> None:
+        raise AssertionError("An empty window must not read HTTP counters")
+
+
+def test_future_window_has_zero_error_rate_without_reading_current_hour_counters() -> None:
+    rate = asyncio.run(
+        error_5xx_rate(
+            _UnexpectedRedis(),  # type: ignore[arg-type]
+            NOW + timedelta(minutes=1),
+            NOW + timedelta(minutes=2),
+            NOW,
+        )
+    )
+    assert rate == 0.0
+
+
 @pytest.mark.parametrize("configured", [None, "", "   "])
 def test_blank_admin_token_means_the_endpoint_is_closed(configured: str | None) -> None:
     assert Settings(admin_token=configured).admin_token is None
