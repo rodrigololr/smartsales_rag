@@ -1,0 +1,21 @@
+name: Docker Compose build
+on:
+  pull_request:
+    paths:
+      - 'docker-compose.yml'
+      - '**/Dockerfile'
+      - '**/requirements*.txt'
+      - 'frontend/package.json'
+      - 'frontend/pnpm-lock.yaml'
+      - '.github/workflows/compose.yml'
+permissions:
+  contents: read
+jobs:
+  compose-build:
+    runs-on: ubuntu-latest
+    env:
+      LLM_API_KEY: dummy-ci-key  # só satisfaz a interpolação; nada é chamado
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose build
