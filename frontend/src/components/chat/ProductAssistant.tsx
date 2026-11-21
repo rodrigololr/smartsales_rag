@@ -11,7 +11,16 @@ import { AssistantMessage, fallbackAnnouncement } from "@/components/chat/Assist
 import { cn } from "@/lib/utils";
 import { voltageLabel } from "@/lib/format";
 
-export function suggestionsFor(product: Product): string[] {
+export const CATALOG_SUGGESTIONS = [
+  "Quero um PC para jogar Roblox até R$ 4.000",
+  "Qual notebook gamer funciona em 127V?",
+  "Quero um monitor para jogos",
+  "Qual webcam serve para live na Twitch?",
+  "Um sofá de 3 lugares cabe em 2 metros?",
+];
+
+export function suggestionsFor(product: Product | null): string[] {
+  if (!product) return CATALOG_SUGGESTIONS;
   const first =
     product.voltage === "N/A"
       ? "Quais são as principais especificações deste modelo?"
@@ -26,11 +35,27 @@ export function suggestionsFor(product: Product): string[] {
       "Quais materiais de forma e assadeira posso utilizar?",
     ];
   }
+  if (
+    product.category === "Computadores" ||
+    product.subcategory === "PCs Gamer" ||
+    product.subcategory === "Notebooks Gamer"
+  ) {
+    return ["Consigo jogar GTA RP neste computador?", "Funciona em 127V?", first];
+  }
+  if (product.subcategory === "Webcams") {
+    return ["Consigo fazer live na Twitch com a melhor qualidade?", first];
+  }
+  if (product.subcategory === "Sofás") {
+    return ["Este sofá cabe em 2 metros?", first];
+  }
+  if (product.category === "Monitores" || product.subcategory === "Monitores Gamer") {
+    return ["Qual é a taxa de atualização?", first];
+  }
   return [first, "Como devo fazer a limpeza?", "Quais são os cuidados de uso?"];
 }
 
 export interface ProductAssistantProps {
-  product: Product;
+  product: Product | null;
   chat: ChatSession;
   /** Shown only where the assistant can be dismissed (mobile sheet). */
   onClose?: () => void;
@@ -64,14 +89,14 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
 
   const handleSend = (text: string) => {
     if (!text.trim() || isStreaming) return;
-    send(text);
+    send(text, product);
     setPrompt("");
   };
 
   return (
     <div
       data-testid="product-assistant"
-      data-sku={product.sku}
+      data-sku={product?.sku ?? ""}
       className={cn("flex h-full min-h-0 flex-col bg-card", className)}
     >
       <div className="flex items-center justify-between border-b border-border bg-muted/50 p-4">
@@ -87,7 +112,7 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
               </Badge>
             </div>
             <p className="truncate text-xs text-muted-foreground">
-              Respostas sobre {product.name}
+              {product ? `Respostas sobre ${product.name}` : "Catálogo completo"}
             </p>
           </div>
         </div>
@@ -126,11 +151,15 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
       <div className="flex items-center justify-between gap-3 border-b border-border bg-primary/5 px-4 py-2.5 text-xs">
         <div className="flex min-w-0 items-center gap-2 text-foreground">
           <BookOpen className="size-4 shrink-0 text-primary" />
-          <span className="truncate">
-            Manual e ficha técnica de <strong>{product.sku}</strong>
-          </span>
+          {product ? (
+            <span className="truncate">
+              Manual e ficha técnica de <strong>{product.sku}</strong>
+            </span>
+          ) : (
+            <span className="truncate">Catálogo, manuais e base de conhecimento</span>
+          )}
         </div>
-        {product.voltage !== "N/A" ? (
+        {product && product.voltage !== "N/A" ? (
           <Badge variant="secondary" className="font-bold text-primary">
             <span className="sr-only">Voltagem </span>
             {voltageLabel(product.voltage)}
@@ -153,17 +182,22 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
             <div className="flex items-start gap-2.5 rounded-xl bg-muted p-3.5 text-xs leading-relaxed text-muted-foreground">
               <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
               <div>
-                <p className="mb-1 font-medium text-foreground">Olá! Tire suas dúvidas sobre este produto.</p>
+                <p className="mb-1 font-medium text-foreground">
+                  {product
+                    ? "Olá! Tire suas dúvidas sobre este produto."
+                    : "Olá! Posso ajudar a escolher um produto."}
+                </p>
                 <p>
-                  Respondo sobre especificações, uso e cuidados com base no manual oficial e na
-                  ficha técnica, sempre citando a página da fonte.
+                  {product
+                    ? "Respondo sobre especificações, uso e cuidados com base no manual oficial e na ficha técnica, sempre citando a página da fonte."
+                    : "Busco opções em estoque no catálogo, comparo especificações dos manuais e consulto a base de conhecimento da loja."}
                 </p>
               </div>
             </div>
 
             <div>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Perguntas frequentes deste produto
+                {product ? "Perguntas frequentes deste produto" : "Sugestões para começar"}
               </h3>
               <div className="flex flex-wrap gap-2">
                 {suggestionsFor(product).map((suggestion, index) => (
@@ -217,7 +251,7 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
             aria-label="Pergunta para o consultor"
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder="Faça uma pergunta sobre este produto"
+            placeholder={product ? "Pergunte sobre este produto" : "O que você procura?"}
             className="pr-12"
           />
           <Button

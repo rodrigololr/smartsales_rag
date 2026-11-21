@@ -124,7 +124,13 @@ def decode_turn(fields: dict[str, object]) -> CompletedTurn:
 
 def history_json(item: HistoryItem) -> str:
     return json.dumps(
-        {"id": item.message_id, "role": item.role, "content": item.content}, ensure_ascii=False
+        {
+            "id": item.message_id,
+            "role": item.role,
+            "content": item.content,
+            "skus": list(item.recommended_skus),
+        },
+        ensure_ascii=False,
     )
 
 
@@ -133,7 +139,10 @@ def _snapshot(session_id: str, fields: dict[str, object]) -> SessionSnapshot:
     return SessionSnapshot(
         session_id,
         str(fields["sku"]) or None,
-        tuple(HistoryItem(row["role"], row["content"], row["id"]) for row in rows),
+        tuple(
+            HistoryItem(row["role"], row["content"], row["id"], tuple(row.get("skus") or ()))
+            for row in rows
+        ),
         cast(TurnState, fields["state"]),
     )
 

@@ -107,3 +107,44 @@ def build_messages(
         *({"role": turn.role, "content": turn.content} for turn in recent),
         {"role": "user", "content": question},
     ]
+
+
+CATALOG_SYSTEM_PROMPT = """Você é o Consultor Técnico Especialista do SmartSales RAG no modo catálogo.
+Sua missão é responder à dúvida do cliente usando EXCLUSIVAMENTE os dados fornecidos nos blocos <BASE_CONHECIMENTO> e <PRODUTOS_SQL>.
+
+REGRAS OBRIGATÓRIAS E INEGOCIÁVEIS:
+1. FIDELIDADE ABSOLUTA: Responda apenas com base nas informações explícitas em <BASE_CONHECIMENTO> e <PRODUTOS_SQL>. NUNCA invente, deduza ou extrapole voltagem (127V/220V/Bivolt), potência (W), capacidade (L), dimensões, requisitos técnicos ou preços.
+2. CITAÇÃO OBRIGATÓRIA: Toda afirmação extraída de <BASE_CONHECIMENTO> DEVE copiar literalmente a sentença relevante e terminar com a citação exata no formato: [Fonte: <manual_title>, p. <page_number>].
+3. PRODUTOS DO CATÁLOGO: Toda sentença sobre um produto listado em <PRODUTOS_SQL> deve começar com "SKU <código>:" na mesma sentença do fato e conter um único atributo SQL nos formatos da regra 7/8, ex.: "SKU <código>: Voltagem: <valor>.", "SKU <código>: A potência é <valor>.", "SKU <código>: Possui capacidade de <valor>." ou "SKU <código>: Preço atual: <valor>."
+4. INFORMAÇÃO GERAL: Contexto geral complementar só é permitido em sentenças iniciadas por "Informação geral:", sem números, unidades de medida, preços, especificações técnicas ou ranking de marcas.
+5. IMPARCIALIDADE: Nunca faça ranking de marcas nem chame um produto de "o melhor".
+6. TOM E FORMATO: Seja objetivo e técnico, em português do Brasil, com no máximo 6 sentenças. Sem saudação, introdução ou fecho: comece diretamente pelo fato citado. Para listas, use tópicos iniciados por "- " (hífen e espaço), nunca numerados.
+
+<BASE_CONHECIMENTO>
+{chunks}
+</BASE_CONHECIMENTO>
+
+<PRODUTOS_SQL>
+{products}
+</PRODUTOS_SQL>"""
+
+
+def build_catalog_messages(
+    products: Sequence[CatalogProduct],
+    chunks: Sequence[RetrievedChunk],
+    history: Sequence[ChatTurn],
+    question: str,
+    *,
+    history_limit: int,
+) -> list[Message]:
+    products_text = "\n\n".join(catalog_block(product) for product in products)
+    system = CATALOG_SYSTEM_PROMPT.format(
+        chunks=chunks_block(chunks),
+        products=products_text,
+    )
+    recent = list(history)[-history_limit:] if history_limit > 0 else []
+    return [
+        {"role": "system", "content": system},
+        *({"role": turn.role, "content": turn.content} for turn in recent),
+        {"role": "user", "content": question},
+    ]

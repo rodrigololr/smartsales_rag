@@ -4,24 +4,43 @@ SQL owns price and electrical/capacity facts. Other technical prose is published
 as a verified literal extract; a matching number alone is never textual support.
 """
 
+import logging
 import re
 import unicodedata
 from collections.abc import Sequence
+from decimal import Decimal
 from uuid import UUID
 
 from app.guardrails.output import (
     UNIT_WORDS,
     Claim,
+    length_measures_cm,
     measured_values,
     pt_br_number,
     technical_claims,
 )
 from app.models.schemas import CatalogProduct, ProductRecommendation, RetrievedChunk
 
+logger = logging.getLogger(__name__)
+
 CITATION_MARK = re.compile(r"\[Fonte:\s*(.+?),\s*p\.\s*(\d+)\]")
 _SKU = re.compile(r"\b[A-Z0-9]+(?:-[A-Z0-9]+)+\b", re.IGNORECASE)
 _CRITICAL_UNITS = {"V", "W", "L", "BRL"}
 _COURTESIES = {"bom uso", "obrigado", "obrigada", "de nada", "posso ajudar com outra duvida"}
+GENERAL_INFORMATION_PREFIX = "Informação geral:"
+GENERAL_INFORMATION_MAX = 2
+MISSING_EVIDENCE_NOTICE = (
+    "Essa especificação específica não consta no manual técnico oficial deste modelo. "
+)
+CATALOG_MISSING_NOTICE = (
+    "Parte da resposta não consta na base de conhecimento da loja e foi omitida."
+)
+_FORBIDDEN_GENERAL_INFO = re.compile(
+    r"\b(volts?|voltagem|tensao|bivolt|watts?|potencia|litros?|capacidade|preco|custa|reais"
+    r"|garantia|fps|hz|polegadas|resolucao|requisitos?|compativel|compatibilidade"
+    r"|confiavel|confiabilidade|melhor marca|pior marca)\b"
+)
+_USER_ECHO_PRONOUN = re.compile(r"\b(voce|sua|seu|informad[ao]s?|informou)\b")
 _IS = r"(?: e(?: de)?| de)?"  # "é", "é de", "de" or nothing ("A potência é de 1500 W")
 _SQL_STATEMENTS = tuple(re.compile(pattern) for pattern in (
     rf"(?:custa|(?:o )?preco(?: atual)?{_IS}) (?:r )?number(?: reais)?",
@@ -55,7 +74,51 @@ def normalized_words(text: str) -> str:
 
 
 def _body(chunk: RetrievedChunk) -> str:
-    return re.sub(r"^\[PRODUTO:[^\n]*\]\s*", "", chunk.content)
+    return re.sub(r"^\[(?:PRODUTO|BASE DE CONHECIMENTO):[^\n]*\]\s*", "", chunk.content)
+
+
+_FOLDED_UNIT_TOKENS = frozenset(normalized_words(unit) for unit in UNIT_WORDS if normalized_words(unit))
+
+
+def general_information(sentence: str) -> bool:
+    """Approve qualitative 'Informação geral:' guidance with no numbers, units, SKUs or rankings."""
+    stripped = sentence.strip()
+    if stripped.startswith("- "):
+        stripped = stripped[2:].lstrip()
+    if not stripped.startswith(GENERAL_INFORMATION_PREFIX):
+        return False
+    remainder = stripped[len(GENERAL_INFORMATION_PREFIX) :].strip()
+    if not remainder:
+        return False
+    if any(char.isdigit() for char in remainder):
+        return False
+    if "[Fonte:" in remainder or CITATION_MARK.search(remainder):
+        return False
+    if any(any(char.isdigit() for char in sku) for sku in _SKU.findall(remainder)):
+        return False
+    if re.search(r"\bSKU\b", remainder, re.IGNORECASE):
+        return False
+    folded_rem = normalized_words(remainder)
+    if not folded_rem:
+        return False
+    if set(folded_rem.split()) & _FOLDED_UNIT_TOKENS:
+        return False
+    return _FORBIDDEN_GENERAL_INFO.search(folded_rem) is None
+
+
+def _user_length_echo(plain: str, user_lengths: set[Decimal]) -> bool:
+    if not user_lengths:
+        return False
+    lengths = length_measures_cm(plain)
+    if not lengths or not set(lengths) <= user_lengths:
+        return False
+    if len(_NUMERAL.findall(plain)) != len(lengths):
+        return False
+    if _PRICE_WORDS.search(plain):
+        return False
+    if {unit for _, unit in technical_claims(plain)} - {"cm"}:
+        return False
+    return _USER_ECHO_PRONOUN.search(normalized_words(plain)) is not None
 
 
 def _numbers(text: str) -> list[str]:
@@ -116,11 +179,25 @@ def _table_row_support(sentence: str, chunk: RetrievedChunk) -> bool:
 
 
 class SentenceVerifier:
-    def __init__(self, product: CatalogProduct | ProductRecommendation, chunks: Sequence[RetrievedChunk]) -> None:
+    def __init__(
+        self,
+        product: CatalogProduct | ProductRecommendation | None,
+        chunks: Sequence[RetrievedChunk],
+        *,
+        allow_general_information: bool = False,
+        user_message: str = "",
+    ) -> None:
         self._product = product
-        self._chunks = [chunk for chunk in chunks if chunk.sku == product.sku]
+        self._allow_general_information = allow_general_information
+        self._general_info_count = 0
+        self._user_lengths = set(length_measures_cm(user_message)) if user_message else set()
         self.cited_chunk_ids: set[UUID] = set()
-        self._sql_claims: set[Claim] = {(format(product.price.normalize(), "f"), "BRL")}
+        self._sql_claims: set[Claim] = set()
+        if product is None:
+            self._chunks = list(chunks)
+            return
+        self._chunks = [chunk for chunk in chunks if chunk.sku == product.sku]
+        self._sql_claims.add((format(product.price.normalize(), "f"), "BRL"))
         if product.voltage == "BIVOLT":
             self._sql_claims.update({("bivolt", "V"), ("127", "V"), ("220", "V")})
         elif product.voltage in {"127V", "220V"}:
@@ -131,13 +208,25 @@ class SentenceVerifier:
             self._sql_claims.add((format(product.capacity_liters.normalize(), "f"), "L"))
 
     def approve(self, sentence: str) -> str | None:
+        if self._allow_general_information and general_information(sentence):
+            if self._general_info_count >= GENERAL_INFORMATION_MAX:
+                return None
+            self._general_info_count += 1
+            return sentence
         marks = {(title.strip(), int(page)) for title, page in CITATION_MARK.findall(sentence)}
         plain = CITATION_MARK.sub("", sentence).strip().rstrip(".!? ")
         if "[Fonte:" in plain:
             return None  # malformed citation must not slip through as ordinary prose
+        if self._user_lengths and not marks and _user_length_echo(plain, self._user_lengths):
+            return sentence
         # Another SKU is publishable only inside a literal manual extract that names it.
-        foreign_sku = any(any(char.isdigit() for char in sku) and sku != self._product.sku
-                          for sku in _SKU.findall(plain))
+        if self._product is None:
+            foreign_sku = any(any(char.isdigit() for char in sku) for sku in _SKU.findall(plain))
+        else:
+            foreign_sku = any(
+                any(char.isdigit() for char in sku) and sku != self._product.sku
+                for sku in _SKU.findall(plain)
+            )
         claims = technical_claims(plain)
         if _PRICE_WORDS.search(plain) and any(char.isdigit() for char in plain):
             if not any(unit == "BRL" for _, unit in claims):
@@ -195,13 +284,27 @@ class ConsultativeVerifier:
     """
 
     def __init__(
-        self, product: CatalogProduct, chunks: Sequence[RetrievedChunk],
-        recommendations: Sequence[ProductRecommendation],
+        self,
+        product: CatalogProduct | None,
+        chunks: Sequence[RetrievedChunk],
+        recommendations: Sequence[CatalogProduct | ProductRecommendation],
+        *,
+        allow_general_information: bool = False,
+        user_message: str = "",
     ) -> None:
-        self._base = SentenceVerifier(product, chunks)
-        self._options = {card.sku: SentenceVerifier(card, []) for card in recommendations
-                         if card.sku != product.sku}
-        self._options[product.sku] = self._base
+        self._base = SentenceVerifier(
+            product,
+            chunks,
+            allow_general_information=allow_general_information,
+            user_message=user_message,
+        )
+        self._options = {
+            card.sku: SentenceVerifier(card, [])
+            for card in recommendations
+            if product is None or card.sku != product.sku
+        }
+        if product is not None:
+            self._options[product.sku] = self._base
         self._line_start = True
         self.end_block()
 
@@ -260,3 +363,59 @@ class ConsultativeVerifier:
             return None
         approved = verifier.approve(statement)
         return f"{bullet}SKU {sku}: {approved}" if approved is not None else None
+
+
+class _PublicationGate:
+    """Publishes approved sentences; a blocked technical claim becomes the missing-evidence
+    notice, emitted only next to approved text so a fully rejected draft publishes nothing."""
+
+    def __init__(
+        self,
+        verifier: ConsultativeVerifier,
+        label: str,
+        notice: str = MISSING_EVIDENCE_NOTICE,
+    ) -> None:
+        self._verifier = verifier
+        self._sku = label
+        self._notice_text = notice
+        self._notice_words = {
+            normalized_words(MISSING_EVIDENCE_NOTICE),
+            normalized_words(notice),
+        }
+        self._notice_pending = False
+        self._notice_sent = False
+        self.approved = 0
+
+    def review(self, sentence: str) -> list[str]:
+        if not sentence.strip():
+            self._verifier.end_block()
+            return [sentence] if self.approved else []
+        if normalized_words(sentence) in self._notice_words:
+            self._notice_pending = True
+            return []
+        approved = self._verifier.approve(sentence)
+        if approved is None:
+            technical = bool(technical_claims(CITATION_MARK.sub("", sentence)))
+            reason = "UNSUPPORTED_TECHNICAL_CLAIM" if technical else "UNSUPPORTED_SENTENCE"
+            logger.info(
+                "gout_blocked_sentence sku=%s reason=%s",
+                self._sku,
+                reason,
+                extra={"sku": self._sku, "reason": reason},
+            )
+            self._notice_pending = self._notice_pending or technical
+            return []
+        if not approved:
+            return []
+        self.approved += 1
+        return [*self._notice(), approved]
+
+    def close(self) -> list[str]:
+        return self._notice() if self.approved else []
+
+    def _notice(self) -> list[str]:
+        if not self._notice_pending or self._notice_sent:
+            return []
+        self._notice_pending = False
+        self._notice_sent = True
+        return [self._notice_text]

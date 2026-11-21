@@ -384,3 +384,34 @@ def test_create_session_does_not_run_retention_maintenance(
             assert sweeps == []
 
     asyncio.run(scenario())
+
+
+def test_postgres_snapshot_restores_recommended_skus_into_history() -> None:
+    async def scenario() -> None:
+        async with stores() as (first, second, redis):
+            session = (await first.create(None)).session_id
+            rid = str(uuid.uuid4())
+            turn = await first.begin_turn(session, rid, "hash")
+            card = {
+                "sku": "PC-VX3-BIV",
+                "name": "PC Gamer Vortex X3",
+                "price": 3499.0,
+                "stock_quantity": 7,
+                "voltage": "BIVOLT",
+                "image_url": "/images/pc-vx3-biv.svg",
+                "marketplace": "LOJA_OFICIAL",
+                "checkout_url": "https://example.com/pc-vx3",
+                "recommendation_type": "OPTION",
+                "badge_label": "Opção",
+                "justification": "RTX 3050 6 GB, 16 GB de RAM.",
+            }
+            result = dataclasses.replace(terminal(session, turn.message_id), products=(card,))  # type: ignore[arg-type]
+            await first.complete(session, rid, turn.lock_token, "Quero um PC", result)
+            await first.release(session, rid, turn.lock_token)
+            await redis.delete(*SessionCache.keys(session))
+            restored = await second.get(session)
+            assert restored is not None
+            assert [item.recommended_skus for item in restored.history] == [(), ("PC-VX3-BIV",)]
+            await second.delete(session)
+
+    asyncio.run(scenario())

@@ -269,3 +269,33 @@ def test_product_snapshots_bound_the_connection_attempt(monkeypatch: pytest.Monk
 
 def test_cache_revalidation_uses_the_connect_timeout_from_settings() -> None:
     assert SETTINGS.database_connect_timeout_seconds == 2
+
+
+def test_catalog_mode_without_sku_skips_semantic_cache_lookup_and_store(
+    client: TestClient, backend: FakeBackend, storage: FakeStorage
+) -> None:
+    first_session = client.post("/api/v1/sessions", json={}).json()["session_id"]
+    first = sse_events(
+        client.post(
+            "/api/v1/chat/stream",
+            json={
+                "session_id": first_session,
+                "client_request_id": str(uuid.uuid4()),
+                "message": "Quero um PC gamer",
+            },
+        ).text
+    )
+    second_session = client.post("/api/v1/sessions", json={}).json()["session_id"]
+    second = sse_events(
+        client.post(
+            "/api/v1/chat/stream",
+            json={
+                "session_id": second_session,
+                "client_request_id": str(uuid.uuid4()),
+                "message": "Quero um PC gamer",
+            },
+        ).text
+    )
+    assert first[0][1]["cache_hit"] is False and second[0][1]["cache_hit"] is False
+    assert len(backend.calls) == 2
+    assert storage.entries == {}

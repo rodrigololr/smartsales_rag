@@ -1,0 +1,22 @@
+Webcam Cliqon Stream 1080p60
+Modelo WC-1080-60
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar a webcam e guarde-o para consultas futuras.
+## Instruções de segurança
+Não exponha a lente de vidro à luz solar direta nem a ambientes úmidos.
+Evite forçar a articulação do clipe além do ângulo de abertura indicado.
+Feche a tampa protetora quando a câmera não estiver sendo utilizada.## Especificações técnicas
+Este produto não é ligado diretamente à tomada: recebe alimentação pela porta USB do computador.
+Captura vídeo em resolução Full HD de 1920 x 1080 pixels a 60 fps.
+Possui foco automático rápido, correção automática de luz e microfone estéreo com redução de ruído.## Instalação USB
+1. Posicione o clipe ajustável no topo do monitor, notebook ou rosqueie em um tripé padrão.
+2. Conecte o cabo USB diretamente a uma porta USB do computador; o reconhecimento é imediato (plug and play).
+3. Selecione Cliqon Stream 1080p60 como dispositivo de vídeo e áudio no sistema.## Uso em transmissões
+No software de transmissão (como OBS Studio), configure a fonte de captura de vídeo para 1920 x 1080 a 60 fps.
+Para manter 60 quadros por segundo estáveis, utilize iluminação frontal suave sobre o rosto.
+A taxa de 60 fps atende à recomendação máxima de quadros de plataformas de live como a Twitch.## Limpeza e manutenção
+Limpe a lente óptica exclusivamente com pano de microfibra seco.
+Não utilize álcool, limpa-vidros ou papel toalha sobre a lente.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre quedas, riscos na lente por limpeza incorreta, mau uso ou reparos por terceiros.

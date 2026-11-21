@@ -518,3 +518,46 @@ def test_session_state_is_persisted_only_when_it_changes_not_per_event():
     events = run(consume())
     assert events[-1][1]["finish_reason"] == "stop"
     assert states == ["STREAMING_TOKENS", "EMITTING_CARDS_AND_CITATIONS"]
+
+
+@pytest.mark.parametrize(
+    "roles",
+    [
+        ["OPTION"] * 4,
+        ["PRIMARY", "OPTION", "OPTION", "OPTION", "OPTION"],
+    ],
+)
+def test_sse_accepts_up_to_four_option_cards_and_five_cards_total(roles):
+    cards = [
+        card(sku=f"SKU-{index}", recommendation_type=role, badge_label="Opção")
+        for index, role in enumerate(roles)
+    ]
+    harness = Harness(
+        Backend([token(), {"event": "recommendations", "data": {"products": cards}}, end()])
+    )
+    events = run(harness.collect())
+    assert events[-1][1]["finish_reason"] == "stop"
+    assert len(harness.completed[0].products) == len(roles)
+
+
+@pytest.mark.parametrize(
+    "roles",
+    [
+        ["OPTION"] * 5,
+        ["PRIMARY", "UPSELL", "OPTION", "OPTION", "OPTION", "OPTION"],
+        ["PRIMARY", "PRIMARY"],
+        ["UPSELL", "UPSELL"],
+        ["CROSS_SELL", "CROSS_SELL"],
+    ],
+)
+def test_sse_rejects_more_than_four_options_more_than_five_cards_or_duplicate_legacy_roles(roles):
+    cards = [
+        card(sku=f"SKU-{index}", recommendation_type=role, badge_label="Opção")
+        for index, role in enumerate(roles)
+    ]
+    harness = Harness(
+        Backend([token(), {"event": "recommendations", "data": {"products": cards}}, end()])
+    )
+    events = run(harness.collect())
+    assert events[-1][1]["finish_reason"] == "error"
+    assert not harness.completed

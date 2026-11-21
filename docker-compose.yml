@@ -24,12 +24,13 @@ services:
       timeout: 5s
       retries: 10
 
-  # Indexa data/catalog.json + data/manuals/ (UC08). Fontes inalteradas são puladas.
+  # Indexa catálogo base + consultor + data/manuals/ + data/knowledge/ (UC08). Fontes inalteradas são puladas.
+  # Para avaliação isolada RAGAS B05 (base-only): python -m app.ingestion.run --catalog ../data/catalog.json --manuals ../data/manuals --relations ../data/product_relations.json
   ingest:
     build: ./backend
     # Falhas transitórias (ex.: HTTP 429 do provedor) não travam a pilha de primeira.
     restart: on-failure:3
-    command: ["python", "-m", "app.ingestion.run", "--catalog", "/data/catalog.json", "--manuals", "/data/manuals", "--relations", "/data/product_relations.json"]
+    command: ["python", "-m", "app.ingestion.run", "--catalog", "/data/catalog.json", "--catalog", "/data/catalog_consultor.json", "--manuals", "/data/manuals", "--relations", "/data/product_relations.json", "--relations", "/data/product_relations_consultor.json", "--knowledge", "/data/knowledge"]
     environment: &backend-env
       DATABASE_URL: postgresql://smartsales:smartsales@db:5432/smartsales
       REDIS_URL: redis://redis:6379/0

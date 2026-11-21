@@ -188,13 +188,28 @@ const seenQuestions = new Set<string>();
 export interface MockChatInput {
   sessionId: string;
   message: string;
-  product: Product;
+  product: Product | null;
 }
 
 export async function* streamMockChat(
   input: MockChatInput,
   signal?: AbortSignal
 ): AsyncGenerator<StreamEvent> {
+  if (!input.product) {
+    yield {
+      event: "token",
+      data: { delta: "O consultor do catálogo exige a API real." },
+    };
+    yield {
+      event: "done",
+      data: {
+        finish_reason: "stop",
+        total_latency_ms: 0,
+        tokens_used: 8,
+      },
+    };
+    return;
+  }
   const messageId = createId();
   const plan = planResponse(input.product, input.message);
   const cacheKey = `${input.product.sku}:${input.message.trim().toLowerCase()}`;

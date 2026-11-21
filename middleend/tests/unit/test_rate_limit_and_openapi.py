@@ -156,6 +156,48 @@ def test_ct_m01_01_runtime_openapi_matches_normative_session_and_chat_contracts(
     assert set(normative_stream_req["required"]) == set(runtime_stream_req["required"])
     assert set(normative_stream_req["properties"]) == set(runtime_stream_req["properties"])
 
+    schemas = normative["components"]["schemas"]
+    assert schemas["Card"]["properties"]["recommendation_type"]["enum"] == [
+        "PRIMARY",
+        "UPSELL",
+        "CROSS_SELL",
+        "OPTION",
+    ]
+    assert schemas["CheckoutCreate"]["properties"]["recommendation_type"]["enum"] == [
+        "PRIMARY",
+        "UPSELL",
+        "CROSS_SELL",
+        "OPTION",
+    ]
+    assert (
+        runtime["components"]["schemas"]["CheckoutCreate"]["properties"]["recommendation_type"][
+            "enum"
+        ]
+        == schemas["CheckoutCreate"]["properties"]["recommendation_type"]["enum"]
+    )
+    assert (
+        schemas["Filters"]["properties"]["current_product_sku"]["description"]
+        == "omitido = modo catálogo"
+    )
+    assert (
+        runtime["components"]["schemas"]["Filters"]["properties"]["current_product_sku"][
+            "description"
+        ]
+        == "omitido = modo catálogo"
+    )
+    assert (
+        schemas["Citation"]["properties"]["sku"]["description"]
+        == "SKU do produto ou id do documento KB-*"
+    )
+    rec_branch = next(
+        branch
+        for branch in schemas["StreamEvent"]["oneOf"]
+        if branch["properties"]["event"]["const"] == "recommendations"
+    )
+    rec_products = rec_branch["properties"]["data"]["properties"]["products"]
+    assert rec_products["maxItems"] == 5
+    assert "OPTION" in rec_products["description"]
+
 
 def _resolved_schema(document: dict, schema: object) -> object:
     """Compare schema meaning, independently of component names and annotations."""

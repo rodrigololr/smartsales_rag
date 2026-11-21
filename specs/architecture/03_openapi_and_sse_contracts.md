@@ -37,6 +37,7 @@ Este documento define o contrato formal de comunicação entre **Frontend**, **M
   }
 }
 ```
+*(`context_filters.current_product_sku` é opcional: quando omitido na requisição e ausente na sessão, o turno executa em **modo catálogo** com `sku: null` no contrato interno e sem consultar nem gravar o cache semântico.)*
 
 ### 2.2. Sequência Formal de Eventos no Stream (`Content-Type: text/event-stream`)
 
@@ -112,7 +113,8 @@ data: {
 }
 ```
 
-#### Evento 5: `recommendations` (Emitido com os *Product Cards* validados no SQL — máximo de 3)
+#### Evento 5: `recommendations` (Emitido com os *Product Cards* validados no SQL — máximo de 5: `PRIMARY`, `UPSELL` e `CROSS_SELL` até 1 cada; `OPTION` até 4)
+*(`recommendation_type` ∈ `PRIMARY | UPSELL | CROSS_SELL | OPTION`; no modo catálogo ou em comparações/alternativas do consultor unificado são emitidos até 4 cards `OPTION` com `badge_label: "Opção"`.)*
 ```text
 event: recommendations
 data: {
@@ -350,16 +352,20 @@ os contratos, incluindo o cabeçalho de rate limiting.
 
 Rede interna (`BACKEND_INTERNAL_URL`), não exposto publicamente. Resposta em `application/x-ndjson` (1 objeto JSON por linha) usando os **mesmos nomes de evento** do SSE público, exceto `metadata` e `done`, que são gerados pelo Gateway.
 
-#### Request (`RagStreamRequest`)
+#### Request (`RagStreamRequest` / `ConsultantRequest`)
 ```json
 {
-  "session_id": "550e8400-e29b-41d4-a716-446655440000",
-  "message_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
-  "message": "Essa Airfryer de 4L serve para 5 pessoas?",
-  "history": [ { "role": "user", "content": "..." }, { "role": "assistant", "content": "..." } ],
-  "context_filters": { "preferred_voltage": "220V", "category": "eletroportateis", "current_product_sku": "AF-400-220V" }
+  "sku": "AF-400-220V",
+  "question": "Essa Airfryer de 4L serve para 5 pessoas?",
+  "history": [
+    { "role": "user", "content": "..." },
+    { "role": "assistant", "content": "...", "recommended_skus": ["AF-400-220V", "AF-550-220V"] }
+  ],
+  "preferred_voltage": "220V",
+  "category": "eletroportateis"
 }
 ```
+*(`sku` é `null` no modo catálogo; `recommended_skus` acompanha os turnos do assistente na janela de histórico quando houve cards emitidos.)*
 
 #### Linhas emitidas (exemplo)
 ```text

@@ -1,0 +1,21 @@
+Monitor Lumina 27 4K
+Modelo MN-LM27U-BIV
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o monitor e guarde-o para consultas futuras.
+## Instruções de segurança
+Monte a coluna e a base conforme o guia antes de erguer o monitor para a bancada.
+Não bloqueie as frestas superiores de dissipação de calor do painel.
+Desligue o monitor da tomada antes de conectar ou remover cabos de energia.## Especificações técnicas
+Tela de 27 polegadas com painel IPS e resolução 4K UHD de 3840 x 2160 pixels.
+Taxa de atualização de 144 Hz e tempo de resposta de 1 ms.
+Alta densidade de pixels indicada para jogos em ultra definição e edição de imagem.## Especificações elétricas
+Fonte de 45 W com seleção automática de tensão (bivolt automática).
+Opera automaticamente em tomadas de 127V ou 220V.
+Potência nominal de operação de 45 W.## Entradas e compatibilidade
+Conta com 2x HDMI 2.1 e 1x DisplayPort 1.4 de alta largura de banda.
+Permite transmitir sinal 3840 x 2160 a 144 Hz tanto via DisplayPort 1.4 quanto via HDMI 2.1.## Montagem VESA e ergonomia
+Base ergonômica com ajuste de altura e inclinação, compatível com suportes VESA 100 x 100 mm.
+Higienize a tela exclusivamente a seco com flanela de microfibra macia.## Garantia
+Garantia de 24 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre quebras de tela por impacto, infiltração de líquidos ou uso comercial inadequado.

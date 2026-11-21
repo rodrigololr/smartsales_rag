@@ -403,3 +403,59 @@ async def deactivate_missing(conn: psycopg.AsyncConnection[object], skus: Sequen
             (list(skus),),
         )
     return cursor.rowcount
+
+
+async def current_knowledge_version(
+    conn: psycopg.AsyncConnection[object], doc_id: str
+) -> str | None:
+    """Return doc_version when all stored chunks of doc_id share the same SHA-256."""
+    cursor = await conn.execute(
+        "SELECT MIN(doc_version) FROM knowledge_chunks "
+        "WHERE doc_id = %s HAVING COUNT(DISTINCT doc_version) = 1",
+        (doc_id,),
+    )
+    row = await cursor.fetchone()
+    return cast(str, cast(tuple[object, ...], row)[0]) if row else None
+
+
+async def replace_knowledge_chunks(
+    conn: psycopg.AsyncConnection[object],
+    *,
+    doc_id: str,
+    title: str,
+    doc_version: str,
+    rows: Sequence[ChunkRow],
+) -> None:
+    """Swap one KB document's chunks atomically in a single transaction."""
+    async with conn.transaction():
+        await conn.execute("DELETE FROM knowledge_chunks WHERE doc_id = %s", (doc_id,))
+        async with conn.cursor() as cursor:
+            await cursor.executemany(
+                """
+                INSERT INTO knowledge_chunks (doc_id, title, page_number, chunk_index,
+                    doc_version, content, embedding)
+                VALUES (%s, %s, %s, %s, %s, %s, %s::vector)
+                """,
+                [
+                    (
+                        doc_id,
+                        title,
+                        row.page_number,
+                        row.chunk_index,
+                        doc_version,
+                        row.content,
+                        vector_literal(row.embedding),
+                    )
+                    for row in rows
+                ],
+            )
+
+
+async def delete_missing_knowledge(
+    conn: psycopg.AsyncConnection[object], doc_ids: Sequence[str]
+) -> int:
+    """Delete KB documents that are no longer present in the knowledge directory."""
+    cursor = await conn.execute(
+        "DELETE FROM knowledge_chunks WHERE doc_id <> ALL(%s)", (list(doc_ids),)
+    )
+    return cursor.rowcount

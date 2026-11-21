@@ -120,10 +120,10 @@ class PostgresSessionStore:
 
     async def _snapshot(self, connection: Connection, row: Row) -> SessionSnapshot:
         cursor = await connection.execute(
-            "SELECT m.id,m.role,m.content FROM chat_messages m JOIN chat_turn_requests t "
-            "ON m.id IN (t.user_message_id,t.message_id) WHERE t.session_id=%s "
-            "AND t.user_message_id IS NOT NULL ORDER BY t.completed_at DESC, "
-            "CASE m.role WHEN 'assistant' THEN 0 ELSE 1 END LIMIT %s",
+            "SELECT m.id,m.role,m.content,m.recommended_skus FROM chat_messages m "
+            "JOIN chat_turn_requests t ON m.id IN (t.user_message_id,t.message_id) "
+            "WHERE t.session_id=%s AND t.user_message_id IS NOT NULL "
+            "ORDER BY t.completed_at DESC, CASE m.role WHEN 'assistant' THEN 0 ELSE 1 END LIMIT %s",
             (row["id"], self._window),
         )
         rows = await cursor.fetchall()
@@ -132,7 +132,14 @@ class PostgresSessionStore:
             str(row["id"]),
             cast(str | None, filters.get("current_product_sku")),
             tuple(
-                HistoryItem(str(item["role"]), str(item["content"]), str(item["id"]))
+                HistoryItem(
+                    str(item["role"]),
+                    str(item["content"]),
+                    str(item["id"]),
+                    tuple(
+                        str(sku) for sku in cast(list[object], item.get("recommended_skus") or ())
+                    ),
+                )
                 for item in reversed(rows)
             ),
         )

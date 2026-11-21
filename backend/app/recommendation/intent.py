@@ -27,9 +27,12 @@ _UPGRADE_PATTERNS = (
 _UPGRADE = re.compile("|".join(_UPGRADE_PATTERNS))
 
 
-def _folded(text: str) -> str:
+def folded(text: str) -> str:
     decomposed = unicodedata.normalize("NFD", text.lower())
     return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
+_folded = folded
 
 
 def wants_upgrade(question: str) -> bool:

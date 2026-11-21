@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     chunk_size_tokens: int = 500
     chunk_overlap_tokens: int = 50
     history_max_messages: int = 6
+    consultant_max_options: int = 4
+
+
+CONSULTANT_MAX_OPTIONS = 4
 
 
 @lru_cache

@@ -43,7 +43,7 @@ export const canReferenceServerMessage = (message: ChatMessage): boolean =>
 const isAbort = (error: unknown): boolean =>
   error instanceof Error && error.name === "AbortError";
 
-export function useChatSession(product: Product | null) {
+export function useChatSession() {
   const [sessionId, setSessionId] = useState<string>(() => createId());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -54,11 +54,15 @@ export function useChatSession(product: Product | null) {
   // stored them, so a manual retry must resend the same client_request_id even after other
   // questions. An entry is dropped once its turn is retried.
   const interruptedTurnsRef = useRef(new Map<string, string>());
+  // Product each assistant turn was asked about: a retry resends it even after the
+  // shopper moved to another page (same client_request_id must keep the same SKU).
+  const turnProductsRef = useRef(new Map<string, Product | null>());
 
   const reset = useCallback(() => {
     controllerRef.current?.abort();
     controllerRef.current = null;
     interruptedTurnsRef.current.clear();
+    turnProductsRef.current.clear();
     const serverSession = serverSessionRef.current;
     serverSessionRef.current = null;
     if (serverSession) {
@@ -137,7 +141,7 @@ export function useChatSession(product: Product | null) {
 
   const openStream = useCallback(
     async function* (
-      activeProduct: Product,
+      activeProduct: Product | null,
       prompt: string,
       clientRequestId: string,
       signal: AbortSignal
@@ -149,7 +153,7 @@ export function useChatSession(product: Product | null) {
         return;
       }
       if (!serverSessionRef.current) {
-        serverSessionRef.current = await createSession(activeProduct.sku, signal);
+        serverSessionRef.current = await createSession(null, signal);
         setSessionId(serverSessionRef.current);
       }
       yield* streamChat(
@@ -157,7 +161,7 @@ export function useChatSession(product: Product | null) {
           sessionId: serverSessionRef.current,
           clientRequestId,
           message: prompt,
-          currentProductSku: activeProduct.sku,
+          currentProductSku: activeProduct?.sku ?? null,
         },
         signal
       );
@@ -166,11 +170,12 @@ export function useChatSession(product: Product | null) {
   );
 
   const run = useCallback(
-    async (prompt: string, replaceAssistantId?: string) => {
-      if (!product || !prompt.trim() || controllerRef.current) return;
+    async (prompt: string, activeProduct: Product | null, replaceAssistantId?: string) => {
+      if (!prompt.trim() || controllerRef.current) return;
       const question = prompt.trim();
 
       const assistantId = replaceAssistantId ?? createId();
+      turnProductsRef.current.set(assistantId, activeProduct);
       const userMessage: ChatMessage = {
         id: createId(),
         role: "user",
@@ -204,7 +209,7 @@ export function useChatSession(product: Product | null) {
       try {
         for (let reconnects = 0; ; reconnects++) {
           try {
-            for await (const event of openStream(product, question, clientRequestId, controller.signal)) {
+            for await (const event of openStream(activeProduct, question, clientRequestId, controller.signal)) {
               applyEvent(assistantId, event);
             }
             break;
@@ -238,12 +243,12 @@ export function useChatSession(product: Product | null) {
         }
       }
     },
-    [applyEvent, openStream, patchAssistant, product]
+    [applyEvent, openStream, patchAssistant]
   );
 
   const send = useCallback(
-    (prompt: string) => {
-      void run(prompt);
+    (prompt: string, activeProduct: Product | null = null) => {
+      void run(prompt, activeProduct);
     },
     [run]
   );
@@ -256,7 +261,7 @@ export function useChatSession(product: Product | null) {
         .reverse()
         .find((message) => message.role === "user");
       if (!userMessage) return;
-      void run(userMessage.content, assistantId);
+      void run(userMessage.content, turnProductsRef.current.get(assistantId) ?? null, assistantId);
     },
     [messages, run]
   );

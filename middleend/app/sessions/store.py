@@ -32,6 +32,7 @@ class HistoryItem:
     role: str
     content: str
     message_id: str = ""
+    recommended_skus: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -128,7 +129,12 @@ def turn_messages(question: str, turn: CompletedTurn) -> tuple[HistoryItem, Hist
     """The user/assistant pair a completed turn adds to the history."""
     return (
         HistoryItem("user", question, str(uuid.uuid4())),
-        HistoryItem("assistant", turn.content, turn.message_id),
+        HistoryItem(
+            "assistant",
+            turn.content,
+            turn.message_id,
+            tuple(card["sku"] for card in turn.products),
+        ),
     )
 
 

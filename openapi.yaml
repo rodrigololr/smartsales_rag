@@ -1021,7 +1021,8 @@
           },
           "current_product_sku": {
             "type": "string",
-            "maxLength": 64
+            "maxLength": 64,
+            "description": "omitido = modo catálogo"
           },
           "capacity_min": {
             "type": "number",
@@ -1233,7 +1234,8 @@
             "enum": [
               "PRIMARY",
               "UPSELL",
-              "CROSS_SELL"
+              "CROSS_SELL",
+              "OPTION"
             ]
           },
           "badge_label": {
@@ -1295,7 +1297,8 @@
             "format": "uuid"
           },
           "sku": {
-            "type": "string"
+            "type": "string",
+            "description": "SKU do produto ou id do documento KB-*"
           },
           "manual_title": {
             "type": "string"
@@ -1521,7 +1524,8 @@
             "enum": [
               "PRIMARY",
               "UPSELL",
-              "CROSS_SELL"
+              "CROSS_SELL",
+              "OPTION"
             ]
           },
           "quantity": {
@@ -1922,10 +1926,11 @@
                 "properties": {
                   "products": {
                     "type": "array",
+                    "description": "Até 5 cards validados no SQL: PRIMARY, UPSELL e CROSS_SELL no máximo 1 cada; OPTION até 4.",
                     "items": {
                       "$ref": "#/components/schemas/Card"
                     },
-                    "maxItems": 3
+                    "maxItems": 5
                   }
                 },
                 "required": [

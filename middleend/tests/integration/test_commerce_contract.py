@@ -414,6 +414,48 @@ def test_price_change_and_last_unit_sale_bump_catalog_version(database_url: str)
     asyncio.run(scenario())
 
 
+def test_checkout_accepts_option_role_and_migrates_legacy_constraint_idempotently(
+    database_url: str,
+) -> None:
+    async def scenario() -> None:
+        async with client_for(database_url) as client:
+            turn = await new_turn(client)
+            with psycopg.connect(database_url) as connection:
+                connection.execute(
+                    "ALTER TABLE checkout_events "
+                    "DROP CONSTRAINT IF EXISTS checkout_events_recommendation_type_check"
+                )
+                connection.execute(
+                    "ALTER TABLE checkout_events "
+                    "ADD CONSTRAINT checkout_events_recommendation_type_check "
+                    "CHECK (recommendation_type IN ('PRIMARY', 'UPSELL', 'CROSS_SELL'))"
+                )
+            commerce = client._transport.app.state.commerce  # type: ignore[attr-defined]
+            assert await commerce.initialize() is True
+            assert await commerce.initialize() is True
+
+            response = await client.post(
+                "checkout/mock",
+                json={
+                    **turn,
+                    "sku": "KIT",
+                    "quantity": 1,
+                    "recommendation_type": "OPTION",
+                    "displayed_price": 50,
+                },
+            )
+            confirmed = assert_contract(response, "/checkout/mock", 200)
+            assert confirmed["status"] == "CONFIRMED"
+            with psycopg.connect(database_url) as connection:
+                row = connection.execute(
+                    "SELECT recommendation_type FROM checkout_events WHERE id = %s",
+                    (confirmed["checkout_event_id"],),
+                ).fetchone()
+            assert row == ("OPTION",)
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize(
     ("ttl_seconds", "inactive_seconds", "age_days"),
     [(1800, 1860, 0), (120, 121, 0), (1800, 0, 91)],
