@@ -76,20 +76,29 @@ class PostgresCatalog:
         return CatalogProduct.model_validate(row) if row else None
 
     async def search(self, sku: str, embedding: Sequence[float], limit: int) -> list[RetrievedChunk]:
-        """Cosine similarity restricted to the product's own chunks (stock is not filtered)."""
+        """Cosine similarity restricted to the product's own chunks (stock is not filtered).
+
+        Exact scan of that SKU's chunks: through the HNSW index the planner would take
+        the ~ef_search nearest chunks of the whole table and only then filter by sku,
+        returning 0 rows for a product outside them. A product has few chunks.
+        """
         query = vector_literal(embedding)
         async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
             cursor = conn.cursor(row_factory=dict_row)
             await cursor.execute(
                 """
+                WITH product_chunks AS MATERIALIZED (
+                    SELECT id, sku, manual_title, page_number, section_title, content, embedding
+                    FROM manual_chunks
+                    WHERE sku = %s
+                )
                 SELECT id AS chunk_id, sku, manual_title, page_number, section_title, content,
                        GREATEST(0, 1 - (embedding <=> %s::vector)) AS similarity_score
-                FROM manual_chunks
-                WHERE sku = %s
+                FROM product_chunks
                 ORDER BY embedding <=> %s::vector
                 LIMIT %s
                 """,
-                (query, sku, query, limit),
+                (sku, query, query, limit),
             )
             rows = await cursor.fetchall()
         return [RetrievedChunk.model_validate(row) for row in rows]
@@ -184,13 +193,15 @@ async def apply_schema(conn: psycopg.AsyncConnection[object]) -> None:
 async def upsert_product(conn: psycopg.AsyncConnection[object], product: CatalogProduct) -> UUID:
     values = product.model_dump(include=set(_PRODUCT_COLUMNS.replace(" ", "").split(",")))
     values["specs_json"] = json.dumps(values["specs_json"])
+    # Written only: shown by the gateway on the product page, never read into the prompt.
+    values["description"] = product.description or None
     cursor = await conn.execute(
         f"""
-        INSERT INTO products ({_PRODUCT_COLUMNS})
+        INSERT INTO products ({_PRODUCT_COLUMNS}, description)
         VALUES (%(sku)s, %(name)s, %(category)s, %(subcategory)s, %(brand)s, %(price)s,
                 %(stock_quantity)s, %(voltage)s, %(capacity_liters)s, %(power_watts)s,
                 %(tier_rank)s, %(image_url)s, %(marketplace)s, %(checkout_url)s,
-                %(specs_json)s::jsonb, %(is_active)s)
+                %(specs_json)s::jsonb, %(is_active)s, %(description)s)
         ON CONFLICT (sku) DO UPDATE SET
             name = EXCLUDED.name, category = EXCLUDED.category,
             subcategory = EXCLUDED.subcategory, brand = EXCLUDED.brand,
@@ -199,6 +210,7 @@ async def upsert_product(conn: psycopg.AsyncConnection[object], product: Catalog
             power_watts = EXCLUDED.power_watts, tier_rank = EXCLUDED.tier_rank,
             image_url = EXCLUDED.image_url, marketplace = EXCLUDED.marketplace,
             checkout_url = EXCLUDED.checkout_url, specs_json = EXCLUDED.specs_json,
+            description = EXCLUDED.description,
             is_active = EXCLUDED.is_active, updated_at = NOW()
         RETURNING id
         """,

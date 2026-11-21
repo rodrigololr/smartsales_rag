@@ -22,7 +22,6 @@ from app.schemas import (
     ERROR_RESPONSES,
     JSON_ERROR_RESPONSES,
     ChatStreamRequest,
-    ErrorEnvelope,
     Filters,
     SessionCreate,
 )
@@ -194,7 +193,7 @@ async def create_session(body: SessionCreate, request: Request) -> JSONResponse:
     status_code=204,
     response_model=None,
     operation_id="endSession",
-    responses={status: {"model": ErrorEnvelope} for status in (404, 422, 503)},
+    responses={status: ERROR_RESPONSES[status] for status in (404, 422, 429, 503)},
 )
 async def end_session(session_id: uuid.UUID, request: Request) -> Response:
     store: SessionStore = request.app.state.store
@@ -321,7 +320,12 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
     return SessionStreamingResponse(frames, headers=SSE_HEADERS)
 
 
-@router.get("/health", operation_id="health", responses=ERROR_RESPONSES)
+# Exempt from rate limiting, so no 429 (openapi.yaml).
+@router.get(
+    "/health",
+    operation_id="health",
+    responses={status: body for status, body in ERROR_RESPONSES.items() if status != 429},
+)
 async def health(request: Request) -> JSONResponse:
     settings: Settings = request.app.state.settings
     http: httpx.AsyncClient = request.app.state.http

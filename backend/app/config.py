@@ -22,7 +22,11 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
     embedding_batch_size: int = 64
+    embedding_timeout_seconds: float = Field(default=3.0, gt=0)  # query embedding (chat turn)
     llm_model: str = "gpt-4o-mini"
+    # Optional second model for the RNF07 retry (quota is per model on providers such as
+    # Gemini); empty = retry the primary model.
+    llm_fallback_model: str = ""
     llm_temperature: float = 0.2
     llm_max_tokens: int = 600
     llm_timeout_seconds: float = 20.0

@@ -217,6 +217,7 @@ def build_commerce(settings: Settings) -> PostgresCommerce | None:
     return PostgresCommerce(
         settings.database_url,
         decrement_stock=settings.checkout_decrement_stock,
+        session_ttl_seconds=settings.session_ttl_seconds,
         connect_timeout_seconds=settings.database_connect_timeout_seconds,
         query_timeout_ms=settings.session_db_query_timeout_ms,
     )
@@ -295,7 +296,6 @@ def create_app(
 
     app = FastAPI(title="SmartSales RAG Gateway", version=settings.app_version, lifespan=lifespan)
     app.state.settings = settings
-    app.state.commerce = build_commerce(settings)
     app.state.rate_limiter = rate_limiter or build_rate_limiter(settings, None)
     app.state.chat_ip_limiter = build_rate_limiter(
         settings, None, per_ip_factor=CHAT_SESSIONS_PER_IP
@@ -322,6 +322,7 @@ def create_app(
             # Answered here, inside CORSMiddleware, so the browser can read the envelope.
             return await unhandled_error(request, failure)
 
+    app.state.commerce = build_commerce(settings)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,

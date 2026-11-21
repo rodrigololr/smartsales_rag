@@ -138,12 +138,14 @@ async def client_for(
     fallback: bool = False,
     decrement_stock: bool = True,
     admin_token: str | None = None,
+    session_ttl_seconds: int = 1800,
 ) -> AsyncIterator[httpx.AsyncClient]:
     settings = Settings(
         database_url=database_url,
         redis_url=REDIS_URL,
         checkout_decrement_stock=decrement_stock,
         admin_token=admin_token,
+        session_ttl_seconds=session_ttl_seconds,
         # Not a rate-limit test: the shared Redis bucket of 127.0.0.1 must not trip
         # (M01, #36; the field is ignored by Settings until M01 is merged).
         rate_limit_per_minute=RATE_LIMIT_OFF,
@@ -198,6 +200,13 @@ def test_product_detail_includes_current_price_even_when_out_of_stock(database_u
             product = assert_contract(await client.get("products/EMPTY"), "/products/{sku}", 200)
             assert product["stock_quantity"] == 0
             assert product["price"] == 300
+            assert product["description"] is None  # optional: older seeds have none
+            with psycopg.connect(database_url) as connection:
+                connection.execute(
+                    "UPDATE products SET description = 'Fritadeira sem óleo.' WHERE sku = 'EMPTY'"
+                )
+            described = assert_contract(await client.get("products/EMPTY"), "/products/{sku}", 200)
+            assert described["description"] == "Fritadeira sem óleo."
             for sku in ("INACTIVE", "UNKNOWN"):
                 assert_contract(await client.get(f"products/{sku}"), "/products/{sku}", 404)
 
@@ -401,5 +410,80 @@ def test_price_change_and_last_unit_sale_bump_catalog_version(database_url: str)
             )
             assert kit.json()["remaining_stock"] == 1
             assert version() == start + 2  # stock left and same price: no bump
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("ttl_seconds", "inactive_seconds", "age_days"),
+    [(1800, 1860, 0), (120, 121, 0), (1800, 0, 91)],
+)
+def test_expired_active_session_cannot_record_feedback_or_checkout(
+    database_url: str, ttl_seconds: int, inactive_seconds: int, age_days: int
+) -> None:
+    async def scenario() -> None:
+        async with client_for(database_url, session_ttl_seconds=ttl_seconds) as client:
+            turn = await new_turn(client)
+            with psycopg.connect(database_url) as connection:
+                connection.execute(
+                    "UPDATE chat_sessions SET "
+                    "last_active_at=clock_timestamp()-make_interval(secs => %s), "
+                    "created_at=clock_timestamp()-make_interval(days => %s) WHERE id=%s",
+                    (inactive_seconds, age_days, turn["session_id"]),
+                )
+                assert connection.execute(
+                    "SELECT state FROM chat_sessions WHERE id=%s", (turn["session_id"],)
+                ).fetchone() == ("ACTIVE",)
+            feedback = await client.post("feedback", json={**turn, "rating": "LIKE"})
+            checkout = await client.post(
+                "checkout/mock",
+                json={
+                    **turn,
+                    "sku": SKU,
+                    "quantity": 1,
+                    "recommendation_type": "PRIMARY",
+                    "displayed_price": 499.90,
+                },
+            )
+            for response, path in [(feedback, "/feedback"), (checkout, "/checkout/mock")]:
+                result = assert_contract(response, path, 410)
+                assert result["error"]["code"] == "SESSION_ENDED"
+            with psycopg.connect(database_url) as connection:
+                assert connection.execute("SELECT count(*) FROM feedback_logs").fetchone() == (0,)
+                assert connection.execute("SELECT count(*) FROM checkout_events").fetchone() == (0,)
+                assert connection.execute(
+                    "SELECT stock_quantity FROM products WHERE sku=%s", (SKU,)
+                ).fetchone() == (1,)
+
+    asyncio.run(scenario())
+
+
+def test_commerce_respects_a_session_ttl_longer_than_thirty_minutes(database_url: str) -> None:
+    async def scenario() -> None:
+        async with client_for(database_url, session_ttl_seconds=3600) as client:
+            turn = await new_turn(client)
+            with psycopg.connect(database_url) as connection:
+                connection.execute(
+                    "UPDATE chat_sessions SET last_active_at=clock_timestamp()-INTERVAL '31 minutes' "
+                    "WHERE id=%s",
+                    (turn["session_id"],),
+                )
+            assert_contract(
+                await client.post("feedback", json={**turn, "rating": "LIKE"}), "/feedback", 201
+            )
+            assert_contract(
+                await client.post(
+                    "checkout/mock",
+                    json={
+                        **turn,
+                        "sku": SKU,
+                        "quantity": 1,
+                        "recommendation_type": "PRIMARY",
+                        "displayed_price": 499.90,
+                    },
+                ),
+                "/checkout/mock",
+                200,
+            )
 
     asyncio.run(scenario())

@@ -330,6 +330,15 @@
                   "$ref": "#/components/schemas/Error"
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Segundos até uma nova tentativa permitida.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
             }
           },
           "500": {
@@ -422,6 +431,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Segundos até uma nova tentativa permitida.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
           }
         }
       }
@@ -507,6 +535,15 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Segundos até uma nova tentativa permitida.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -942,16 +979,6 @@
               }
             }
           },
-          "429": {
-            "description": "Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Error",
             "content": {
@@ -1100,6 +1127,12 @@
           },
           "specs_json": {
             "type": "object"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "updated_at": {
             "type": "string",

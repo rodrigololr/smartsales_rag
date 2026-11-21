@@ -33,6 +33,8 @@ def hour_keys(window_from: datetime, window_to: datetime, now: datetime) -> list
     """Hash keys of every hour overlapping [from, to), clamped to the retained hours."""
     start = max(window_from, now - COUNTER_RETENTION).astimezone(UTC)
     end = min(window_to, now)
+    if start >= end:
+        return []
     hour = start.replace(minute=0, second=0, microsecond=0)
     keys = []
     while hour < end:

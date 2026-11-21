@@ -384,3 +384,13 @@ def test_technical_only_word_does_not_suppress_secondary_cards() -> None:
     from app.recommendation.intent import only_consulted_product
     assert not only_consulted_product('Somente o cesto pode ser lavado?')
     assert only_consulted_product('Mostre apenas o produto consultado.')
+
+
+@pytest.mark.parametrize("question", [
+    "Somos seis pessoas; mostre uma Airfryer maior sem subir mais de 35% do preço.",
+    "Quero uma cafeteira com reservatório maior sem passar de 35% a mais.",
+    "Quero uma Airfryer maior que a de 5.5L, em 220V e dentro de +35%.",
+    "Somos 6 pessoas, qual comprar?",
+])
+def test_bigger_product_or_household_size_requests_ask_for_an_upgrade(question: str) -> None:
+    assert wants_upgrade(question)

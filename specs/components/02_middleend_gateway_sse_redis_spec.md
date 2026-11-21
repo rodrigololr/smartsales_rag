@@ -157,6 +157,7 @@ async def sse_chat_generator(request, session_id, message_id, backend_stream, ca
    - Todo turno finalizado registra em `chat_messages`: `ttft_ms`, `total_latency_ms`, `tokens_used`, `intent` e `cache_hit`.
    - Expõe agregações em `GET /api/v1/metrics/summary` (cabeçalho `X-Admin-Token`, consumido pela página `/admin/metricas` — `UC09`): `ttft_p50_ms`, `ttft_p95_ms`, `total_latency_p95_ms`, `cache_hit_ratio`, `error_5xx_rate`, `like_ratio`, `card_ctr`, `confirmed_checkouts` e `top_questions`.
 2. **Validação Atômica no Mock Checkout (`POST /api/v1/checkout/mock` — `RN10`)**:
+   - Feedback e checkout validam a sessão dentro da transação SQL antes de gravar: estado `ACTIVE`, inatividade menor que `SESSION_TTL_SECONDS` e idade inferior à retenção máxima da M02. Sessão expirada retorna `410 SESSION_ENDED`, mesmo antes da manutenção periódica, sem gravar eventos nem alterar estoque. A linha da sessão fica bloqueada contra encerramento/atualização até a transação terminar; a operação não renova o TTL.
    - Abre transação SQL com `SELECT ... FOR UPDATE` na linha do `SKU` em `products`:
      - Se `stock_quantity < quantity`: grava `checkout_events` com `status = 'OUT_OF_STOCK'` e retorna `HTTP 409 Conflict` com `current_stock`;
      - Se `price != displayed_price`: grava `status = 'PRICE_CHANGED'`, executa `INCR catalog:version` e retorna `HTTP 409 Conflict` com o `current_price`;

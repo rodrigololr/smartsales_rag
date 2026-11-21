@@ -7,6 +7,8 @@ from typing import Protocol
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .retry import ProviderRetry, RetrySettings
+
 
 class JudgeSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="EVAL_", extra="ignore")
@@ -59,11 +61,15 @@ class RagasJudge:
         faithfulness: SingleTurnScorer,
         relevance: SingleTurnScorer,
         timeout_seconds: float = 120.0,
+        retry: ProviderRetry | None = None,
     ) -> None:
         self.faithfulness, self.relevance, self.timeout = faithfulness, relevance, timeout_seconds
+        self.retry = retry or ProviderRetry(RetrySettings(max_retries=0))
 
     @classmethod
-    def from_settings(cls, settings: JudgeSettings) -> "RagasJudge":
+    def from_settings(
+        cls, settings: JudgeSettings, retry: ProviderRetry | None = None
+    ) -> "RagasJudge":
         from langchain_openai import ChatOpenAI, OpenAIEmbeddings
         from ragas.embeddings import LangchainEmbeddingsWrapper
         from ragas.llms import LangchainLLMWrapper
@@ -98,6 +104,7 @@ class RagasJudge:
             Faithfulness(llm=llm),
             ResponseRelevancy(llm=llm, embeddings=LangchainEmbeddingsWrapper(embeddings)),
             settings.metric_timeout_seconds,
+            retry,
         )
 
     async def score(self, query: str, answer: str, contexts: list[str]) -> tuple[float, float]:
@@ -113,11 +120,13 @@ class RagasJudge:
                 "Cognitive metrics require a question, published answer and evidence"
             )
         sample = SingleTurnSample(user_input=query, response=answer, retrieved_contexts=contexts)
-        scores = await asyncio.wait_for(
-            asyncio.gather(
-                self.faithfulness.single_turn_ascore(sample),
-                self.relevance.single_turn_ascore(sample),
-            ),
-            self.timeout,
+        scores = await self.retry.run(
+            lambda: asyncio.wait_for(
+                asyncio.gather(
+                    self.faithfulness.single_turn_ascore(sample),
+                    self.relevance.single_turn_ascore(sample),
+                ),
+                self.timeout,
+            )
         )
         return checked_score(float(scores[0])), checked_score(float(scores[1]))
