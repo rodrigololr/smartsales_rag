@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ProductPageView } from "@/components/shop/ProductPageView";
-import { suggestionsFor } from "@/components/chat/ProductAssistant";
+import { CATALOG_SUGGESTIONS, ProductAssistant, suggestionsFor } from "@/components/chat/ProductAssistant";
+import { useConsultant } from "@/components/chat/ConsultantProvider";
 import { findProduct } from "@/lib/mock-data";
 import { specsJsonRows } from "@/lib/format";
 import type { ApiProduct } from "@/types/catalog";
@@ -76,12 +77,59 @@ describe("Página do produto com Consultor IA ao lado", () => {
     expect(screen.queryByTestId("buy-btn-AF-400-220V")).not.toBeInTheDocument();
   });
 
-  it("sugere perguntas coerentes com o tipo de produto", () => {
+  it("sugere perguntas coerentes com o tipo de produto e para o modo catálogo", () => {
+    const base = product("AF-400-220V");
     expect(suggestionsFor(product("CF-15B-127V"))).toContain("Como faço a descalcificação?");
-    expect(suggestionsFor(product("AF-400-220V"))).toContain(
+    expect(suggestionsFor(base)).toContain(
       "Quais materiais de forma e assadeira posso utilizar?"
     );
     expect(suggestionsFor(product("KIT-SIL-01"))).toContain("Como devo fazer a limpeza?");
+    expect(suggestionsFor({ ...base, category: "Computadores", subcategory: "PCs Gamer" })).toEqual(
+      expect.arrayContaining(["Consigo jogar GTA RP neste computador?", "Funciona em 127V?"])
+    );
+    expect(suggestionsFor({ ...base, category: "Computadores", subcategory: "Notebooks Gamer" })).toEqual(
+      expect.arrayContaining(["Consigo jogar GTA RP neste computador?", "Funciona em 127V?"])
+    );
+    expect(suggestionsFor({ ...base, category: "Periféricos", subcategory: "Webcams" })).toContain(
+      "Consigo fazer live na Twitch com a melhor qualidade?"
+    );
+    expect(suggestionsFor({ ...base, category: "Móveis", subcategory: "Sofás" })).toContain(
+      "Este sofá cabe em 2 metros?"
+    );
+    expect(suggestionsFor({ ...base, category: "Monitores", subcategory: "Monitores Gamer" })).toContain(
+      "Qual é a taxa de atualização?"
+    );
+    expect(suggestionsFor(null)).toEqual(CATALOG_SUGGESTIONS);
+    expect(CATALOG_SUGGESTIONS).toEqual([
+      "Quero um PC para jogar Roblox até R$ 4.000",
+      "Qual notebook gamer funciona em 127V?",
+      "Quero um monitor para jogos",
+      "Qual webcam serve para live na Twitch?",
+      "Um sofá de 3 lugares cabe em 2 metros?",
+    ]);
+  });
+
+  it("exibe subtítulo, faixa de contexto e placeholder específicos em modo produto vs modo catálogo", () => {
+    function Harness({ active }: { active: ReturnType<typeof product> | null }) {
+      const { chat } = useConsultant();
+      return <ProductAssistant product={active} chat={chat} />;
+    }
+
+    const { rerender } = render(<Harness active={product("AF-400-220V")} />);
+    expect(screen.getByText("Respostas sobre Airfryer SmartChef 4L")).toBeInTheDocument();
+    expect(screen.getByText(/Manual e ficha técnica de/)).toHaveTextContent("AF-400-220V");
+    expect(screen.getByTestId("chat-prompt-input")).toHaveAttribute(
+      "placeholder",
+      "Pergunte sobre este produto"
+    );
+
+    rerender(<Harness active={null} />);
+    expect(screen.getByText("Catálogo completo")).toBeInTheDocument();
+    expect(screen.getByText("Catálogo, manuais e base de conhecimento")).toBeInTheDocument();
+    expect(screen.getByTestId("chat-prompt-input")).toHaveAttribute(
+      "placeholder",
+      "O que você procura?"
+    );
   });
 
   it("não sugere voltagem nem assadeira para itens fora desse contexto", () => {
