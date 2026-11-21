@@ -210,6 +210,18 @@ def build_commerce(settings: Settings) -> PostgresCommerce | None:
     )
 
 
+def build_redis(settings: Settings, url: str) -> Redis:
+    return Redis.from_url(
+        url,
+        decode_responses=True,
+        retry=Retry(NoBackoff(), 0),
+        socket_timeout=settings.redis_socket_timeout_seconds,
+        socket_connect_timeout=settings.redis_socket_connect_timeout_seconds,
+        # PING a connection idle longer than this before reusing it (Upstash/NAT drop idle TCP).
+        health_check_interval=settings.redis_health_check_interval_seconds,
+    )
+
+
 def build_rate_limiter(
     settings: Settings, redis: Redis | None, *, per_ip_factor: int = 1
 ) -> RateLimiter:
@@ -231,14 +243,8 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         async with AsyncExitStack() as resources:
-            redis: Redis | None = (
-                Redis.from_url(
-                    settings.redis_url,
-                    decode_responses=True,
-                    retry=Retry(NoBackoff(), 0),
-                    socket_timeout=settings.redis_socket_timeout_seconds,
-                    socket_connect_timeout=settings.redis_socket_connect_timeout_seconds,
-                )
+            redis = (
+                build_redis(settings, settings.redis_url)
                 if settings.redis_url and store is None
                 else None
             )

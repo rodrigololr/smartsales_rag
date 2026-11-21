@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     # Bound every Redis call: a black-holed Redis must fail the request, not hang it.
     redis_socket_timeout_seconds: float = Field(default=2.0, gt=0)
     redis_socket_connect_timeout_seconds: float = Field(default=2.0, gt=0)
+    redis_health_check_interval_seconds: int = Field(default=30, ge=0)  # 0 disables the PING
     # libpq floors connect_timeout at 2 s; smaller values are raised to it.
     database_connect_timeout_seconds: int = Field(default=2, ge=2)
     cache_ttl_seconds: int = Field(default=3600, ge=1)

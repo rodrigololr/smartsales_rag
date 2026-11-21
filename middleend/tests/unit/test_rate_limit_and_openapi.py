@@ -10,7 +10,7 @@ import httpx
 import pytest
 from app.commerce import CatalogQuery, CheckoutCreate
 from app.config import Settings
-from app.main import create_app
+from app.main import build_redis, create_app
 from app.ratelimit import (
     CHAT_SESSIONS_PER_IP,
     InMemoryRateLimiter,
@@ -364,3 +364,14 @@ def test_commerce_request_strings_are_bounded(
     with pytest.raises(ValidationError) as invalid:
         model.model_validate(payload)
     assert invalid.value.errors()[0]["loc"][-1] == field
+
+
+def test_redis_client_pings_idle_connections_before_reuse() -> None:
+    # Upstash and NAT gateways drop idle TCP connections; a stale one would fail a request.
+    settings = Settings(redis_url="redis://127.0.0.1:9/0")
+    assert settings.redis_health_check_interval_seconds == 30
+    redis = build_redis(settings, "redis://127.0.0.1:9/0")
+    try:
+        assert redis.connection_pool.connection_kwargs["health_check_interval"] == 30
+    finally:
+        asyncio.run(redis.aclose())
