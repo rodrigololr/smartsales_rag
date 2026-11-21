@@ -77,9 +77,9 @@ Mostra que as regras valem para os 32 produtos, não só para a airfryer.
 
 | # | Ação na tela | O que mostrar | Requisito |
 | :-: | :--- | :--- | :--- |
-| 1 | Abrir o Liquidificador SmartChef Power 900W (`LQ-900-127V`) e perguntar: "Tem um modelo maior, com mais potência?" | Card de upsell `LQ-1200-127V` (1200 W, 3 L, R$ 249,90 contra R$ 189,90: +32%, mesma voltagem 127V). | `RN04`, `RN05` |
-| 2 | Abrir o Aspirador Robô Varrix R200 (`AR-200-BIV`) e perguntar: "De quanto em quanto tempo troco o filtro?" | Resposta citada do manual (troca a cada 3 meses) e cross-sell `KIT-AR-01` (kit de reposição, R$ 89,90). Pergunta técnica simples não abre upsell. | `RN06`, `RF07` |
-| 3 | Na mesma conversa: "Qual a diferença para o modelo com mapeamento?" | Agora entra o upsell `AR-300-BIV` (R$ 1.149,00, +28%). | `RN04` |
+| 1 | Abrir o Liquidificador SmartChef Power 900W (`LQ-900-127V`) e perguntar: "Tem um modelo maior, com mais potência?" | Card de upsell `LQ-1200-127V` (1200 W, 3 L, R$ 249,90 contra R$ 189,90: +32%, mesma voltagem 127V). O texto traz os fatos do modelo maior prefixados pelo SKU ("SKU LQ-1200-127V: A potência é 1200 W.", "…Preço atual: R$ 249,90."), todos conferidos no SQL. | `RN04`, `RN05` |
+| 2 | Abrir o Aspirador Robô Varrix R200 (`AR-200-BIV`) e perguntar: "De quanto em quanto tempo troco o filtro?" | Resposta citada do manual ("Troque-o a cada 3 meses", p. 6), com os cards do consultado, do upsell `AR-300-BIV` (R$ 1.149,00, +28%) e do cross-sell `KIT-AR-01` (kit de reposição, R$ 89,90). | `RN04`, `RN06`, `RF07` |
+| 3 | Na mesma conversa: "Qual a diferença para o modelo com mapeamento?" | O manual do R200 não descreve o outro modelo (similaridade abaixo do limiar), então o consultor responde com o *fallback* seguro "Informação não encontrada no manual" em vez de inventar a comparação, e mantém os cards verificados no SQL, com o upsell `AR-300-BIV`. Bom momento para mostrar o R02. | `RN02`, `RN04` |
 | 4 | Digitar na barra de endereço `http://localhost:3000/produto/CH-17T-BIV` e perguntar: "Quais temperaturas ela oferece?" | A chaleira com temperatura controlada está com estoque 0: não aparece na vitrine, mas a página abre com "Esgotado" e sem botão de compra. O consultor responde com citação do manual (a busca nos manuais não filtra estoque), e nenhum card oferece o item esgotado. | `RN01`, `RN02` |
 
 ## 4. Jornada do lojista
