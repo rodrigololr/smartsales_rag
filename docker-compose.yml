@@ -27,6 +27,8 @@ services:
   # Indexa data/catalog.json + data/manuals/ (UC08). Fontes inalteradas são puladas.
   ingest:
     build: ./backend
+    # Falhas transitórias (ex.: HTTP 429 do provedor) não travam a pilha de primeira.
+    restart: on-failure:3
     command: ["python", "-m", "app.ingestion.run", "--catalog", "/data/catalog.json", "--manuals", "/data/manuals", "--relations", "/data/product_relations.json"]
     environment: &backend-env
       DATABASE_URL: postgresql://smartsales:smartsales@db:5432/smartsales
@@ -71,9 +73,10 @@ services:
   frontend:
     image: node:22-alpine
     working_dir: /app
-    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm dev --hostname 0.0.0.0"
+    # Build de produção: NEXT_PUBLIC_* entra no bundle no build; as páginas buscam o catálogo por requisição.
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm build && pnpm start --hostname 0.0.0.0"
     environment:
-      # Lido pelo navegador, por isso aponta para a porta publicada no host.
+      # Lido pelo navegador (embutido no build), por isso aponta para a porta publicada no host.
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
       # Lido pelo servidor Next (catálogo SSR) dentro da rede do compose.
       API_INTERNAL_BASE_URL: http://middleend:8000
