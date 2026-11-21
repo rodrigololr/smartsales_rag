@@ -10,6 +10,7 @@ import asyncio
 import json
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 import psycopg
 import pytest
@@ -181,3 +182,35 @@ def test_sku_scoped_search_returns_the_product_chunks_even_when_hnsw_is_planned(
         assert {chunk.sku for chunk in found} == {sku}
         scores = [chunk.similarity_score for chunk in found]
         assert scores == sorted(scores, reverse=True)
+
+
+async def _description(sku: str) -> str | None:
+    async with await psycopg.AsyncConnection.connect(DATABASE_URL) as conn:
+        cursor = await conn.execute("SELECT description FROM products WHERE sku = %s", (sku,))
+        row = await cursor.fetchone()
+    assert row is not None
+    return cast(str | None, row[0])
+
+
+def test_ingestion_stores_the_catalog_description_and_migrates_old_tables(
+    tmp_path: Path,
+) -> None:
+    asyncio.run(_reset())
+    embedder = HashingEmbedder()
+    catalog_path = DATA_DIR / "catalog.json"
+    rows = json.loads(catalog_path.read_text(encoding="utf-8"))
+    expected = next(row["description"] for row in rows if row["sku"] == "AF-400-220V")
+    asyncio.run(ingest(DATABASE_URL, catalog_path, DATA_DIR / "manuals", embedder, Settings()))
+    assert asyncio.run(_description("AF-400-220V")) == expected
+
+    async def drop_column() -> None:  # a database created before the column existed
+        async with await psycopg.AsyncConnection.connect(DATABASE_URL, autocommit=True) as conn:
+            await conn.execute("ALTER TABLE products DROP COLUMN description")
+
+    asyncio.run(drop_column())
+    changed = tmp_path / "catalog.json"
+    rows = [{**row, "description": "Nova descrição."} if row["sku"] == "AF-400-220V" else row
+            for row in rows]
+    changed.write_text(json.dumps(rows), encoding="utf-8")
+    asyncio.run(ingest(DATABASE_URL, changed, DATA_DIR / "manuals", embedder, Settings()))
+    assert asyncio.run(_description("AF-400-220V")) == "Nova descrição."

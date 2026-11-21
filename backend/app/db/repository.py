@@ -193,13 +193,15 @@ async def apply_schema(conn: psycopg.AsyncConnection[object]) -> None:
 async def upsert_product(conn: psycopg.AsyncConnection[object], product: CatalogProduct) -> UUID:
     values = product.model_dump(include=set(_PRODUCT_COLUMNS.replace(" ", "").split(",")))
     values["specs_json"] = json.dumps(values["specs_json"])
+    # Written only: shown by the gateway on the product page, never read into the prompt.
+    values["description"] = product.description or None
     cursor = await conn.execute(
         f"""
-        INSERT INTO products ({_PRODUCT_COLUMNS})
+        INSERT INTO products ({_PRODUCT_COLUMNS}, description)
         VALUES (%(sku)s, %(name)s, %(category)s, %(subcategory)s, %(brand)s, %(price)s,
                 %(stock_quantity)s, %(voltage)s, %(capacity_liters)s, %(power_watts)s,
                 %(tier_rank)s, %(image_url)s, %(marketplace)s, %(checkout_url)s,
-                %(specs_json)s::jsonb, %(is_active)s)
+                %(specs_json)s::jsonb, %(is_active)s, %(description)s)
         ON CONFLICT (sku) DO UPDATE SET
             name = EXCLUDED.name, category = EXCLUDED.category,
             subcategory = EXCLUDED.subcategory, brand = EXCLUDED.brand,
@@ -208,6 +210,7 @@ async def upsert_product(conn: psycopg.AsyncConnection[object], product: Catalog
             power_watts = EXCLUDED.power_watts, tier_rank = EXCLUDED.tier_rank,
             image_url = EXCLUDED.image_url, marketplace = EXCLUDED.marketplace,
             checkout_url = EXCLUDED.checkout_url, specs_json = EXCLUDED.specs_json,
+            description = EXCLUDED.description,
             is_active = EXCLUDED.is_active, updated_at = NOW()
         RETURNING id
         """,

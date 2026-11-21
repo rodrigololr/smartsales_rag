@@ -150,10 +150,13 @@ CREATE TABLE products (
     marketplace VARCHAR(30) NOT NULL DEFAULT 'AMAZON' CHECK (marketplace IN ('AMAZON', 'MERCADO_LIVRE', 'SHOPEE', 'LOJA_OFICIAL')),
     checkout_url TEXT NOT NULL,
     specs_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    description TEXT, -- texto livre do catálogo para "Sobre este item"; nunca fato SQL do prompt
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- Migração aditiva e idempotente para bancos criados antes da coluna:
+ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT;
 
 CREATE INDEX idx_products_active_stock_cat
     ON products (is_active, stock_quantity, category, subcategory, voltage);

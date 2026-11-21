@@ -21,10 +21,13 @@ CREATE TABLE IF NOT EXISTS products (
     marketplace VARCHAR(30) NOT NULL DEFAULT 'AMAZON' CHECK (marketplace IN ('AMAZON', 'MERCADO_LIVRE', 'SHOPEE', 'LOJA_OFICIAL')),
     checkout_url TEXT NOT NULL,
     specs_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    description TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- Additive migration for databases created before the column (product page copy).
+ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_products_active_stock_cat
     ON products (is_active, stock_quantity, category, subcategory, voltage);
