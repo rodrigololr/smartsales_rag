@@ -329,6 +329,15 @@
                   "$ref": "#/components/schemas/Error"
                 }
               }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Segundos até uma nova tentativa permitida.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
             }
           },
           "500": {
@@ -408,6 +417,35 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Segundos até uma nova tentativa permitida.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -496,6 +534,15 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Segundos até uma nova tentativa permitida.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }

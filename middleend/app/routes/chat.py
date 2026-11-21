@@ -17,7 +17,7 @@ from app.cache.service import CachedAnswer, SemanticCacheService
 from app.clients.backend import ReplayStream
 from app.config import Settings
 from app.ratelimit import RateDecision, RateLimiter
-from app.schemas import ChatStreamRequest, Filters, SessionCreate
+from app.schemas import ChatStreamRequest, Error, Filters, SessionCreate
 from app.sessions.lease import LeaseStream
 from app.sessions.response import SessionStreamingResponse
 from app.sessions.store import HistoryItem, SessionSnapshot, SessionStore, TurnDecision, TurnState
@@ -27,6 +27,20 @@ from app.sse.models import BackendStream, CompletedTurn, ProductCard
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1")
+
+REST_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
+    422: {"model": Error, "description": "Error"},
+    429: {
+        "model": Error,
+        "description": "Error",
+        "headers": {
+            "Retry-After": {
+                "description": "Segundos até uma nova tentativa permitida.",
+                "schema": {"type": "integer", "minimum": 1},
+            }
+        },
+    },
+}
 
 SSE_HEADERS = {
     "Cache-Control": "no-cache, no-transform",
@@ -161,7 +175,7 @@ def _session_body(
     }
 
 
-@router.post("/sessions", status_code=201)
+@router.post("/sessions", status_code=201, responses=REST_ERROR_RESPONSES)
 async def create_session(body: SessionCreate, request: Request) -> JSONResponse:
     """201 for a new session; 200 with the history window when `session_id` is still active."""
     store: SessionStore = request.app.state.store
@@ -175,7 +189,9 @@ async def create_session(body: SessionCreate, request: Request) -> JSONResponse:
     return JSONResponse(_session_body(session, settings, restored=False), status_code=201)
 
 
-@router.delete("/sessions/{session_id}", status_code=204, response_model=None)
+@router.delete(
+    "/sessions/{session_id}", status_code=204, response_model=None, responses=REST_ERROR_RESPONSES
+)
 async def end_session(session_id: uuid.UUID, request: Request) -> Response:
     store: SessionStore = request.app.state.store
     request.state.session_id = str(session_id)  # for error logs
@@ -184,7 +200,7 @@ async def end_session(session_id: uuid.UUID, request: Request) -> Response:
     return Response(status_code=204)
 
 
-@router.post("/chat/stream", response_model=None)
+@router.post("/chat/stream", response_model=None, responses=REST_ERROR_RESPONSES)
 async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
     started_at = time.perf_counter()
     store: SessionStore = request.app.state.store
