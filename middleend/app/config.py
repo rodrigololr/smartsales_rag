@@ -6,13 +6,21 @@ from typing import Annotated
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+# Until the first SSE event the backend embeds the question, runs hybrid retrieval and the
+# recommendation queries, waits for the LLM's first token and then for a whole sentence that
+# passes G-OUT (tokens carry only validated sentences). 3 s cut healthy turns short; 8 s is
+# the p95 total-response SLA (CLAUDE.md 2.6): a turn with no first event by then has missed it.
+BACKEND_FIRST_EVENT_TIMEOUT_SECONDS = 8.0
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     backend_internal_url: str = "http://localhost:8001"
     backend_timeout_seconds: float = Field(default=30.0, gt=0)
-    backend_first_event_timeout_seconds: float = Field(default=3.0, gt=0)
+    backend_first_event_timeout_seconds: float = Field(
+        default=BACKEND_FIRST_EVENT_TIMEOUT_SECONDS, gt=0
+    )
     cors_allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
     # Unset = sessions in process memory (single replica, lost on restart).
     redis_url: str | None = None

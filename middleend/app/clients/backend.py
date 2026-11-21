@@ -8,11 +8,33 @@ from typing import cast
 
 import httpx
 
+from app.config import BACKEND_FIRST_EVENT_TIMEOUT_SECONDS
 from app.schemas import Filters
 from app.sessions.store import HistoryItem
 from app.sse.models import CompletedTurn
 
 InternalEvent = Mapping[str, object]
+FIRST_EVENT_RETRIES = 1
+HTTP_SERVER_ERROR = 500
+
+
+class BackendHttpError(ConnectionError):
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"backend HTTP {status_code}")
+        self.status_code = status_code
+
+
+def _retryable(error: Exception) -> bool:
+    """Only failures where the worker cannot have started a (paid) LLM generation."""
+    if isinstance(error, BackendHttpError):
+        return error.status_code >= HTTP_SERVER_ERROR
+    return isinstance(error, (httpx.ConnectError, httpx.ConnectTimeout))
+
+
+def _normalized(error: Exception) -> Exception:
+    if isinstance(error, (httpx.TimeoutException, TimeoutError)):
+        return TimeoutError("backend first event/read timeout")
+    return ConnectionError("backend unreachable")
 
 
 class NdjsonBackendStream:
@@ -26,7 +48,7 @@ class NdjsonBackendStream:
         client: httpx.AsyncClient,
         url: str,
         payload: Mapping[str, object],
-        first_event_timeout_seconds: float = 3.0,
+        first_event_timeout_seconds: float = BACKEND_FIRST_EVENT_TIMEOUT_SECONDS,
     ) -> None:
         self._client = client
         self._url = url
@@ -43,23 +65,22 @@ class NdjsonBackendStream:
     async def __anext__(self) -> InternalEvent:
         while True:
             try:
-                if self._published:
-                    return await self._read_event()
-                async with asyncio.timeout(self._first_timeout):
-                    event = await self._read_event()
-                self._published = True
-                return event
-            except (httpx.TimeoutException, TimeoutError) as error:
-                failure: Exception = TimeoutError("backend first event/read timeout")
-                failure.__cause__ = error
-            except (httpx.TransportError, ConnectionError) as error:
-                failure = ConnectionError("backend unreachable")
-                failure.__cause__ = error
-            if self._published or self._retries >= 1:
-                raise failure
+                return await self._next_event()
+            except (httpx.TransportError, TimeoutError, ConnectionError) as error:
+                retry = not self._published and self._retries < FIRST_EVENT_RETRIES
+                if not (retry and _retryable(error)):
+                    raise _normalized(error) from error
             self._retries += 1
             await self.aclose()
             self._lines = None
+
+    async def _next_event(self) -> InternalEvent:
+        if self._published:
+            return await self._read_event()
+        async with asyncio.timeout(self._first_timeout):
+            event = await self._read_event()
+        self._published = True
+        return event
 
     async def _read_event(self) -> InternalEvent:
         if self._lines is None:
@@ -73,7 +94,7 @@ class NdjsonBackendStream:
         self._context = self._client.stream("POST", self._url, json=dict(self._payload))
         response = await self._context.__aenter__()
         if response.is_error:
-            raise ConnectionError(f"backend HTTP {response.status_code}")
+            raise BackendHttpError(response.status_code)
         return response.aiter_lines()
 
     async def aclose(self) -> None:
@@ -84,7 +105,11 @@ class NdjsonBackendStream:
 
 class BackendClient:
     def __init__(
-        self, client: httpx.AsyncClient, base_url: str, *, first_event_timeout_seconds: float = 3.0
+        self,
+        client: httpx.AsyncClient,
+        base_url: str,
+        *,
+        first_event_timeout_seconds: float = BACKEND_FIRST_EVENT_TIMEOUT_SECONDS,
     ) -> None:
         self._client = client
         self._first_timeout = first_event_timeout_seconds
