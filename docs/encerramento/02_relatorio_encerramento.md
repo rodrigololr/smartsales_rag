@@ -17,10 +17,13 @@
 
 ## 2. Balanço de escopo
 
-Situação dos pacotes em 11/11/2026, pelas issues do repositório. Atualizar na data
-de encerramento.
+Situação dos pacotes em 11/11/2026, pelas issues do repositório, atualizada em
+21/11/2026 pelos PRs. Os PRs #35 a #42 estão abertos, aguardando revisão e merge na
+`develop` (#37, #39, #41 e #42 estão empilhados: cada um tem como base o PR anterior da
+mesma trilha); a branch `integration/all` reúne todos e corresponde à versão final.
+Atualizar na data de encerramento.
 
-| Pacote | Entrega | Situação em 11/11 | Situação final |
+| Pacote | Entrega | Situação em 11/11 (atualizada em 21/11) | Situação final |
 | :---: | :--- | :--- | :---: |
 | `G01`, `G03` | Specs SDD/TDD e baseline de gestão | Concluído (PR #1). | **[PREENCHER]** |
 | `F01`, `F02` | Protótipos, setup e chat com SSE | Concluídos (PRs #23 e #24). | **[PREENCHER]** |
@@ -28,14 +31,14 @@ de encerramento.
 | `B02` | Busca híbrida e orquestração LLM | Implementado (PR #25). Falta comprovar o TTFT com medição. | **[PREENCHER]** |
 | `B03` | Ingestão de manuais e guardrails | Implementado (PR #25); controle por `ingestion_jobs` e `catalog:version` no PR #28. | **[PREENCHER]** |
 | `B04` | Motor de recomendação | Motor mesclado (PR #22); ligação ao fluxo do RAG no PR #29. | **[PREENCHER]** |
-| `B05` | Golden Set e runner RAGAS | PR #26 aberto. | **[PREENCHER]** |
-| `M01` | Gateway, contratos e segurança base | Aberto. *Rate limiting* não implementado. | **[PREENCHER]** |
+| `B05` | Golden Set e runner RAGAS | Mesclado na `develop` (PR #26, 07/11). Falta executar a avaliação e registrar o relatório (seção 5). | **[PREENCHER]** |
+| `M01` | Gateway, contratos e segurança base | Implementado no PR #36 (*rate limiting* de 30 req/min por sessão e por IP, envelope de erro `422` e contrato OpenAPI), aguardando revisão. | **[PREENCHER]** |
 | `M02` | SSE e sessões no Redis | SSE mesclado; sessões no Redis no PR #30. | **[PREENCHER]** |
 | `M03` | Cache e invalidação | Chave canônica mesclada; cache no Redis com revalidação no PR #31. | **[PREENCHER]** |
-| `M04`, `M05` | Catálogo, telemetria, checkout e feedback | Abertos. | **[PREENCHER]** |
-| `F03`, `F04` | Citação, feedback, cards e painel | Abertos. | **[PREENCHER]** |
+| `M04`, `M05` | Catálogo, telemetria, checkout e feedback | Implementados, aguardando revisão: catálogo, feedback e *mock checkout* no PR #35; `GET /api/v1/metrics/summary` no PR #37. Catálogo de demonstração ampliado para 32 produtos no PR #40. | **[PREENCHER]** |
+| `F03`, `F04` | Citação, feedback, cards e painel | Implementados, aguardando revisão: citações e *like*/*dislike* no PR #39; cards com checkout, painel `/admin/metricas` e vitrine via API no PR #41; refinamento visual no PR #42. | **[PREENCHER]** |
 | `F05` | Testes E2E e aferição de KPIs | Suíte Playwright e sonda de SLA no PR #33. Em 16/11, na pilha real: 6 testes E2E passando e 4 `fixme`; sonda com código 1 (seção 5). | **[PREENCHER]** |
-| `G04` | Documentação técnica | README e guia de desenvolvimento atualizados no PR #32. | **[PREENCHER]** |
+| `G04` | Documentação técnica | README e guia de desenvolvimento atualizados no PR #32; monitoramento e controle (`EAP 6.1`–`6.3`) no PR #38, aguardando revisão. | **[PREENCHER]** |
 | `G02` | Demo, relatório e lições | Este documento. | **[PREENCHER]** |
 
 Mudanças de escopo aprovadas: **[PREENCHER: listar com data e aprovador, por
@@ -97,11 +100,11 @@ Metas de `specs/diagrams_and_pm/10_qualidade_arvore_metricas.md`.
 | Aderência aos filtros de negócio | 100% | **[PREENCHER]** | **[ ]** | Testes de recomendação e E2E-02. |
 | TTFT p95 | ≤ 2 s | **[PREENCHER]** | **[ ]** | `python -m app.telemetry.sla_probe` (`ttft_p95_ms`; informar o n de `generated`). |
 | Tempo total p95 | ≤ 8 s | **[PREENCHER]** | **[ ]** | `sla_probe` (`total_p95_ms`, mesmo n). |
-| Taxa de acerto do cache | ≥ 30% | **[PREENCHER]** | **[ ]** | **[PREENCHER: fonte]** Não é o `synthetic_load_cache_hit_ratio` do `sla_probe` (carga sintética, 0 numa execução normal); depende da telemetria do `M04`. |
+| Taxa de acerto do cache | ≥ 30% | **[PREENCHER]** | **[ ]** | `cache_hit_ratio` de `GET /api/v1/metrics/summary`, no painel `/admin/metricas` (PR #37). Não é o `synthetic_load_cache_hit_ratio` do `sla_probe` (carga sintética, 0 numa execução normal). |
 | Disponibilidade do chat | ≥ 99% | **[PREENCHER]** | **[ ]** | Monitoramento da homologação. |
 | Taxa de erro da API | ≤ 1% | **[PREENCHER]** | **[ ]** | Logs do gateway. |
-| Aprovação das respostas | ≥ 80% | **[PREENCHER]** | **[ ]** | `feedback_logs` (depende do `M04`). |
-| Cliques em "Comprar agora" | ≥ 10% dos cards | **[PREENCHER]** | **[ ]** | `checkout_events` (depende do `M05`). |
+| Aprovação das respostas | ≥ 80% | **[PREENCHER]** | **[ ]** | `feedback_logs` (`like_ratio` no painel `/admin/metricas`). |
+| Cliques em "Comprar agora" | ≥ 10% dos cards | **[PREENCHER]** | **[ ]** | `checkout_events` (`card_ctr` no painel `/admin/metricas`). |
 | Cobertura de testes | ≥ 70% | **[PREENCHER]** | **[ ]** | CI da `develop`. |
 | Defeitos críticos abertos | 0 | **[PREENCHER]** | **[ ]** | Issues com rótulo de defeito. |
 | `SPI` | ≥ 0,90 | **[PREENCHER]** | **[ ]** | Seção 3. |

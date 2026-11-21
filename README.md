@@ -9,12 +9,14 @@
 
 ## Como rodar (Docker Compose)
 
-O que está implementado: catálogo com poucos itens (com fotos); ao abrir um produto, a página do item mostra galeria, ficha técnica e compra, com um Consultor IA fixo ao lado (estilo Rufus/Alexa da Amazon) que responde sobre o produto consultado com RAG na ficha técnica e no manual do fabricante (citando a página da fonte) e pode apresentar atributos verificados em SQL (`RECOMENDACOES_SQL`) das alternativas elegíveis quando prefixadas por SKU. O backend acrescenta ao turno os cards de recomendação lidos em snapshot `REPEATABLE READ` do SQL (produto consultado, upsell até +35% e cross-sell de `product_relations`). O gateway aplica *rate limiting* de 30 req/min (`429 RATE_LIMITED` com `Retry-After`) por sessão no chat (`ratelimit:session:{session_id}`) e por IP nas demais rotas (`ratelimit:ip:{client_ip}`), persiste sessões, histórico e idempotência de turnos de forma durável no PostgreSQL (`chat_sessions`, `chat_messages`, `chat_turn_requests`) com projeção ativa e *lease* renovável no Redis (janela de 10 mensagens, TTL de 30 min) e serve respostas repetidas pelo cache semântico (TTL de 1 h), relendo no PostgreSQL o preço, a disponibilidade e o status do produto consultado e dos cards antes de cada *cache hit* ou *replay* idempotente. Ainda não implementados: `GET /products/{sku}`, feedback, *mock checkout* e métricas (`M04`, `M05`).
+O que está implementado: vitrine com catálogo de demonstração de 32 produtos (com fotos), lida do gateway em `GET /api/v1/products` (só itens ativos e com estoque; um item esgotado sai da lista, mas a página `/produto/<SKU>` continua acessível e mostra "Esgotado"). Ao abrir um produto, a página do item mostra galeria, ficha técnica e compra, com um Consultor IA fixo ao lado (estilo Rufus/Alexa da Amazon) que responde sobre o produto consultado com RAG na ficha técnica e no manual do fabricante (citando a página da fonte) e pode apresentar atributos verificados em SQL (`RECOMENDACOES_SQL`) das alternativas elegíveis quando prefixadas por SKU. O backend acrescenta ao turno os cards de recomendação lidos em snapshot `REPEATABLE READ` do SQL (produto consultado, upsell até +35% e cross-sell de `product_relations`). Cada card leva ao *mock checkout* (`POST /api/v1/checkout/mock`), que revalida preço e estoque no PostgreSQL, registra a conversão em `checkout_events`, desconta o estoque quando confirmado (`CHECKOUT_DECREMENT_STOCK`) e devolve o link do marketplace. Cada resposta aceita *like*/*dislike* com motivo (`POST /api/v1/feedback`), e o painel `/admin/metricas` mostra TTFT, latência, *cache hit ratio*, feedback e conversões a partir de `GET /api/v1/metrics/summary`, protegido pelo `ADMIN_TOKEN`. O gateway aplica *rate limiting* de 30 req/min (`429 RATE_LIMITED` com `Retry-After`) por sessão no chat (`ratelimit:session:{session_id}`) e por IP nas demais rotas (`ratelimit:ip:{client_ip}`), persiste sessões, histórico e idempotência de turnos de forma durável no PostgreSQL (`chat_sessions`, `chat_messages`, `chat_turn_requests`) com projeção ativa e *lease* renovável no Redis (janela de 10 mensagens, TTL de 30 min) e serve respostas repetidas pelo cache semântico (TTL de 1 h), relendo no PostgreSQL o preço, a disponibilidade e o status do produto consultado e dos cards antes de cada *cache hit* ou *replay* idempotente.
+
+Roteiro da demonstração final: [`docs/encerramento/01_roteiro_demo.md`](docs/encerramento/01_roteiro_demo.md).
 
 Pré-requisitos: Docker com Compose v2 e uma chave de um provedor compatível com a API da OpenAI.
 
 ```bash
-cp .env.example .env          # preencha LLM_API_KEY (chave do Google Gemini)
+cp .env.example .env          # preencha LLM_API_KEY (chave do Google Gemini) e ADMIN_TOKEN
 docker compose up --build     # db (pgvector) + redis -> ingest -> backend -> middleend -> frontend
 ```
 
@@ -34,11 +36,13 @@ Variáveis do `.env` da raiz, lidas pelo `docker-compose.yml`:
 | `LLM_MODEL` | não | `gpt-4o-mini` | Modelo de geração. |
 | `EMBEDDING_MODEL` | não | `text-embedding-3-small` | Modelo de embeddings (1536 dimensões). |
 | `SIMILARITY_THRESHOLD` | não | `0.72` | Limiar do *fallback* seguro; `0.60` no `.env.example`, calibrado para o Gemini. |
+| `ADMIN_TOKEN` | para `/admin/metricas` | vazio | Valor exigido no cabeçalho `X-Admin-Token` de `GET /api/v1/metrics/summary`; o painel `/admin/metricas` pede esse token. Vazio, a rota responde sempre `401`. Use um valor longo (ex.: `openssl rand -hex 24`). |
+| `CHECKOUT_DECREMENT_STOCK` | não | `true` | O *mock checkout* confirmado desconta `products.stock_quantity`. Rodar de novo `docker compose run --rm ingest` restaura o estoque do `data/catalog.json`. Com `false`, só registra a conversão. |
 
 `DATABASE_URL`, `REDIS_URL`, `BACKEND_INTERNAL_URL` e `CORS_ALLOWED_ORIGINS` já vêm definidas no `docker-compose.yml` para a rede interna. Fora do Docker, use `backend/.env.example` e `middleend/.env.example`.
 
 - **Manuais do cliente:** coloque o PDF em `data/manuals/<SKU>.pdf` (ex.: `AF-400-220V.pdf`) e rode de novo o serviço `ingest` (`docker compose run --rm ingest`). Os `.txt` atuais são manuais **sintéticos de demonstração**.
-- **Catálogo:** `data/catalog.json` (os mesmos SKUs da vitrine do frontend).
+- **Catálogo:** `data/catalog.json`, com 32 produtos de demonstração em seis categorias. A vitrine lê o catálogo do PostgreSQL pelo gateway; o `frontend/src/lib/mock-data.ts` só é usado quando `NEXT_PUBLIC_API_BASE_URL` está vazio.
 - **Relações de cross-sell:** `data/product_relations.json`. A tabela `product_relations` é substituída pelo conteúdo do arquivo quando a CLI recebe `--relations` (o serviço `ingest` do Compose sempre passa a flag). Sem a flag, a tabela fica como está; arquivo inexistente é erro e um seed `[]` esvazia a tabela.
 - **Ingestão (`UC08`):** a CLI adquire um *advisory lock* de sessão no PostgreSQL (execuções simultâneas terminam com código 1) e roda cada fonte sob um registro em `ingestion_jobs`, com até 3 tentativas para falhas transitórias (`LLMUnavailableError`, `psycopg.OperationalError`). Fonte que esgota as tentativas, ou que falha por erro permanente (PDF corrompido ou vazio, erro de leitura, `IntegrityError`), fica em `NEEDS_INTERVENTION`, preserva a versão anterior dos chunks, aparece na saída da CLI e faz o serviço `ingest` terminar com código 1; as demais fontes seguem sendo indexadas. Ao final, mesmo que a carga pare no meio, a CLI executa `INCR catalog:version` no Redis, o que invalida o cache de respostas. Se o Redis estiver fora do ar, o relatório traz `catalog_version_error` e a CLI também termina com código 1.
 - **Provedor de IA:** o MVP usa o Google Gemini pelo endpoint compatível com a API da OpenAI (`gemini-3.1-flash-lite` para respostas e `gemini-embedding-001` com 1536 dimensões). Para voltar à OpenAI das specs, basta trocar `LLM_BASE_URL`, `LLM_MODEL` e `EMBEDDING_MODEL` no `.env`.
@@ -154,6 +158,16 @@ flowchart LR
 | **Backend & IA (RAG)** | Python 3.11+, LangChain, OpenAI SDK (`gpt-4o-mini`, `text-embedding-3-small`), RAGAS, Pytest | Railway | **Filipe**, **Diogo** |
 | **Banco de Dados & Vetores** | PostgreSQL 16 + extensão `pgvector` (índice `HNSW`), SQLAlchemy 2.0 / Alembic | Supabase + Docker Compose | **Filipe**, **Diogo** |
 | **Governança, SDD & QA** | GitHub Actions (CI/CD), GitHub Projects (backlog/sprints), Figma, Notion (atas), Google Sheets (EVM/SPI) | GitHub (`rodrigololr/smartsales_rag`) | **Antônio Rodrigo**, **Walber**, **Victor Hugo**, **Well** |
+
+### Stack real × planejada (decisão de escopo registrada)
+
+A tabela acima e as specs descrevem a stack planejada. A implementação entregue fez três substituições, registradas como decisão de escopo do MVP:
+
+| Planejado | Implementado | Onde conferir |
+| :--- | :--- | :--- |
+| LangChain + OpenAI (`gpt-4o-mini`, `text-embedding-3-small`) | SDK `openai` chamando qualquer endpoint compatível com a API da OpenAI; no MVP, Google Gemini (`gemini-3.1-flash-lite` e `gemini-embedding-001`). LangChain aparece só no ambiente opcional de avaliação RAGAS. | `backend/requirements.txt`, `backend/requirements-eval.txt` |
+| SQLAlchemy 2.0 + `asyncpg` + Alembic | `psycopg` 3 com SQL explícito; o esquema fica em `schema.sql` idempotente, aplicado pela ingestão e na inicialização do gateway. | `backend/app/db/schema.sql`, `middleend/app/db/schema.sql`, `middleend/requirements.txt` |
+| Vercel, Railway, Supabase e Upstash | Docker Compose local (`pgvector/pgvector:pg16`, `redis:7-alpine`, backend, gateway e frontend). | `docker-compose.yml` |
 
 ---
 
