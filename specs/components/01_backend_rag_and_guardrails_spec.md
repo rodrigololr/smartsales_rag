@@ -83,7 +83,7 @@ REGRAS OBRIGATÓRIAS E INEGOCIÁVEIS:
 5. TOM E FORMATO: Seja objetivo, cordial, técnico e estruturado em tópicos curtos.
 ```
 
-**Parâmetros de geração**: `LLM_MODEL=gpt-4o-mini` (*snapshot* fixado — `R14`), `temperature = 0.2`, `max_tokens = 600`, `stream = True`; *timeout* de `3 s` até o 1º token com **1** nova tentativa (`RNF07`).
+**Parâmetros de geração**: `LLM_MODEL=gpt-4o-mini` (*snapshot* fixado — `R14`), `temperature = 0.2`, `max_tokens = 600`, `stream = True`; *timeout* de `3 s` até o 1º token com **1** nova tentativa (`RNF07`). Essa é a **única** política de *retry* da chamada ao LLM: o cliente do SDK roda com `max_retries=0`, para que *retries* internos do SDK não se somem ao `RNF07`. O *embedding* da pergunta tem *timeout* próprio e curto (`EMBEDDING_TIMEOUT_SECONDS`, padrão `3 s`; a ingestão mantém o *timeout* do cliente). Qualquer resposta HTTP de erro do provedor (`400`, `401`, `404`, `429`, `5xx`) ou falha de transporte vira `LLMUnavailableError` → evento `error` `LLM_UNAVAILABLE` seguido dos *cards* determinísticos, sem quebrar o stream NDJSON.
 
 ---
 

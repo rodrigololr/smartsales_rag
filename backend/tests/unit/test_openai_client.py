@@ -8,15 +8,25 @@ from typing import Any, cast
 import httpx
 import openai
 import pytest
-from app.clients.openai_client import LLMUnavailableError, OpenAIChatModel, OpenAIEmbedder
+from app.clients.openai_client import (
+    LLMUnavailableError,
+    OpenAIChatModel,
+    OpenAIEmbedder,
+    make_client,
+)
+from app.config import Settings
 
 
 class FakeEmbeddings:
     def __init__(self) -> None:
         self.batches: list[list[str]] = []
+        self.kwargs: dict[str, Any] = {}
 
-    async def create(self, *, input: list[str], model: str, dimensions: int) -> SimpleNamespace:
+    async def create(
+        self, *, input: list[str], model: str, dimensions: int, **kwargs: Any
+    ) -> SimpleNamespace:
         self.batches.append(input)
+        self.kwargs = kwargs
         return SimpleNamespace(data=[SimpleNamespace(embedding=[float(len(text))]) for text in input])
 
 
@@ -139,6 +149,58 @@ def test_openai_outage_becomes_llm_unavailable() -> None:
     class FailingEmbeddings:
         async def create(self, **kwargs: object) -> None:
             raise outage
+
+    embedder = OpenAIEmbedder(
+        fake_client(embeddings=FailingEmbeddings()), model="m", dimensions=1, batch_size=1
+    )
+    with pytest.raises(LLMUnavailableError):
+        asyncio.run(embedder.embed(["x"]))
+
+
+def test_sdk_retries_are_disabled_so_the_backend_policy_is_the_only_one() -> None:
+    # RNF07: 3 s first-token timeout x 2 attempts; SDK retries would stack on top of it.
+    assert make_client(Settings(llm_api_key="test")).max_retries == 0
+
+
+def test_query_embedding_uses_its_own_short_timeout() -> None:
+    embeddings = FakeEmbeddings()
+    embedder = OpenAIEmbedder(
+        fake_client(embeddings=embeddings), model="m", dimensions=1, batch_size=1, timeout=3.0
+    )
+    asyncio.run(embedder.embed(["x"]))
+    assert embeddings.kwargs["timeout"] == 3.0
+
+
+def test_embedding_timeout_setting_defaults_to_three_seconds() -> None:
+    assert Settings().embedding_timeout_seconds == 3.0
+
+
+def _status_error(status: int) -> openai.APIStatusError:
+    request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+    return openai.APIStatusError(
+        f"HTTP {status}", response=httpx.Response(status, request=request), body=None
+    )
+
+
+@pytest.mark.parametrize("status", [400, 401, 404, 429, 503])
+def test_provider_status_errors_become_llm_unavailable(status: int) -> None:
+    failure = _status_error(status)
+    model = OpenAIChatModel(
+        fake_client(chat=SimpleNamespace(completions=FakeCompletions([], failure=failure))),
+        model="m",
+        temperature=0.2,
+        max_tokens=10,
+    )
+
+    async def collect() -> list[str]:
+        return [delta async for delta in model.stream([])]
+
+    with pytest.raises(LLMUnavailableError):
+        asyncio.run(collect())
+
+    class FailingEmbeddings:
+        async def create(self, **kwargs: object) -> None:
+            raise failure
 
     embedder = OpenAIEmbedder(
         fake_client(embeddings=FailingEmbeddings()), model="m", dimensions=1, batch_size=1

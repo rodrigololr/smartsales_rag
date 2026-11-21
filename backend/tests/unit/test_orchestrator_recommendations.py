@@ -2,12 +2,16 @@
 
 import asyncio
 from collections.abc import Sequence
+from types import SimpleNamespace
 
-from app.clients.openai_client import LLMUnavailableError
+import httpx
+import openai
+from app.clients.openai_client import LLMUnavailableError, OpenAIChatModel
 from app.config import Settings
 from app.models.schemas import CatalogProduct, RagRequest
 from app.rag.orchestrator import RAGOrchestrator
 from app.recommendation.cards import build_card
+from test_openai_client import FakeCompletions, fake_client
 from test_orchestrator import PRODUCT, Catalog, ChatModel, Embedder, chunk, names
 from test_recommendation_service import FAMILY
 
@@ -126,6 +130,24 @@ def test_llm_outage_still_offers_deterministic_cards() -> None:
     model = ChatModel([], failure=LLMUnavailableError())
     events = run(Catalog(PRODUCT, [chunk()]), model, Recommender())
     assert names(events) == ["error", "recommendations", "end"]
+
+
+def test_provider_http_error_ends_as_llm_unavailable_with_cards() -> None:
+    # A bad key / unknown model (HTTP 4xx) must not break the NDJSON stream.
+    request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+    unauthorized = openai.AuthenticationError(
+        "bad key", response=httpx.Response(401, request=request), body=None
+    )
+    completions = FakeCompletions([], failure=unauthorized)
+    model = OpenAIChatModel(
+        fake_client(chat=SimpleNamespace(completions=completions)),
+        model="m",
+        temperature=0.2,
+        max_tokens=10,
+    )
+    events = run(Catalog(PRODUCT, [chunk()]), model, Recommender())  # type: ignore[arg-type]
+    assert names(events) == ["error", "recommendations", "end"]
+    assert events[0]["data"]["code"] == "LLM_UNAVAILABLE"  # type: ignore[index]
 
 
 def test_embedding_outage_recommends_without_similarity() -> None:

@@ -39,6 +39,7 @@ def get_orchestrator() -> RAGOrchestrator:
             model=settings.embedding_model,
             dimensions=settings.embedding_dimensions,
             batch_size=settings.embedding_batch_size,
+            timeout=settings.embedding_timeout_seconds,
         ),
         OpenAIChatModel(
             client,

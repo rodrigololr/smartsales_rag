@@ -5,18 +5,15 @@ from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from typing import cast
 
 import openai
-from openai import AsyncOpenAI
+from openai import NOT_GIVEN, AsyncOpenAI, NotGiven
 from openai.types.chat import ChatCompletionMessageParam
 
 from app.config import Settings
 from app.generation.prompt import Message
 
-_TRANSPORT_ERRORS = (
-    openai.APIConnectionError,
-    openai.APITimeoutError,
-    openai.RateLimitError,
-    openai.InternalServerError,
-)
+# Transport failures (timeouts included) and every HTTP error status: a bad key (401),
+# unknown model (404) or quota (429) must end the turn as LLM_UNAVAILABLE, not break it.
+_PROVIDER_ERRORS = (openai.APIConnectionError, openai.APIStatusError)
 
 
 def make_client(settings: Settings) -> AsyncOpenAI:
@@ -25,19 +22,32 @@ def make_client(settings: Settings) -> AsyncOpenAI:
         api_key=settings.llm_api_key,
         base_url=settings.llm_base_url or None,  # empty env var = provider default
         timeout=settings.llm_timeout_seconds,
+        # RNF07 retry (first-token timeout x attempts) is the only retry policy; ingestion
+        # has its own backoff. SDK retries would silently multiply the worst-case latency.
+        max_retries=0,
     )
 
 
 class LLMUnavailableError(Exception):
-    """OpenAI unreachable, timed out or overloaded (maps to SSE LLM_UNAVAILABLE)."""
+    """Provider unreachable, timed out or answering an HTTP error (maps to SSE LLM_UNAVAILABLE)."""
 
 
 class OpenAIEmbedder:
-    def __init__(self, client: AsyncOpenAI, *, model: str, dimensions: int, batch_size: int) -> None:
+    def __init__(
+        self,
+        client: AsyncOpenAI,
+        *,
+        model: str,
+        dimensions: int,
+        batch_size: int,
+        timeout: float | None = None,
+    ) -> None:
         self._client = client
         self._model = model
         self._dimensions = dimensions
         self._batch_size = batch_size
+        # None keeps the client timeout (ingestion batches); the query path passes a short one.
+        self._timeout: float | NotGiven = NOT_GIVEN if timeout is None else timeout
 
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
         vectors: list[list[float]] = []
@@ -47,9 +57,10 @@ class OpenAIEmbedder:
                     input=list(texts[start : start + self._batch_size]),
                     model=self._model,
                     dimensions=self._dimensions,
+                    timeout=self._timeout,
                 )
                 vectors.extend(item.embedding for item in response.data)
-        except _TRANSPORT_ERRORS as error:
+        except _PROVIDER_ERRORS as error:
             raise LLMUnavailableError from error
         return vectors
 
@@ -79,7 +90,7 @@ class OpenAIChatModel:
             deltas = await self._open_with_first_token(messages)
             async for delta in deltas:
                 yield delta
-        except _TRANSPORT_ERRORS as error:
+        except _PROVIDER_ERRORS as error:
             raise LLMUnavailableError from error
 
     async def _open_with_first_token(self, messages: Sequence[Message]) -> AsyncIterator[str]:
