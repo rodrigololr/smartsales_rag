@@ -19,6 +19,7 @@ from app.sse.models import BackendStream
 from jsonschema import Draft202012Validator, FormatChecker
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
+from redis import Redis
 
 ROOT = Path(__file__).resolve().parents[3]
 OPENAPI = json.loads((ROOT / "openapi.yaml").read_text(encoding="utf-8"))
@@ -41,17 +42,25 @@ def assert_contract(response: httpx.Response, path: str, status: int) -> dict:
     return payload
 
 
+REDIS_URL = os.environ.get("TEST_REDIS_URL", "")
+
+
 @pytest.fixture
 def database_url() -> Iterator[str]:
     base_url = os.environ.get("TEST_DATABASE_URL")
-    if not base_url:
-        pytest.skip("TEST_DATABASE_URL not set")
-    schema_name = "commerce_test_" + uuid4().hex
-    schema = sql.Identifier(schema_name)
+    if not base_url or not REDIS_URL:
+        pytest.skip("TEST_DATABASE_URL and TEST_REDIS_URL required")
+    # A whole database per test: the gateway sets connection options, so search_path can't isolate.
+    with Redis.from_url(REDIS_URL) as redis:  # answers cached by other tests would skip the stub
+        stale = list(redis.scan_iter("cache:sem:*"))
+        if stale:
+            redis.delete(*stale)
+    database_name = "commerce_test_" + uuid4().hex
+    database = sql.Identifier(database_name)
     with psycopg.connect(base_url, autocommit=True) as admin:
-        admin.execute(sql.SQL("CREATE SCHEMA {}").format(schema))
+        admin.execute(sql.SQL("CREATE DATABASE {}").format(database))
         try:
-            url = make_conninfo(base_url, options=f"-csearch_path={schema_name},public")
+            url = make_conninfo(base_url, dbname=database_name)
             products_ddl = (ROOT / "backend/app/db/schema.sql").read_text(encoding="utf-8")
             with psycopg.connect(url) as connection:
                 connection.execute(products_ddl)
@@ -76,7 +85,7 @@ def database_url() -> Iterator[str]:
                 )
             yield url
         finally:
-            admin.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(schema))
+            admin.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(database))
 
 
 class StubBackend:
@@ -99,7 +108,9 @@ class StubBackend:
                 {"event": "end", "data": {"tokens_used": 4, "intent": "TECHNICAL_QA"}},
             ]
 
-    def open_stream(self, sku: str, question: str, history: list[HistoryItem]) -> BackendStream:
+    def open_stream(
+        self, sku: str, question: str, history: list[HistoryItem], **filters: object
+    ) -> BackendStream:
         events = iter(self.events)
 
         class Stream:
@@ -122,7 +133,11 @@ class StubBackend:
 async def client_for(
     database_url: str, *, fallback: bool = False, decrement_stock: bool = True
 ) -> AsyncIterator[httpx.AsyncClient]:
-    settings = Settings(database_url=database_url, checkout_decrement_stock=decrement_stock)
+    settings = Settings(
+        database_url=database_url,
+        redis_url=REDIS_URL,
+        checkout_decrement_stock=decrement_stock,
+    )
     app = create_app(settings, StubBackend(fallback))
     async with (
         app.router.lifespan_context(app),
@@ -300,5 +315,46 @@ def test_fallback_with_diagnostic_intent_still_completes_with_database(database_
                     "SELECT role, intent FROM chat_messages WHERE id = %s", (turn["message_id"],)
                 ).fetchone()
             assert message == ("assistant", None)
+
+    asyncio.run(scenario())
+
+
+def test_feedback_and_checkout_reject_an_ended_session(database_url: str) -> None:
+    async def scenario() -> None:
+        async with client_for(database_url) as client:
+            turn = await new_turn(client)
+            assert (await client.delete(f"sessions/{turn['session_id']}")).status_code == 204
+            feedback = await client.post("feedback", json={**turn, "rating": "LIKE"})
+            assert_contract(feedback, "/feedback", 410)
+            checkout = await client.post(
+                "checkout/mock",
+                json={
+                    **turn,
+                    "sku": SKU,
+                    "quantity": 1,
+                    "recommendation_type": "PRIMARY",
+                    "displayed_price": 499.90,
+                },
+            )
+            assert_contract(checkout, "/checkout/mock", 410)
+
+    asyncio.run(scenario())
+
+
+def test_gateway_starts_before_ingestion_and_creates_commerce_tables_later(
+    database_url: str,
+) -> None:
+    async def scenario() -> None:
+        with psycopg.connect(database_url, autocommit=True) as connection:
+            connection.execute("DROP TABLE products CASCADE")
+        async with client_for(database_url) as client:
+            turn = await new_turn(client)
+            not_ready = await client.post("feedback", json={**turn, "rating": "LIKE"})
+            assert_contract(not_ready, "/feedback", 503)
+            products_ddl = (ROOT / "backend/app/db/schema.sql").read_text(encoding="utf-8")
+            with psycopg.connect(database_url) as connection:
+                connection.execute(products_ddl)
+            ready = await client.post("feedback", json={**turn, "rating": "LIKE"})
+            assert_contract(ready, "/feedback", 201)
 
     asyncio.run(scenario())

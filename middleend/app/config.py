@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # Unset = sessions in process memory (single replica, lost on restart).
     redis_url: str | None = None
     database_url: str | None = None
+    # M05: mock checkout decrements products.stock_quantity on CONFIRMED.
+    checkout_decrement_stock: bool = True
     session_db_connect_timeout_seconds: int = Field(default=2, ge=1)
     session_db_query_timeout_ms: int = Field(default=2000, ge=1)
     session_heartbeat_seconds: float = Field(default=10.0, gt=0)

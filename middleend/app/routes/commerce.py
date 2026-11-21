@@ -1,11 +1,12 @@
 """Public JSON routes for products, feedback and checkout."""
 
 import logging
+import uuid
 from collections.abc import Callable, Coroutine
 from typing import Annotated, Any
 
-import psycopg
 from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -15,6 +16,7 @@ from redis.exceptions import RedisError
 
 from app.commerce import (
     Catalog,
+    CatalogNotReady,
     CatalogQuery,
     Checkout,
     CheckoutConflict,
@@ -25,6 +27,7 @@ from app.commerce import (
     MessageNotFound,
     Product,
     ProductNotFound,
+    SessionEnded,
 )
 from app.repositories.commerce import PostgresCommerce
 from app.routes.chat import error_response
@@ -55,8 +58,19 @@ class CommerceRoute(APIRoute):
         async def protected(request: Request) -> Response:
             try:
                 return await handle(request)
-            except RequestValidationError:
-                return error_response(422, "VALIDATION_ERROR", "Verifique os parâmetros enviados.")
+            except RequestValidationError as invalid:
+                # No "input": the envelope must not echo what the client sent.
+                errors = [
+                    {key: value for key, value in error.items() if key != "input"}
+                    for error in jsonable_encoder(invalid.errors())
+                ]
+                envelope = {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Verifique os parâmetros enviados.",
+                    "trace_id": str(uuid.uuid4()),
+                    "details": {"errors": errors},
+                }
+                return JSONResponse({"error": envelope}, status_code=422)
             except ProductNotFound:
                 return error_response(404, "PRODUCT_NOT_FOUND", "Produto não encontrado.")
             except MessageNotFound:
@@ -67,16 +81,13 @@ class CommerceRoute(APIRoute):
                 return error_response(
                     409, "FEEDBACK_ALREADY_RECORDED", "A mensagem já foi avaliada."
                 )
+            except SessionEnded:
+                return error_response(410, "SESSION_ENDED", "A sessão foi encerrada.")
+            except CatalogNotReady:
+                return error_response(503, "SERVICE_UNAVAILABLE", "Catálogo ainda não carregado.")
             except DatabaseNotConfigured:
                 return error_response(503, "DATABASE_UNAVAILABLE", "Banco de dados indisponível.")
-            except psycopg.OperationalError:
-                logger.exception("commerce_database_unavailable")
-                return error_response(503, "DATABASE_UNAVAILABLE", "Banco de dados indisponível.")
-            except psycopg.Error:
-                logger.exception("commerce_database_error")
-                return error_response(
-                    500, "INTERNAL_ERROR", "Não foi possível concluir a operação."
-                )
+            # Other psycopg errors reach the app-wide DatabaseError handler (503).
 
         return protected
 
@@ -84,7 +95,7 @@ class CommerceRoute(APIRoute):
 router = APIRouter(
     prefix="/api/v1",
     route_class=CommerceRoute,
-    responses={code: {"model": ErrorEnvelope} for code in (404, 422, 500, 503)},
+    responses={code: {"model": ErrorEnvelope} for code in (404, 410, 422, 500, 503)},
 )
 
 
@@ -128,7 +139,7 @@ async def mock_checkout(
     body: CheckoutCreate, repository: Repository, request: Request
 ) -> Checkout | Response:
     result = await repository.checkout(body)
-    cache: Redis | None = request.app.state.catalog_cache
+    cache: Redis | None = request.app.state.redis
     if cache is not None and (
         result.status == "PRICE_CHANGED"
         or (isinstance(result, Checkout) and result.remaining_stock == 0)

@@ -58,8 +58,7 @@ services:
       BACKEND_INTERNAL_URL: http://backend:8001
       CORS_ALLOWED_ORIGINS: http://localhost:3000
       REDIS_URL: redis://redis:6379/0
-      # Leitura de products para revalidar estoque e preço no cache hit (RN01).
-      DATABASE_URL: postgresql://smartsales:smartsales@db:5432/smartsales
+      CHECKOUT_DECREMENT_STOCK: ${CHECKOUT_DECREMENT_STOCK:-true}
     ports:
       - "8000:8000"
     depends_on:

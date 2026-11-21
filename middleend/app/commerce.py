@@ -56,7 +56,7 @@ class MessageReference(BaseModel):
 class FeedbackCreate(MessageReference):
     rating: Literal["LIKE", "DISLIKE"]
     reason_category: Literal["HALLUCINATION", "WRONG_VOLTAGE", "SLOW", "OTHER"] | None = None
-    comment: str | None = None
+    comment: str | None = Field(default=None, max_length=1000)
 
     @model_validator(mode="after")
     def require_dislike_reason(self) -> Self:
@@ -116,6 +116,14 @@ class MessageNotFound(Exception):
 
 class FeedbackAlreadyRecorded(Exception):
     """Only one rating may be recorded for an assistant message."""
+
+
+class CatalogNotReady(Exception):
+    """`products` does not exist yet: the backend ingestion (UC08) has not run."""
+
+
+class SessionEnded(Exception):
+    """The session was closed (DELETE or TTL); its messages can no longer be rated or bought."""
 
 
 class ProductNotFound(Exception):

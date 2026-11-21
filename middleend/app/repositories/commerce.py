@@ -3,8 +3,12 @@
 from pathlib import Path
 from uuid import UUID
 
+from psycopg import AsyncConnection, sql
+from psycopg.rows import DictRow, dict_row
+
 from app.commerce import (
     Catalog,
+    CatalogNotReady,
     CatalogQuery,
     Checkout,
     CheckoutConflict,
@@ -16,15 +20,11 @@ from app.commerce import (
     MessageReference,
     Product,
     ProductNotFound,
+    SessionEnded,
     checkout_conflict,
 )
-from app.sse.models import CompletedTurn
-from psycopg import AsyncConnection, sql
-from psycopg.rows import DictRow, dict_row
-from psycopg.types.json import Jsonb
 
 SCHEMA_FILE = Path(__file__).with_suffix(".sql")
-STORED_INTENTS = {"TECHNICAL_QA", "PRODUCT_COMPARISON", "PURCHASE_INTENT", "OUT_OF_DOMAIN"}
 PRODUCT_COLUMNS = sql.SQL("""
     sku, name, price, stock_quantity, voltage, capacity_liters, power_watts,
     image_url, marketplace, checkout_url, category, subcategory, brand, specs_json, updated_at
@@ -39,19 +39,49 @@ CATALOG_WHERE = sql.SQL("""
 
 
 class PostgresCommerce:
-    def __init__(self, database_url: str, *, decrement_stock: bool) -> None:
+    """shortcut: one connection per call (like the session store); pool before load tests."""
+
+    def __init__(
+        self,
+        database_url: str,
+        *,
+        decrement_stock: bool,
+        connect_timeout_seconds: int,
+        query_timeout_ms: int,
+    ) -> None:
         self._database_url = database_url
         self._decrement_stock = decrement_stock
+        self._connect_timeout_seconds = connect_timeout_seconds
+        self._query_timeout_ms = query_timeout_ms
+        self._schema_ready = False
 
     async def _connect(self) -> AsyncConnection[DictRow]:
-        return await AsyncConnection.connect(self._database_url, row_factory=dict_row)
+        # Bounded: an unreachable or locked database must fail the request, not hang it.
+        timeout = self._query_timeout_ms
+        return await AsyncConnection.connect(
+            self._database_url,
+            row_factory=dict_row,
+            connect_timeout=self._connect_timeout_seconds,
+            options=f"-c statement_timeout={timeout} -c lock_timeout={timeout}",
+        )
 
-    async def initialize(self) -> None:
+    async def initialize(self) -> bool:
+        """Create the M05 tables; False while the backend has not created `products` yet."""
         async with await self._connect() as connection:
             await connection.execute(
                 "SELECT pg_advisory_xact_lock(hashtext('gateway-commerce-ddl'))"
             )
+            cursor = await connection.execute("SELECT to_regclass('products') IS NOT NULL AS ok")
+            products_exist = await cursor.fetchone()
+            if products_exist is None or not products_exist["ok"]:
+                return False
             await connection.execute(sql.SQL(SCHEMA_FILE.read_text(encoding="utf-8")))
+        self._schema_ready = True
+        return True
+
+    async def _require_schema(self) -> None:
+        if not self._schema_ready and not await self.initialize():
+            raise CatalogNotReady
 
     async def list_products(self, query: CatalogQuery) -> Catalog:
         offset = (query.page - 1) * query.page_size
@@ -88,40 +118,8 @@ class PostgresCommerce:
             raise ProductNotFound
         return Product.model_validate(product)
 
-    async def persist_turn(self, turn: CompletedTurn) -> None:
-        # The MVP backend also emits diagnostic labels such as LOW_SIMILARITY.
-        intent = turn.intent if turn.intent in STORED_INTENTS else None
-        async with await self._connect() as connection:
-            await connection.execute(
-                """
-                INSERT INTO chat_sessions (id) VALUES (%s)
-                ON CONFLICT (id) DO UPDATE SET last_active_at = NOW()
-                """,
-                (turn.session_id,),
-            )
-            await connection.execute(
-                """
-                INSERT INTO chat_messages (
-                    id, session_id, role, content, citations, recommended_skus,
-                    ttft_ms, total_latency_ms, tokens_used, intent, cache_hit
-                ) VALUES (%s, %s, 'assistant', %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO NOTHING
-                """,
-                (
-                    turn.message_id,
-                    turn.session_id,
-                    turn.content,
-                    Jsonb(turn.citations),
-                    Jsonb([product["sku"] for product in turn.products]),
-                    turn.ttft_ms,
-                    turn.total_latency_ms,
-                    turn.tokens_used,
-                    intent,
-                    turn.cache_hit,
-                ),
-            )
-
     async def record_feedback(self, request: FeedbackCreate) -> FeedbackRecorded:
+        await self._require_schema()
         async with await self._connect() as connection:
             await _require_message(connection, request)
             cursor = await connection.execute(
@@ -145,6 +143,7 @@ class PostgresCommerce:
         return FeedbackRecorded.model_validate(recorded)
 
     async def checkout(self, request: CheckoutCreate) -> Checkout | CheckoutConflict:
+        await self._require_schema()
         async with await self._connect() as connection:
             await _require_message(connection, request)
             cursor = await connection.execute(
@@ -202,13 +201,16 @@ async def _require_message(
 ) -> None:
     cursor = await connection.execute(
         """
-        SELECT id FROM chat_messages
-        WHERE id = %s AND session_id = %s AND role = 'assistant' FOR KEY SHARE
+        SELECT s.state FROM chat_messages m JOIN chat_sessions s ON s.id = m.session_id
+        WHERE m.id = %s AND m.session_id = %s AND m.role = 'assistant' FOR KEY SHARE OF m
         """,
         (reference.message_id, reference.session_id),
     )
-    if await cursor.fetchone() is None:
+    message = await cursor.fetchone()
+    if message is None:
         raise MessageNotFound
+    if message["state"] != "ACTIVE":
+        raise SessionEnded
 
 
 async def _record_checkout(

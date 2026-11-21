@@ -1,4 +1,4 @@
-"""Public API gateway (:8000) for the MVP chat."""
+"""Public API gateway (:8000) for chat and commerce."""
 
 import asyncio
 import logging
@@ -19,8 +19,10 @@ from app.cache.redis_storage import RedisCacheStorage
 from app.cache.service import SemanticCacheService
 from app.clients.backend import BackendClient
 from app.config import Settings, get_settings
+from app.repositories.commerce import PostgresCommerce
 from app.repositories.products import PostgresProductSnapshots
 from app.routes.chat import RagBackend, error_response, router
+from app.routes.commerce import router as commerce_router
 from app.sessions.cache import SessionCache
 from app.sessions.postgres_store import PostgresSessionStore
 from app.sessions.redis_store import RedisSessionStore
@@ -105,6 +107,17 @@ def build_cache(settings: Settings, redis: Redis | None) -> SemanticCacheService
     )
 
 
+def build_commerce(settings: Settings) -> PostgresCommerce | None:
+    if not settings.database_url:
+        return None
+    return PostgresCommerce(
+        settings.database_url,
+        decrement_stock=settings.checkout_decrement_stock,
+        connect_timeout_seconds=settings.database_connect_timeout_seconds,
+        query_timeout_ms=settings.session_db_query_timeout_ms,
+    )
+
+
 def create_app(
     settings: Settings | None = None,
     backend: RagBackend | None = None,
@@ -132,12 +145,16 @@ def create_app(
             app.state.store = store or build_session_store(settings, redis)
             app.state.cache = cache or build_cache(settings, redis)
             app.state.redis_enabled = redis is not None
+            app.state.redis = redis  # INCR catalog:version on mock checkout (M05)
             if isinstance(app.state.store, PostgresSessionStore):
                 await app.state.store.initialize()
                 maintenance = asyncio.create_task(
                     maintain_sessions(app.state.store, settings.session_maintenance_seconds)
                 )
                 resources.push_async_callback(stop_maintenance, maintenance)
+            # After the session schema: feedback/checkout reference chat_messages.
+            if app.state.commerce is not None and not await app.state.commerce.initialize():
+                logger.warning("commerce_schema_waiting_for_products_ingestion")
             http = await resources.enter_async_context(
                 httpx.AsyncClient(timeout=settings.backend_timeout_seconds)
             )
@@ -151,6 +168,7 @@ def create_app(
 
     app = FastAPI(title="SmartSales RAG Gateway", version=settings.app_version, lifespan=lifespan)
     app.state.settings = settings
+    app.state.commerce = build_commerce(settings)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
@@ -161,6 +179,7 @@ def create_app(
     app.add_exception_handler(RedisError, redis_unavailable)
     app.add_exception_handler(DatabaseError, storage_unavailable)
     app.include_router(router)
+    app.include_router(commerce_router)
     return app
 
 
