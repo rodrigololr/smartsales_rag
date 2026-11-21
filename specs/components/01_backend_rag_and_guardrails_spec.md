@@ -195,7 +195,10 @@ IDs no evento citations, sem acrescentar páginas não utilizadas. Chunks de out
 SKU não entram no prompt. O aviso "Essa especificação específica não consta no manual" só
 é emitido quando a sentença bloqueada contém uma afirmação técnica (número com unidade,
 preço ou bivolt); cortesias e paráfrases sem dado técnico são descartadas em silêncio,
-sem sugerir ao cliente que falta uma especificação. O protocolo SSE permanece igual; nenhuma correção de
+sem sugerir ao cliente que falta uma especificação. Se o próprio modelo escrever a frase da regra 3 do
+*prompt* ("Essa especificação específica não consta no manual técnico oficial deste
+modelo."), ela é tratada como esse aviso (publicado uma única vez, junto de texto
+aprovado), e não como afirmação rejeitada. O protocolo SSE permanece igual; nenhuma correção de
 fato incorreto depende de já tê-lo exposto ao usuário.
 
 Se não houver nenhuma sentença aprovada e a consulta não puder ser respondida com evidência, emitir error LOW_SIMILARITY_FALLBACK, recomendações determinísticas e end; o Gateway conclui com done(fallback). Nunca transmitir o rascunho rejeitado.

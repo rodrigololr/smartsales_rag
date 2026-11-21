@@ -6,9 +6,9 @@ from uuid import uuid4
 
 from app.clients.openai_client import LLMUnavailableError
 from app.config import Settings
-from app.generation.prompt import Message, build_messages
+from app.generation.prompt import SYSTEM_PROMPT, Message, build_messages
 from app.models.schemas import CatalogProduct, ChatTurn, RagRequest, RetrievedChunk
-from app.rag.orchestrator import RAGOrchestrator
+from app.rag.orchestrator import MISSING_EVIDENCE_NOTICE, RAGOrchestrator
 
 PRODUCT = CatalogProduct(
     sku="AF-400-220V",
@@ -156,6 +156,23 @@ def test_blocked_sentence_without_technical_claim_does_not_raise_missing_evidenc
     assert "não consta" not in text
     assert text.startswith("O cesto suporta até 1,2 kg [Fonte:")
     assert names(events)[-2:] == ["citations", "end"]
+
+
+def test_prompt_missing_information_sentence_is_published_as_the_notice() -> None:
+    # Prompt rule 3 dictates this exact sentence; G-OUT must not reject its own wording.
+    model = ChatModel([
+        "O cesto suporta até 1,2 kg. ",
+        "Essa especificação específica não consta no manual técnico oficial deste modelo. ",
+    ])
+    events = run(Catalog(PRODUCT, [chunk()]), model)
+    text = "".join(str(event["data"]["delta"]) for event in events if event["event"] == "token")  # type: ignore[index]
+    assert text.startswith("O cesto suporta até 1,2 kg [Fonte:")
+    assert text.count("não consta no manual técnico oficial") == 1
+    assert names(events)[-2:] == ["citations", "end"]
+
+
+def test_prompt_rule_quotes_exactly_the_notice_the_gate_recognizes() -> None:
+    assert MISSING_EVIDENCE_NOTICE.strip() in SYSTEM_PROMPT
 
 
 def test_answer_with_no_approved_sentence_becomes_fallback() -> None:

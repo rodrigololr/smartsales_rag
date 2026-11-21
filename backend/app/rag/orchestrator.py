@@ -17,7 +17,7 @@ from app.config import Settings
 from app.generation.prompt import Message, build_messages
 from app.guardrails.input import is_prompt_injection
 from app.guardrails.output import SentenceBuffer, technical_claims
-from app.guardrails.publication import CITATION_MARK, ConsultativeVerifier
+from app.guardrails.publication import CITATION_MARK, ConsultativeVerifier, normalized_words
 from app.models.schemas import CatalogProduct, ProductRecommendation, RagRequest, RetrievedChunk
 from app.recommendation.intent import only_consulted_product, wants_upgrade
 from app.recommendation.models import Voltage
@@ -39,6 +39,7 @@ LLM_UNAVAILABLE_MESSAGE = "O consultor está indisponível no momento. Tente nov
 MISSING_EVIDENCE_NOTICE = (
     "Essa especificação específica não consta no manual técnico oficial deste modelo. "
 )
+_NOTICE_WORDS = normalized_words(MISSING_EVIDENCE_NOTICE)
 EXCERPT_MAX_CHARS = 400
 ANSWER_INTENT = "TECHNICAL_QA"
 
@@ -272,6 +273,10 @@ class _PublicationGate:
     def review(self, sentence: str) -> list[str]:
         if not sentence.strip():
             return [sentence] if self.approved else []
+        if normalized_words(sentence) == _NOTICE_WORDS:
+            # Prompt rule 3 wording: publish our canonical notice (once, next to approved text).
+            self._notice_pending = True
+            return []
         approved = self._verifier.approve(sentence)
         if approved is None:
             logger.warning("gout_blocked_sentence", extra={"sku": self._sku})

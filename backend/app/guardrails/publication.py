@@ -31,7 +31,7 @@ _QUALIFIERS = {"nao", "apenas", "somente", "exceto", "desde", "proibido", "proib
 _PRICE_WORDS = re.compile(r"\b(?:pre[cç]o|custa|custo|valor|reais)\b|R\$", re.IGNORECASE)
 
 
-def _normalized(text: str) -> str:
+def normalized_words(text: str) -> str:
     folded = unicodedata.normalize("NFKD", text.casefold())
     folded = "".join(char for char in folded if not unicodedata.combining(char))
     return " ".join(re.findall(r"\w+", folded))
@@ -42,9 +42,9 @@ def _body(chunk: RetrievedChunk) -> str:
 
 
 def _literal_support(sentence: str, chunk: RetrievedChunk) -> bool:
-    wanted = _normalized(sentence)
+    wanted = normalized_words(sentence)
     for fragment in re.split(r"(?<=[.!?])\s+|\n", _body(chunk)):
-        evidence = _normalized(fragment)
+        evidence = normalized_words(fragment)
         if wanted and wanted == evidence:
             return True
         # Numeric extracts may omit a trailing noun ("1,2 kg de batatas"), but
@@ -87,7 +87,7 @@ class SentenceVerifier:
             return None
         if marks:
             return sentence if self._cited_support(plain, marks) else None
-        if _normalized(plain) in _COURTESIES:
+        if normalized_words(plain) in _COURTESIES:
             return sentence
         for chunk in self._chunks:
             if _literal_support(plain, chunk):
@@ -98,7 +98,7 @@ class SentenceVerifier:
     def _sql_statement(self, sentence: str, claims: set[Claim]) -> bool:
         if not claims or not claims <= self._sql_claims:
             return False
-        structure = _normalized(re.sub(r"\d+(?:[.,]\d+)*", " number ", sentence))
+        structure = normalized_words(re.sub(r"\d+(?:[.,]\d+)*", " number ", sentence))
         structure = re.sub(
             r"^(?:(?:este|esse|esta|essa|o|a) (?:modelo|produto)|ele|ela) ", "", structure,
         )
