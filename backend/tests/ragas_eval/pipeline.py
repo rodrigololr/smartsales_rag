@@ -100,9 +100,11 @@ class ObservedOrchestrator(RAGOrchestrator):
 
     retrieved: list[RetrievedChunk]
 
-    async def _retrieve(self, request: RagRequest) -> tuple[list[float], list[RetrievedChunk]]:
-        embedding, self.retrieved = await super()._retrieve(request)
-        return embedding, self.retrieved
+    async def _evidence(
+        self, request: RagRequest, query_embedding: Sequence[float]
+    ) -> list[RetrievedChunk]:
+        self.retrieved = await super()._evidence(request, query_embedding)
+        return self.retrieved
 
 
 class BlockedSentences(logging.Handler):

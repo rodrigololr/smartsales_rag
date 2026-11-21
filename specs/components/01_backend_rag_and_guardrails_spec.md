@@ -216,6 +216,12 @@ seus próprios atributos SQL. Os chunks do SKU consultado não justificam afirma
 sobre outra opção. Sem manual daquela opção, o texto se limita aos atributos SQL;
 quantidade de pessoas/porções não é inferida a partir da capacidade em litros.
 
+Para encurtar o caminho até o primeiro token, as leituras independentes rodam em
+paralelo: a consulta do produto junto com o *embedding* da pergunta (pulado se o G-IN
+bloquear), e a busca de *chunks* junto com a seleção de cards para o *prompt*. Num turno
+de *fallback* essa seleção é descartada e os substitutos são lidos (uma consulta SQL a
+mais nesse caminho). A releitura após a geração é mantida de propósito (`R09`): os cards
+emitidos refletem o SQL do fim do turno, não o snapshot do *prompt*.
 A seleção adicional antes da geração afeta o caminho até o primeiro token;
 TTFT, precisão/relevância e recusas excessivas exigem medição B05/F05. A issue #13
 usa uma fórmula ilustrativa antiga: os pesos normativos desta baseline são os

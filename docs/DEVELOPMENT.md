@@ -131,7 +131,9 @@ Quando o evento `recommendations` é emitido:
 
 As opções elegíveis são lidas em snapshot `REPEATABLE READ READ ONLY` antes do prompt
 (entrando em `<RECOMENDACOES_SQL>` para comparação consultiva verificada por SKU) e
-relidas novamente antes de emitir o evento `recommendations`. Se qualquer etapa das
+relidas novamente antes de emitir o evento `recommendations`. A leitura para o prompt
+roda em paralelo com a busca de chunks (e a consulta do produto em paralelo com o
+embedding da pergunta). Se qualquer etapa das
 recomendações falhar, o turno segue sem cards.
 
 ### Gateway (`middleend/app/`)

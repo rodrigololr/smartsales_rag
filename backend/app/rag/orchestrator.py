@@ -5,6 +5,7 @@ sentences, `citations`, `recommendations` (B04 cards read from SQL), `error` and
 mandatory `end` marker.
 """
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable, Sequence
 from decimal import Decimal
@@ -139,42 +140,66 @@ class RAGOrchestrator:
         self._count_tokens = count_tokens
 
     async def stream(self, request: RagRequest) -> AsyncIterator[InternalEvent]:
-        product = await self._products.get_product(request.sku)
+        injected = is_prompt_injection(request.question)
+        product, query_embedding = await self._product_and_embedding(request, embed=not injected)
         if product is None or not product.is_active:
             yield _error("LOW_SIMILARITY_FALLBACK", UNAVAILABLE_PRODUCT_MESSAGE)
             yield _end(0, "UNAVAILABLE_PRODUCT")
             return
-        if is_prompt_injection(request.question):
+        if injected:
             logger.warning("guardrail_blocked", extra={"sku": request.sku})
             yield _error("GUARDRAIL_BLOCKED", BLOCKED_MESSAGE)
             yield _end(0, "BLOCKED")
             return
-        try:
-            query_embedding, evidence_chunks = await self._retrieve(request)
-        except LLMUnavailableError:
-            logger.exception("embedding_unavailable", extra={"sku": request.sku})
+        if query_embedding is None:
             yield _error("LLM_UNAVAILABLE", LLM_UNAVAILABLE_MESSAGE)
             for event in await self._recommendations(request, product, None, substitutes=True):
                 yield event
             yield _end(0, ANSWER_INTENT)
             return
+        # Independent reads: the prompt's card snapshot does not need the chunks. On a
+        # fallback turn it is discarded and the substitutes branch is read instead.
+        evidence_chunks, planned_events = await asyncio.gather(
+            self._evidence(request, query_embedding),
+            self._recommendations(request, product, query_embedding, substitutes=False),
+        )
         if not evidence_chunks:
             yield _error("LOW_SIMILARITY_FALLBACK", LOW_SIMILARITY_MESSAGE)
             for event in await self._similar_in_stock(request, product, query_embedding):
                 yield event
             yield _end(0, "LOW_SIMILARITY")
             return
-        async for event in self._generate(request, product, evidence_chunks, query_embedding):
+        async for event in self._generate(
+            request, product, evidence_chunks, query_embedding, planned_events
+        ):
             yield event
 
-    async def _retrieve(self, request: RagRequest) -> tuple[list[float], list[RetrievedChunk]]:
-        [query_embedding] = await self._embedder.embed([request.question])
+    async def _product_and_embedding(
+        self, request: RagRequest, *, embed: bool
+    ) -> tuple[CatalogProduct | None, list[float] | None]:
+        """Catalog lookup and query embedding in parallel; None embedding = provider down."""
+        if not embed:
+            return await self._products.get_product(request.sku), None
+        return await asyncio.gather(
+            self._products.get_product(request.sku), self._embed_question(request)
+        )
+
+    async def _embed_question(self, request: RagRequest) -> list[float] | None:
+        try:
+            [query_embedding] = await self._embedder.embed([request.question])
+        except LLMUnavailableError:
+            logger.exception("embedding_unavailable", extra={"sku": request.sku})
+            return None
+        return query_embedding
+
+    async def _evidence(
+        self, request: RagRequest, query_embedding: Sequence[float]
+    ) -> list[RetrievedChunk]:
         found = await self._chunks.search(
             request.sku, query_embedding, self._settings.retrieval_top_k
         )
-        evidence = [c for c in found if c.sku == request.sku
-                    and c.similarity_score >= self._settings.similarity_threshold]
-        return query_embedding, evidence
+        return [c for c in found if c.sku == request.sku
+                and c.similarity_score >= self._settings.similarity_threshold]
 
     async def _recommendations(
         self,
@@ -212,10 +237,8 @@ class RAGOrchestrator:
         product: CatalogProduct,
         chunks: list[RetrievedChunk],
         query_embedding: Sequence[float],
+        planned_events: list[InternalEvent],
     ) -> AsyncIterator[InternalEvent]:
-        planned_events = await self._recommendations(
-            request, product, query_embedding, substitutes=False
-        )
         planned_cards = _planned_cards(planned_events)
         messages = build_messages(
             product,
@@ -253,6 +276,8 @@ class RAGOrchestrator:
             return
         cited = [chunk for chunk in chunks if chunk.chunk_id in verifier.cited_chunk_ids]
         yield {"event": "citations", "data": {"citations": [_citation(c) for c in cited]}}
+        # Deliberate second SQL read (spec 7, R09): emit the cards as they are after the
+        # stream, not the pre-prompt snapshot (stock may have sold out meanwhile).
         for event in await self._recommendations(
             request, product, query_embedding, substitutes=False
         ):
