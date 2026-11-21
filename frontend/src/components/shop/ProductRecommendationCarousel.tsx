@@ -151,7 +151,7 @@ export function ProductRecommendationCarousel({
             : card;
           return (
             <RecommendationCard
-              key={card.sku}
+              key={`${card.recommendation_type}:${card.sku}`}
               card={shown}
               canBuy={messageId !== null}
               onBuy={setSelected}
