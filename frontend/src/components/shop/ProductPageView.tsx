@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronRight, Sparkles, Star } from "lucide-react";
 import type { Product } from "@/types/catalog";
 import { useChatSession } from "@/hooks/use-chat-session";
-import { formatNumber, specsJsonRows, voltageBadgeClass } from "@/lib/format";
+import { formatNumber, hasVoltage, specsJsonRows, voltageBadgeClass, voltageLabel } from "@/lib/format";
 import { StoreHeader } from "@/components/layout/StoreHeader";
 import { ProductAssistant } from "@/components/chat/ProductAssistant";
 import { ContextualChatDrawer } from "@/components/chat/ContextualChatDrawer";
@@ -19,7 +19,7 @@ function specRows(product: Product): [string, string][] {
   const rows: [string, string][] = [
     ["Marca", product.brand],
     ["Categoria", product.subcategory],
-    ["Voltagem", product.voltage],
+    ["Voltagem", voltageLabel(product.voltage)],
   ];
   if (product.power_watts) rows.push(["Potência", `${product.power_watts} W`]);
   if (product.capacity_liters) rows.push(["Capacidade", `${product.capacity_liters} L`]);
@@ -97,9 +97,11 @@ export function ProductPageView({ product }: { product: Product }) {
                   ) : null}
                 </p>
               ) : null}
-              <Badge variant="outline" className={cn("font-semibold", voltageBadgeClass(product.voltage))}>
-                {product.voltage}
-              </Badge>
+              {hasVoltage(product.voltage) ? (
+                <Badge variant="outline" className={cn("font-semibold", voltageBadgeClass(product.voltage))}>
+                  {product.voltage}
+                </Badge>
+              ) : null}
             </div>
 
             <ProductBuyBox product={product} />

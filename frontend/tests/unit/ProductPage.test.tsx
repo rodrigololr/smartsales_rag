@@ -82,6 +82,20 @@ describe("Página do produto com Consultor IA ao lado", () => {
     );
     expect(suggestionsFor(product("KIT-SIL-01"))).toContain("Como devo fazer a limpeza?");
   });
+
+  it("não sugere voltagem nem assadeira para itens fora desse contexto", () => {
+    const headset = { ...product("KIT-SIL-01"), voltage: "N/A" as const, subcategory: "Headsets" };
+    const blender = { ...product("AF-400-220V"), subcategory: "Liquidificadores", capacity_liters: 2 };
+    expect(suggestionsFor(headset).join(" ")).not.toMatch(/voltagem/i);
+    expect(suggestionsFor(blender).join(" ")).not.toMatch(/assadeira/i);
+  });
+
+  it("mostra 'Não se aplica' em vez de N/A e esconde o selo de voltagem", () => {
+    render(<ProductPageView product={{ ...product("KIT-SIL-01"), voltage: "N/A" }} />);
+    const specs = screen.getByTestId("product-specs");
+    expect(within(specs).getByText("Não se aplica")).toBeInTheDocument();
+    expect(screen.queryByText("N/A")).not.toBeInTheDocument();
+  });
 });
 
 describe("specsJsonRows", () => {
@@ -104,6 +118,15 @@ describe("specsJsonRows", () => {
       ["Cesto lavável", "Sim"],
       ["Válvula segurança", "Sim"],
       ["Número funções", "8"],
+    ]);
+    expect(
+      specsJsonRows({ conexao: "USB", iluminacao: "RGB", bateria_horas: 200, dpi_max: 4000, validade_meses: 24 })
+    ).toEqual([
+      ["Conexão", "USB"],
+      ["Iluminação", "RGB"],
+      ["Bateria", "200 h"],
+      ["DPI máx.", "4.000"],
+      ["Validade", "24 meses"],
     ]);
     expect(specsJsonRows(undefined)).toEqual([]);
   });

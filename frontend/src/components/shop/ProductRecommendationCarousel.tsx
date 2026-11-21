@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ShoppingCart } from "lucide-react";
 import type { ProductCardData, RecommendationType } from "@/types/chat";
-import { formatBRL, marketplaceLabel, voltageBadgeClass } from "@/lib/format";
+import { formatBRL, hasVoltage, marketplaceLabel, voltageBadgeClass } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,13 +65,15 @@ function RecommendationCard({
             {card.badge_label || sealByType[card.recommendation_type]}
           </Badge>
           {/* Wrong voltage is the costliest mistake here, so the tension reads first. */}
-          <Badge
-            variant="outline"
-            data-testid={`voltage-${card.sku}`}
-            className={cn("h-auto shrink-0 px-2 py-0.5 text-sm font-bold", voltageBadgeClass(card.voltage))}
-          >
-            {card.voltage}
-          </Badge>
+          {hasVoltage(card.voltage) ? (
+            <Badge
+              variant="outline"
+              data-testid={`voltage-${card.sku}`}
+              className={cn("h-auto shrink-0 px-2 py-0.5 text-sm font-bold", voltageBadgeClass(card.voltage))}
+            >
+              {card.voltage}
+            </Badge>
+          ) : null}
         </div>
 
         <div className="flex items-start gap-2.5">

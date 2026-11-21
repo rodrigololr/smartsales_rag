@@ -11,18 +11,21 @@ import { AssistantMessage } from "@/components/chat/AssistantMessage";
 import { cn } from "@/lib/utils";
 
 export function suggestionsFor(product: Product): string[] {
-  const voltage = `Qual é a voltagem oficial deste modelo (${product.voltage})?`;
+  const first =
+    product.voltage === "N/A"
+      ? "Quais são as principais especificações deste modelo?"
+      : `Qual é a voltagem oficial deste modelo (${product.voltage})?`;
   if (product.subcategory === "Cafeteiras") {
-    return [voltage, "Qual é a pressão da bomba?", "Como faço a descalcificação?"];
+    return [first, "Qual é a pressão da bomba?", "Como faço a descalcificação?"];
   }
-  if (product.capacity_liters) {
+  if (product.subcategory === "Fritadeiras Elétricas" && product.capacity_liters) {
     return [
-      voltage,
+      first,
       `A capacidade de ${product.capacity_liters}L atende quantas pessoas?`,
       "Quais materiais de forma e assadeira posso utilizar?",
     ];
   }
-  return [voltage, "Como devo fazer a limpeza?", "Quais são os cuidados de uso?"];
+  return [first, "Como devo fazer a limpeza?", "Quais são os cuidados de uso?"];
 }
 
 export interface ProductAssistantProps {
@@ -118,10 +121,12 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
             Manual e ficha técnica de <strong>{product.sku}</strong>
           </span>
         </div>
-        <Badge variant="secondary" className="font-bold text-primary">
-          <span className="sr-only">Voltagem </span>
-          {product.voltage}
-        </Badge>
+        {product.voltage !== "N/A" ? (
+          <Badge variant="secondary" className="font-bold text-primary">
+            <span className="sr-only">Voltagem </span>
+            {product.voltage}
+          </Badge>
+        ) : null}
       </div>
 
       <div ref={scrollRef} aria-live="polite" className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">

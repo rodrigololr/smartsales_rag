@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CheckCircle, SearchX, ShieldAlert, Star } from "lucide-react";
 import type { Product } from "@/types/catalog";
-import { formatBRL, formatNumber, voltageBadgeClass } from "@/lib/format";
+import { formatBRL, formatNumber, hasVoltage, voltageBadgeClass } from "@/lib/format";
 import { ProductThumb } from "@/components/shared/ProductThumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,9 +66,11 @@ export function ProductGrid({
               ) : null}
               <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
                 <span className="text-lg font-bold tabular-nums text-foreground">{formatBRL(product.price)}</span>
-                <Badge variant="outline" className={cn("text-[10px]", voltageBadgeClass(product.voltage))}>
-                  {product.voltage}
-                </Badge>
+                {hasVoltage(product.voltage) ? (
+                  <Badge variant="outline" className={cn("text-[10px]", voltageBadgeClass(product.voltage))}>
+                    {product.voltage}
+                  </Badge>
+                ) : null}
               </div>
               {product.stock_quantity > 0 ? (
                 <span className="flex items-center gap-1 text-xs text-emerald-700">
