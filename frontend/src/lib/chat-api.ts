@@ -43,7 +43,7 @@ export interface ChatStreamInput {
   sessionId: string;
   clientRequestId: string;
   message: string;
-  currentProductSku: string;
+  currentProductSku?: string | null;
 }
 
 const isAbort = (error: unknown): boolean =>
@@ -85,13 +85,13 @@ async function fetchOrInterrupt(url: string, init: RequestInit): Promise<Respons
 }
 
 export async function createSession(
-  currentProductSku: string,
+  currentProductSku: string | null = null,
   signal?: AbortSignal
 ): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/api/v1/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ current_product_sku: currentProductSku }),
+    body: JSON.stringify(currentProductSku ? { current_product_sku: currentProductSku } : {}),
     signal,
   });
   if (!response.ok) throw await toApiError(response);
@@ -114,7 +114,9 @@ async function openChatStream(input: ChatStreamInput, signal?: AbortSignal): Pro
       session_id: input.sessionId,
       client_request_id: input.clientRequestId,
       message: input.message,
-      context_filters: { current_product_sku: input.currentProductSku },
+      ...(input.currentProductSku
+        ? { context_filters: { current_product_sku: input.currentProductSku } }
+        : {}),
     }),
     signal,
   };

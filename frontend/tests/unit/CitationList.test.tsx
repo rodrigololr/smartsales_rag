@@ -53,4 +53,23 @@ describe("UT-F03-01: acordeão de citações do manual técnico", () => {
     const { container } = render(<CitationList citations={[]} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("renderiza citação da base de conhecimento (sku = KB-*) sem assumir produto", () => {
+    const kbCitation: ManualCitation = {
+      chunk_id: "kb-twitch-1",
+      sku: "KB-TWITCH-TRANSMISSAO",
+      manual_title: "Twitch qualidade de transmissão",
+      page_number: 1,
+      similarity_score: 1.0,
+      excerpt: "Altura máxima de vídeo recomendada: 1080 px.",
+    };
+    render(<CitationList citations={[kbCitation]} />);
+
+    const toggle = screen.getByTestId("citation-badge-kb-twitch-1");
+    expect(toggle).toHaveTextContent("Twitch qualidade de transmissão — p. 1");
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("citation-panel-kb-twitch-1")).toHaveTextContent(
+      "Altura máxima de vídeo recomendada: 1080 px."
+    );
+  });
 });

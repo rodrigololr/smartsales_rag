@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Sparkles, Star } from "lucide-react";
 import type { Product } from "@/types/catalog";
-import { useChatSession } from "@/hooks/use-chat-session";
+import { useConsultant } from "@/components/chat/ConsultantProvider";
 import { formatNumber, hasVoltage, specsJsonRows, voltageBadgeClass, voltageLabel } from "@/lib/format";
 import { StoreHeader } from "@/components/layout/StoreHeader";
 import { ProductAssistant } from "@/components/chat/ProductAssistant";
@@ -30,9 +30,16 @@ function specRows(product: Product): [string, string][] {
 
 /** Product page with the consultant docked beside it (Rufus-style). */
 export function ProductPageView({ product }: { product: Product }) {
-  // One conversation shared by the docked panel (desktop) and the sheet (mobile).
-  const chat = useChatSession(product);
+  // One conversation shared across the store tab and between the docked panel and mobile sheet.
+  const { chat, setContextProduct } = useConsultant();
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+
+  useEffect(() => {
+    setContextProduct(product);
+    return () => {
+      setContextProduct(null);
+    };
+  }, [product, setContextProduct]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

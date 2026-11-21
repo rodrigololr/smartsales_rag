@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search, X } from "lucide-react";
+import { Search, Sparkles, X } from "lucide-react";
 import type { Product } from "@/types/catalog";
 import type { VoltageType } from "@/types/chat";
 import { API_BASE_URL } from "@/lib/chat-api";
 import { StoreHeader } from "@/components/layout/StoreHeader";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
+import { useConsultant } from "@/components/chat/ConsultantProvider";
+import { ContextualChatDrawer } from "@/components/chat/ContextualChatDrawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -33,6 +35,8 @@ export interface CatalogViewProps {
 }
 
 export function CatalogView({ products, unavailable = false }: CatalogViewProps) {
+  const { chat } = useConsultant();
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [voltageFilter, setVoltageFilter] = useState<VoltageFilter>("ALL");
   const [query, setQuery] = useState("");
 
@@ -159,6 +163,23 @@ export function CatalogView({ products, unavailable = false }: CatalogViewProps)
           <span>Manuais oficiais · Citações verificáveis · Checkout simulado</span>
         </div>
       </footer>
+
+      <Button
+        type="button"
+        onClick={() => setIsAssistantOpen(true)}
+        data-testid="open-assistant-btn"
+        className="fixed right-4 bottom-4 z-30 gap-2 rounded-full shadow-lg"
+        size="lg"
+      >
+        <Sparkles />
+        Pergunte ao Consultor IA
+      </Button>
+      <ContextualChatDrawer
+        product={null}
+        chat={chat}
+        isOpen={isAssistantOpen}
+        onClose={() => setIsAssistantOpen(false)}
+      />
     </div>
   );
 }

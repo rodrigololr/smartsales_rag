@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { CatalogView } from "@/components/catalog/CatalogView";
+import { ConsultantProvider, useConsultant } from "@/components/chat/ConsultantProvider";
+import { CATALOG_SUGGESTIONS } from "@/components/chat/ProductAssistant";
+import { ProductPageView } from "@/components/shop/ProductPageView";
 import { CATALOG_PRODUCTS } from "@/lib/mock-data";
 
 describe("UT-F01-01: catálogo comum com imagens", () => {
@@ -48,5 +51,58 @@ describe("UT-F01-01: catálogo comum com imagens", () => {
     expect(screen.queryByTestId("product-card-AF-400-220V")).not.toBeInTheDocument();
     expect(screen.queryByTestId("product-card-CF-15B-127V")).not.toBeInTheDocument();
     expect(screen.queryByText(/Inclui modelos bivolt/)).not.toBeInTheDocument();
+  });
+
+  it("botão flutuante da home abre o Consultor IA em modo catálogo com sugestões e preserva a conversa ao abrir um produto", async () => {
+    function Probe() {
+      const { contextProduct } = useConsultant();
+      return <span data-testid="context-sku">{contextProduct?.sku ?? "none"}</span>;
+    }
+
+    const { rerender } = render(
+      <ConsultantProvider>
+        <Probe />
+        <CatalogView products={CATALOG_PRODUCTS} />
+      </ConsultantProvider>
+    );
+
+    expect(screen.getByTestId("context-sku")).toHaveTextContent("none");
+    fireEvent.click(screen.getByTestId("open-assistant-btn"));
+
+    const drawer = screen.getByTestId("contextual-chat-drawer");
+    const assistantInDrawer = within(drawer).getByTestId("product-assistant");
+    expect(within(assistantInDrawer).getByText("Catálogo completo")).toBeInTheDocument();
+    expect(
+      within(assistantInDrawer).getByText("Catálogo, manuais e base de conhecimento")
+    ).toBeInTheDocument();
+    for (const suggestion of CATALOG_SUGGESTIONS) {
+      expect(within(assistantInDrawer).getByText(suggestion)).toBeInTheDocument();
+    }
+
+    fireEvent.click(within(drawer).getByTestId("quick-suggestion-0"));
+    expect(await within(drawer).findByTestId("assistant-text")).toHaveTextContent(
+      "O consultor do catálogo exige a API real."
+    );
+
+    rerender(
+      <ConsultantProvider>
+        <Probe />
+        <ProductPageView product={CATALOG_PRODUCTS[0]} />
+      </ConsultantProvider>
+    );
+
+    expect(screen.getByTestId("context-sku")).toHaveTextContent("AF-400-220V");
+    const dockedAssistant = screen.getByTestId("product-assistant");
+    expect(within(dockedAssistant).getByText(CATALOG_SUGGESTIONS[0])).toBeInTheDocument();
+    expect(within(dockedAssistant).getByTestId("assistant-text")).toHaveTextContent(
+      "O consultor do catálogo exige a API real."
+    );
+
+    rerender(
+      <ConsultantProvider>
+        <Probe />
+      </ConsultantProvider>
+    );
+    expect(screen.getByTestId("context-sku")).toHaveTextContent("none");
   });
 });

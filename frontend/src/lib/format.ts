@@ -65,6 +65,10 @@ const SPEC_UNITS: Record<string, string> = {
   horas: "h",
   dias: "dias",
   meses: "meses",
+  gb: "GB",
+  polegadas: "″",
+  fps: "fps",
+  ms: "ms",
 };
 
 /** Words of `specs_json` keys written without accents in the data. */

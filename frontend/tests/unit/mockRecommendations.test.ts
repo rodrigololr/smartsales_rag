@@ -53,4 +53,19 @@ describe("Motor de recomendação do modo mock", () => {
     // Only the item itself as the purchase card: no airfryer/coffee answers or upsell for it.
     expect(events[2]).toMatchObject({ data: { products: [{ sku: "KIT-CAF-01", recommendation_type: "PRIMARY" }] } });
   });
+
+  it("modo catálogo sem produto emite token fixo exigindo a API real seguido de done", async () => {
+    const events: StreamEvent[] = [];
+    for await (const event of streamMockChat({
+      sessionId: "s",
+      message: "Quero um computador novo",
+      product: null,
+    })) {
+      events.push(event);
+    }
+    expect(events).toEqual([
+      { event: "token", data: { delta: "O consultor do catálogo exige a API real." } },
+      { event: "done", data: expect.objectContaining({ finish_reason: "stop" }) },
+    ]);
+  });
 });

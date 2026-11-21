@@ -43,7 +43,7 @@ export const canReferenceServerMessage = (message: ChatMessage): boolean =>
 const isAbort = (error: unknown): boolean =>
   error instanceof Error && error.name === "AbortError";
 
-export function useChatSession(product: Product | null) {
+export function useChatSession() {
   const [sessionId, setSessionId] = useState<string>(() => createId());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -136,7 +136,7 @@ export function useChatSession(product: Product | null) {
 
   const openStream = useCallback(
     async function* (
-      activeProduct: Product,
+      activeProduct: Product | null,
       prompt: string,
       clientRequestId: string,
       signal: AbortSignal
@@ -148,7 +148,7 @@ export function useChatSession(product: Product | null) {
         return;
       }
       if (!serverSessionRef.current) {
-        serverSessionRef.current = await createSession(activeProduct.sku, signal);
+        serverSessionRef.current = await createSession(null, signal);
         setSessionId(serverSessionRef.current);
       }
       yield* streamChat(
@@ -156,7 +156,7 @@ export function useChatSession(product: Product | null) {
           sessionId: serverSessionRef.current,
           clientRequestId,
           message: prompt,
-          currentProductSku: activeProduct.sku,
+          currentProductSku: activeProduct?.sku ?? null,
         },
         signal
       );
@@ -165,8 +165,8 @@ export function useChatSession(product: Product | null) {
   );
 
   const run = useCallback(
-    async (prompt: string, replaceAssistantId?: string) => {
-      if (!product || !prompt.trim() || controllerRef.current) return;
+    async (prompt: string, activeProduct: Product | null, replaceAssistantId?: string) => {
+      if (!prompt.trim() || controllerRef.current) return;
       const question = prompt.trim();
 
       const assistantId = replaceAssistantId ?? createId();
@@ -204,7 +204,7 @@ export function useChatSession(product: Product | null) {
       try {
         for (let reconnects = 0; ; reconnects++) {
           try {
-            for await (const event of openStream(product, question, clientRequestId, controller.signal)) {
+            for await (const event of openStream(activeProduct, question, clientRequestId, controller.signal)) {
               applyEvent(assistantId, event);
             }
             break;
@@ -238,25 +238,25 @@ export function useChatSession(product: Product | null) {
         }
       }
     },
-    [applyEvent, openStream, patchAssistant, product]
+    [applyEvent, openStream, patchAssistant]
   );
 
   const send = useCallback(
-    (prompt: string) => {
-      void run(prompt);
+    (prompt: string, activeProduct: Product | null = null) => {
+      void run(prompt, activeProduct);
     },
     [run]
   );
 
   const retry = useCallback(
-    (assistantId: string) => {
+    (assistantId: string, activeProduct: Product | null = null) => {
       const index = messages.findIndex((message) => message.id === assistantId);
       if (index < 0) return;
       const userMessage = [...messages.slice(0, index)]
         .reverse()
         .find((message) => message.role === "user");
       if (!userMessage) return;
-      void run(userMessage.content, assistantId);
+      void run(userMessage.content, activeProduct, assistantId);
     },
     [messages, run]
   );
