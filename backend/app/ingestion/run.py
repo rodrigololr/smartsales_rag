@@ -13,7 +13,7 @@ import asyncio
 import hashlib
 import json
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field, replace
 from functools import partial
 from pathlib import Path
@@ -48,9 +48,10 @@ from app.db.repository import (
     upsert_product,
 )
 from app.ingestion.chunking import chunk_page, context_header, spec_sheet
+from app.ingestion.knowledge import ingest_knowledge
 from app.ingestion.manuals import find_manual, read_manual_pages
 from app.ingestion.relations import load_relations
-from app.models.schemas import CatalogProduct
+from app.models.schemas import CatalogProduct, ProductRelation
 from app.rag.orchestrator import Embedder
 
 logger = logging.getLogger(__name__)
@@ -84,12 +85,34 @@ class IngestionReport:
     source_read_errors: dict[str, str] = field(default_factory=dict)
 
 
-def load_catalog(path: Path) -> list[CatalogProduct]:
-    products = TypeAdapter(list[CatalogProduct]).validate_json(path.read_bytes())
+def load_catalog(path: Path | Sequence[Path]) -> list[CatalogProduct]:
+    paths = (path,) if isinstance(path, Path) else tuple(path)
+    adapter = TypeAdapter(list[CatalogProduct])
+    products = [
+        product
+        for item in paths
+        for product in adapter.validate_json(item.read_bytes())
+    ]
     skus = [product.sku for product in products]
     if len(set(skus)) != len(skus):
         raise ValueError("SKU duplicado no catálogo")
     return products
+
+
+def _load_all_relations(
+    relations_path: Path | Sequence[Path], catalog_skus: set[str]
+) -> list[ProductRelation]:
+    paths = (relations_path,) if isinstance(relations_path, Path) else tuple(relations_path)
+    relations: list[ProductRelation] = []
+    seen: set[tuple[str, str, str]] = set()
+    for item in paths:
+        for relation in load_relations(item, catalog_skus):
+            identity = (relation.base_sku, relation.related_sku, relation.relation_type)
+            if identity in seen:
+                raise ValueError(f"Relação duplicada no seed: {identity}")
+            seen.add(identity)
+            relations.append(relation)
+    return relations
 
 
 def sources_for(
@@ -126,18 +149,19 @@ def sources_for(
 
 async def ingest(
     conninfo: str,
-    catalog_path: Path,
+    catalog_path: Path | Sequence[Path],
     manuals_dir: Path,
     embedder: Embedder,
     settings: Settings,
-    relations_path: Path | None = None,
+    relations_path: Path | Sequence[Path] | None = None,
     *,
+    knowledge_dir: Path | None = None,
     catalog_version: CatalogVersionBumper | None = None,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> IngestionReport:
     products = load_catalog(catalog_path)
     relations = (
-        load_relations(relations_path, {product.sku for product in products})
+        _load_all_relations(relations_path, {product.sku for product in products})
         if relations_path is not None
         else None
     )
@@ -160,6 +184,17 @@ async def ingest(
             if relations is not None:  # no seed given: existing relations stay untouched
                 report.relations = await replace_product_relations(conn, relations)
             report.deactivated = await deactivate_missing(conn, [p.sku for p in products])
+            if knowledge_dir is not None:
+                await ingest_knowledge(
+                    conn,
+                    knowledge_dir,
+                    embedder,
+                    settings,
+                    indexed_sources=report.indexed_sources,
+                    skipped_sources=report.skipped_sources,
+                    needs_intervention=report.needs_intervention,
+                    sleep=sleep,
+                )
         finally:
             # Autocommit: even a run that dies midway already changed the catalog, so caches
             # built on the old one must die too (spec 01, section 6). Deliberately bumped on
@@ -337,9 +372,10 @@ def _chunk_rows(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Ingestão do catálogo e manuais (UC08)")
-    parser.add_argument("--catalog", type=Path, required=True)
+    parser.add_argument("--catalog", type=Path, action="append", required=True)
     parser.add_argument("--manuals", type=Path, required=True)
-    parser.add_argument("--relations", type=Path, default=None)
+    parser.add_argument("--relations", type=Path, action="append", default=None)
+    parser.add_argument("--knowledge", type=Path, default=None)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO)
     settings = get_settings()
@@ -362,6 +398,7 @@ def main(argv: list[str] | None = None) -> int:
                 embedder,
                 settings,
                 relations_path=args.relations,
+                knowledge_dir=args.knowledge,
                 catalog_version=(
                     RedisCatalogVersion(
                         settings.redis_url,

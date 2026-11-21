@@ -78,3 +78,16 @@ CREATE TABLE IF NOT EXISTS ingestion_jobs (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (source_file, content_hash)
 );
+
+CREATE TABLE IF NOT EXISTS knowledge_chunks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    doc_id VARCHAR(64) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    page_number INTEGER NOT NULL CHECK (page_number >= 1),
+    chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),
+    doc_version VARCHAR(64) NOT NULL,
+    content TEXT NOT NULL,
+    embedding vector(1536) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (doc_id, page_number, chunk_index)
+);
