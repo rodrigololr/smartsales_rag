@@ -65,7 +65,8 @@ GROUP BY 1 ORDER BY count DESC, question LIMIT %(limit)s
 """
 PRODUCT_COLUMNS = sql.SQL("""
     sku, name, price, stock_quantity, voltage, capacity_liters, power_watts,
-    image_url, marketplace, checkout_url, category, subcategory, brand, specs_json, updated_at
+    image_url, marketplace, checkout_url, category, subcategory, brand, specs_json, description,
+    updated_at
 """)
 CATALOG_WHERE = sql.SQL("""
     WHERE is_active AND stock_quantity > 0

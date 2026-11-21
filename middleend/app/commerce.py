@@ -29,6 +29,7 @@ class Product(BaseModel):
     subcategory: str
     brand: str
     specs_json: dict[str, object]
+    description: str | None = None
     updated_at: datetime
 
 
