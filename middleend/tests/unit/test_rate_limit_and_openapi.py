@@ -9,7 +9,12 @@ from pathlib import Path
 import pytest
 from app.config import Settings
 from app.main import create_app
-from app.ratelimit import InMemoryRateLimiter, RedisRateLimiter, client_ip_from_request
+from app.ratelimit import (
+    CHAT_SESSIONS_PER_IP,
+    InMemoryRateLimiter,
+    RedisRateLimiter,
+    client_ip_from_request,
+)
 from fastapi.testclient import TestClient
 from redis.asyncio import Redis
 from redis.exceptions import ConnectionError as RedisConnectionError
@@ -175,7 +180,7 @@ def _request(client_host: str, forwarded_for: str | None) -> Request:
         (1, "198.51.100.1", "198.51.100.1"),  # one proxy appended the real client
         (1, "6.6.6.6, 198.51.100.1", "198.51.100.1"),  # client-forged prefix is skipped
         (2, "6.6.6.6, 198.51.100.1, 10.0.0.9", "198.51.100.1"),
-        (2, "198.51.100.1", "198.51.100.1"),  # shorter chain than configured
+        (2, "198.51.100.1", "10.0.0.2"),  # shorter chain than configured: client wrote it
         (1, None, "10.0.0.2"),
     ],
 )
@@ -259,3 +264,15 @@ def test_chat_stream_is_limited_per_session_not_per_shared_ip() -> None:
         assert client.post(
             "/api/v1/sessions", json={"current_product_sku": "AF-400-220V"}
         ).status_code == 201
+
+
+def test_chat_stream_has_a_coarse_ip_bucket_before_the_session_lookup() -> None:
+    # Unknown session ids or bad bodies must not hit the store without any limit.
+    settings = Settings(backend_internal_url="http://127.0.0.1:9", rate_limit_per_minute=1)
+    with TestClient(create_app(settings, FakeBackend([TOKEN, END]))) as client:
+        statuses = [
+            ask(client, str(uuid.uuid4()), str(uuid.uuid4())).status_code
+            for _ in range(CHAT_SESSIONS_PER_IP + 1)
+        ]
+    assert statuses[:-1] == [404] * CHAT_SESSIONS_PER_IP
+    assert statuses[-1] == 429

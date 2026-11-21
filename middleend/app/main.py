@@ -23,6 +23,7 @@ from app.cache.service import SemanticCacheService
 from app.clients.backend import BackendClient
 from app.config import Settings, get_settings
 from app.ratelimit import (
+    CHAT_SESSIONS_PER_IP,
     RATE_LIMIT_WINDOW_SECONDS,
     InMemoryRateLimiter,
     RateLimiter,
@@ -39,13 +40,13 @@ from app.sessions.store import InMemorySessionStore, SessionStore
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# /chat/stream is limited per session_id inside the route, not per IP.
+# /chat/stream: per session_id in the route, plus a coarse per-IP bucket here.
+_CHAT_STREAM_PATH = "/api/v1/chat/stream"
 _EXEMPT_IP_LIMIT_PATHS = {
     "/api/v1/health",
     "/docs",
     "/openapi.json",
     "/redoc",
-    "/api/v1/chat/stream",
 }
 
 
@@ -146,17 +147,13 @@ def build_cache(settings: Settings, redis: Redis | None) -> SemanticCacheService
     )
 
 
-def build_rate_limiter(settings: Settings, redis: Redis | None) -> RateLimiter:
+def build_rate_limiter(
+    settings: Settings, redis: Redis | None, *, per_ip_factor: int = 1
+) -> RateLimiter:
+    limit = settings.rate_limit_per_minute * per_ip_factor
     if redis is not None:
-        return RedisRateLimiter(
-            redis,
-            limit=settings.rate_limit_per_minute,
-            window_seconds=RATE_LIMIT_WINDOW_SECONDS,
-        )
-    return InMemoryRateLimiter(
-        limit=settings.rate_limit_per_minute,
-        window_seconds=RATE_LIMIT_WINDOW_SECONDS,
-    )
+        return RedisRateLimiter(redis, limit=limit, window_seconds=RATE_LIMIT_WINDOW_SECONDS)
+    return InMemoryRateLimiter(limit=limit, window_seconds=RATE_LIMIT_WINDOW_SECONDS)
 
 
 def create_app(
@@ -187,6 +184,9 @@ def create_app(
             app.state.store = store or build_session_store(settings, redis)
             app.state.cache = cache or build_cache(settings, redis)
             app.state.rate_limiter = rate_limiter or build_rate_limiter(settings, redis)
+            app.state.chat_ip_limiter = build_rate_limiter(
+                settings, redis, per_ip_factor=CHAT_SESSIONS_PER_IP
+            )
             app.state.redis_enabled = redis is not None
             if isinstance(app.state.store, PostgresSessionStore):
                 await app.state.store.initialize()
@@ -208,19 +208,26 @@ def create_app(
     app = FastAPI(title="SmartSales RAG Gateway", version=settings.app_version, lifespan=lifespan)
     app.state.settings = settings
     app.state.rate_limiter = rate_limiter or build_rate_limiter(settings, None)
+    app.state.chat_ip_limiter = build_rate_limiter(
+        settings, None, per_ip_factor=CHAT_SESSIONS_PER_IP
+    )
 
     @app.middleware("http")
     async def enforce_rate_limit(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         if request.method != "OPTIONS" and request.url.path not in _EXEMPT_IP_LIMIT_PATHS:
-            limiter: RateLimiter = request.app.state.rate_limiter
             client_ip = client_ip_from_request(
                 request, trusted_proxy_hops=settings.rate_limit_trusted_proxy_hops
             )
-            decision = await limiter.check(f"ip:{client_ip}")
+            chat = request.url.path == _CHAT_STREAM_PATH
+            limiter: RateLimiter = (
+                request.app.state.chat_ip_limiter if chat else request.app.state.rate_limiter
+            )
+            decision = await limiter.check(f"{'ip-chat' if chat else 'ip'}:{client_ip}")
             if not decision.allowed:
-                return rate_limited(decision, settings.rate_limit_per_minute)
+                factor = CHAT_SESSIONS_PER_IP if chat else 1
+                return rate_limited(decision, settings.rate_limit_per_minute * factor)
         return await call_next(request)
 
     app.add_middleware(

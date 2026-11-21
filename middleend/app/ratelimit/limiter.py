@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 RATE_LIMIT_KEY_PREFIX = "ratelimit:"
 RATE_LIMIT_WINDOW_SECONDS = 60  # fixed: the limit and the 429 message are "per minute"
+# Chat is limited per session; this coarse per-IP bucket (sessions sharing one NAT,
+# e.g. a classroom) still bounds requests that never reach a valid session.
+CHAT_SESSIONS_PER_IP = 10
 _REDIS_RATE_LIMIT_LUA = """
 local count = redis.call('INCR', KEYS[1])
 local ttl = redis.call('TTL', KEYS[1])
@@ -53,8 +56,9 @@ def client_ip_from_request(request: Request, *, trusted_proxy_hops: int = 0) -> 
     forwarded = [
         hop.strip() for hop in request.headers.get("x-forwarded-for", "").split(",") if hop.strip()
     ]
-    chain = [*forwarded, peer]
-    return chain[max(0, len(chain) - 1 - trusted_proxy_hops)]
+    if len(forwarded) < trusted_proxy_hops:
+        return peer  # the request skipped a trusted proxy: every entry was client-written
+    return forwarded[len(forwarded) - trusted_proxy_hops]
 
 
 class InMemoryRateLimiter:
