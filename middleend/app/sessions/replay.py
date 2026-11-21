@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 from dataclasses import replace
 from decimal import Decimal
+from typing import cast
 
 from psycopg import AsyncConnection
 
@@ -11,9 +12,10 @@ from app.sse.models import CompletedTurn, ProductCard
 STALE_MESSAGE = (
     "Os dados do catálogo mudaram. Envie uma nova pergunta para consultar as ofertas atuais."
 )
+# Stock is not compared: any purchase would make a valid replay stale. It must stay > 0 and the
+# replayed card shows the current count (same rule as the semantic cache, R09).
 CARD_FIELDS = (
     "name",
-    "stock_quantity",
     "voltage",
     "capacity_liters",
     "power_watts",
@@ -24,7 +26,7 @@ CARD_FIELDS = (
 
 
 def _matches(card: ProductCard, product: dict[str, object] | None) -> bool:
-    if product is None or not product["is_active"] or product["stock_quantity"] == 0:
+    if product is None or not product["is_active"] or cast(int, product["stock_quantity"]) <= 0:
         return False
     if Decimal(str(card["price"])) != product["price"]:
         return False
@@ -52,7 +54,11 @@ async def validated_replay(
     )
     products = {str(row["sku"]): row for row in await cursor.fetchall()}
     if all(_matches(card, products.get(card["sku"])) for card in turn.products):
-        return turn
+        current = tuple(
+            cast(ProductCard, {**card, "stock_quantity": products[card["sku"]]["stock_quantity"]})
+            for card in turn.products
+        )
+        return replace(turn, products=current)
     # Delivery-specific invalidation: never regenerate the logical request or rewrite its metrics.
     return replace(
         turn,
