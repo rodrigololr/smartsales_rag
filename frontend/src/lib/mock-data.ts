@@ -1,5 +1,4 @@
 import type {
-  FeedbackReasonCategory,
   ManualCitation,
   MarketplaceType,
   MetricsSummary,
@@ -25,7 +24,13 @@ const checkoutUrl = (marketplace: MarketplaceType, name: string): string => {
   return `https://smartsales.example.com/produto/${query}`;
 };
 
-export const CATALOG_PRODUCTS: Product[] = [
+/** Mock products carry their marketplace link like gateway products do. */
+const withStoreLinks = (product: Product): Product => {
+  const marketplace = marketplaceForSku[product.sku] ?? "LOJA_OFICIAL";
+  return { ...product, marketplace, checkout_url: checkoutUrl(marketplace, product.name) };
+};
+
+export const CATALOG_PRODUCTS: Product[] = ([
   {
     sku: "AF-400-220V",
     name: "Airfryer SmartChef 4L",
@@ -86,10 +91,10 @@ export const CATALOG_PRODUCTS: Product[] = [
     rating: 4.7,
     reviews_count: 318,
   },
-];
+] satisfies Product[]).map(withStoreLinks);
 
 /** Catálogo estendido usado apenas pelo motor de recomendação mockado. */
-export const RECOMMENDATION_PRODUCTS: Product[] = [
+export const RECOMMENDATION_PRODUCTS: Product[] = ([
   {
     sku: "AF-800-220V",
     name: "Airfryer SmartChef 8L Family Plus",
@@ -159,7 +164,7 @@ export const RECOMMENDATION_PRODUCTS: Product[] = [
     rating: 4.5,
     reviews_count: 63,
   },
-];
+] satisfies Product[]).map(withStoreLinks);
 
 const ALL_PRODUCTS = [...CATALOG_PRODUCTS, ...RECOMMENDATION_PRODUCTS];
 
@@ -324,16 +329,6 @@ export const citationsForProduct = (product: Product): ManualCitation[] => {
     },
   ];
 };
-
-export const feedbackReasons: {
-  value: FeedbackReasonCategory;
-  label: string;
-}[] = [
-  { value: "HALLUCINATION", label: "Informação imprecisa" },
-  { value: "WRONG_VOLTAGE", label: "Voltagem/medida incorreta" },
-  { value: "SLOW", label: "Demorou a responder" },
-  { value: "OTHER", label: "Outro" },
-];
 
 export const MOCK_METRICS: MetricsSummary = {
   window: {

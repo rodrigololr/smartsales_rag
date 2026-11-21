@@ -1,7 +1,6 @@
 import { CheckCircle, ShieldAlert, ShoppingCart, Truck } from "lucide-react";
 import type { Product } from "@/types/catalog";
 import { formatBRL, marketplaceLabel, safeHttpUrl } from "@/lib/format";
-import { checkoutUrlOf, marketplaceOf } from "@/lib/mock-data";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -13,8 +12,8 @@ import { cn } from "@/lib/utils";
  */
 export function ProductBuyBox({ product }: { product: Product }) {
   const inStock = product.stock_quantity > 0;
-  const marketplace = marketplaceLabel(marketplaceOf(product));
-  const checkoutHref = safeHttpUrl(checkoutUrlOf(product));
+  const marketplace = marketplaceLabel(product.marketplace ?? "LOJA_OFICIAL");
+  const checkoutHref = safeHttpUrl(product.checkout_url);
 
   return (
     <section

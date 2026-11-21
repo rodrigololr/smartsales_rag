@@ -12,6 +12,7 @@ import type {
   StreamEvent,
 } from "@/types/chat";
 import { createId, marketplaceLabel } from "./format";
+import { ADMIN_DEMO_TOKEN, ChatApiError } from "./chat-api";
 import {
   airfryerServings,
   buildRecommendations,
@@ -24,7 +25,7 @@ import {
   upsellCardOf,
 } from "./mock-data";
 
-export const ADMIN_DEMO_TOKEN = "admin-demo";
+export { ADMIN_DEMO_TOKEN };
 
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
@@ -49,13 +50,10 @@ const createAbortError = () => {
   return error;
 };
 
-export class MockApiError extends Error {
-  constructor(
-    public status: number,
-    public code: string,
-    message: string
-  ) {
-    super(message);
+/** Same shape as the gateway errors, so callers handle both without importing the mock. */
+export class MockApiError extends ChatApiError {
+  constructor(status: number, code: string, message: string) {
+    super(status, code, message);
     this.name = "MockApiError";
   }
 }

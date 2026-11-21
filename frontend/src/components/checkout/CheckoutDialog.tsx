@@ -10,10 +10,10 @@ import {
 import type {
   Checkout,
   CheckoutConflict,
+  CheckoutCreate,
   ProductCardData,
 } from "@/types/chat";
 import { formatBRL, marketplaceLabel, safeHttpUrl } from "@/lib/format";
-import { MockApiError, mockCheckout } from "@/lib/mock-api";
 import { ChatApiError, USE_REAL_API, postCheckout } from "@/lib/chat-api";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -50,11 +50,12 @@ const CHECKOUT_ERROR_BY_STATUS: Record<number, string> = {
 };
 
 export const describeCheckoutError = (error: unknown): string =>
-  ((error instanceof ChatApiError || error instanceof MockApiError) &&
+  (error instanceof ChatApiError &&
     CHECKOUT_ERROR_BY_STATUS[error.status]) ||
   GENERIC_CHECKOUT_ERROR;
 
-const requestCheckout = USE_REAL_API ? postCheckout : mockCheckout;
+const requestCheckout = async (request: CheckoutCreate): Promise<Checkout | CheckoutConflict> =>
+  USE_REAL_API ? postCheckout(request) : (await import("@/lib/mock-api")).mockCheckout(request);
 
 export interface CheckoutDialogProps {
   card: ProductCardData | null;

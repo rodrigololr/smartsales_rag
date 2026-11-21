@@ -191,3 +191,8 @@ Carregar a vitrine e a pesquisa em `GET /api/v1/products` com os parâmetros/res
 ## 8. Filtro de voltagem
 
 O filtro da vitrine tem `Todas`, `127V`, `220V` e `Bivolt`. Produtos `BIVOLT` funcionam nas duas tensões e por isso aparecem também em `127V` e em `220V`, com o selo `Bivolt` e a nota `Inclui modelos bivolt, que funcionam em 127V e 220V.` na contagem; o filtro `Bivolt` mostra só eles. Em todos os selos e na ficha técnica, `BIVOLT` é exibido como `Bivolt`.
+
+## 9. Modo demonstração (mock)
+
+- O mock (`lib/mock-api.ts`, `lib/mock-data.ts`) é um *fallback* de desenvolvimento: componentes e hooks só o carregam com `await import()` quando `USE_REAL_API` é falso, então ele fica num *chunk* separado que o caminho com gateway nunca baixa. Os produtos do mock já trazem `marketplace`/`checkout_url`, como os do gateway; `MockApiError` estende `ChatApiError`.
+- Recomendações do mock seguem a regra do backend: `UPSELL` é o próximo modelo da mesma subcategoria com capacidade e preço maiores, em estoque e até `+35%` do preço (nunca o próprio SKU); `CROSS_SELL` é o acessório compatível da subcategoria. Subcategorias sem "manual" no mock (acessórios, por exemplo) respondem `LOW_SIMILARITY_FALLBACK` com apenas o card `PRIMARY` do item.

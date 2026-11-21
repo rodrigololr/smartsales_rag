@@ -7,9 +7,16 @@ import type {
   FeedbackRating,
   FeedbackReasonCategory,
 } from "@/types/chat";
-import { feedbackReasons } from "@/lib/mock-data";
 import { ChatApiError } from "@/lib/chat-api";
 import { Button } from "@/components/ui/button";
+
+/** DISLIKE reasons (openapi `reason_category`) with their pt-BR labels. */
+const feedbackReasons: { value: FeedbackReasonCategory; label: string }[] = [
+  { value: "HALLUCINATION", label: "Informação imprecisa" },
+  { value: "WRONG_VOLTAGE", label: "Voltagem/medida incorreta" },
+  { value: "SLOW", label: "Demorou a responder" },
+  { value: "OTHER", label: "Outro" },
+];
 
 export interface MessageFeedbackBarProps {
   message: ChatMessage;

@@ -10,7 +10,6 @@ import type {
   StreamEvent,
 } from "@/types/chat";
 import { createId } from "@/lib/format";
-import { mockFeedback, streamMockChat } from "@/lib/mock-api";
 import {
   USE_REAL_API,
   ChatApiError,
@@ -143,6 +142,8 @@ export function useChatSession(product: Product | null) {
       signal: AbortSignal
     ): AsyncGenerator<StreamEvent> {
       if (!USE_REAL_API) {
+        // Loaded on demand so the mock never ships in the real-API bundle path.
+        const { streamMockChat } = await import("@/lib/mock-api");
         yield* streamMockChat({ sessionId, message: prompt, product: activeProduct }, signal);
         return;
       }
@@ -276,7 +277,8 @@ export function useChatSession(product: Product | null) {
           ? { ...target, rating, reason_category: reason }
           : { ...target, rating: "LIKE" };
       try {
-        await (USE_REAL_API ? postFeedback(feedback) : mockFeedback(feedback));
+        if (USE_REAL_API) await postFeedback(feedback);
+        else await (await import("@/lib/mock-api")).mockFeedback(feedback);
         patchAssistant(messageId, { feedback: rating, feedbackReason: reason ?? null });
       } catch (error) {
         // One rating per message (UC06): a 409 means it is already stored, not a failure.

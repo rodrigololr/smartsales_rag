@@ -13,6 +13,8 @@ import { SSEParser } from "@/lib/sse-parser";
 /** Middle-end origin. Empty means the UI runs on the local mock API. */
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 export const USE_REAL_API = API_BASE_URL !== "";
+/** Admin token accepted by the local mock (demo mode only). */
+export const ADMIN_DEMO_TOKEN = "admin-demo";
 
 const MAX_TURN_IN_PROGRESS_WAITS = 3;
 const DEFAULT_RETRY_AFTER_SECONDS = 1;

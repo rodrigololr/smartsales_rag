@@ -16,8 +16,7 @@ import {
   formatMs,
   formatPercent,
 } from "@/lib/format";
-import { ADMIN_DEMO_TOKEN, MockApiError, mockGetMetrics } from "@/lib/mock-api";
-import { ChatApiError, USE_REAL_API, getMetricsSummary } from "@/lib/chat-api";
+import { ADMIN_DEMO_TOKEN, ChatApiError, USE_REAL_API, getMetricsSummary } from "@/lib/chat-api";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -64,7 +63,7 @@ const GENERIC_LOAD_ERROR =
   "O serviço de métricas está indisponível agora. Tente novamente em instantes.";
 
 const statusOf = (error: unknown): number | null =>
-  error instanceof ChatApiError || error instanceof MockApiError ? error.status : null;
+  error instanceof ChatApiError ? error.status : null;
 
 const windowRange = (key: WindowKey): { from: string; to: string } => {
   const hours = WINDOWS.find((option) => option.key === key)?.hours ?? 24 * 7;
@@ -159,7 +158,7 @@ export function AdminMetricsDashboard() {
     try {
       const summary = USE_REAL_API
         ? await getMetricsSummary(adminToken, windowRange(key))
-        : await mockGetMetrics(adminToken);
+        : await (await import("@/lib/mock-api")).mockGetMetrics(adminToken);
       if (requestId !== latestRequest.current) return;
       setMetrics(summary);
       setStatus("ready");
