@@ -51,10 +51,14 @@ export function useChatSession(product: Product | null) {
   const controllerRef = useRef<AbortController | null>(null);
   // Server session (real API only); created lazily on the first question.
   const serverSessionRef = useRef<string | null>(null);
+  // Turn whose last attempt was cut off: the server may have stored it, so a manual retry
+  // must resend the same client_request_id. Cleared once the turn ends for sure.
+  const interruptedTurnRef = useRef<{ assistantId: string; clientRequestId: string } | null>(null);
 
   const reset = useCallback(() => {
     controllerRef.current?.abort();
     controllerRef.current = null;
+    interruptedTurnRef.current = null;
     const serverSession = serverSessionRef.current;
     serverSessionRef.current = null;
     if (serverSession) {
@@ -187,8 +191,14 @@ export function useChatSession(product: Product | null) {
 
       const controller = new AbortController();
       controllerRef.current = controller;
-      // One ID per explicit question, kept on the automatic reconnect.
-      const clientRequestId = createId();
+      // One ID per explicit question, kept on the automatic reconnect and on a manual retry
+      // of an interrupted turn; a new one only after the turn ended (done or terminal error).
+      const interrupted = interruptedTurnRef.current;
+      const clientRequestId =
+        replaceAssistantId && interrupted?.assistantId === replaceAssistantId
+          ? interrupted.clientRequestId
+          : createId();
+      interruptedTurnRef.current = null;
 
       try {
         for (let reconnects = 0; ; reconnects++) {
@@ -206,6 +216,9 @@ export function useChatSession(product: Product | null) {
         }
       } catch (error) {
         if (isAbort(error)) return;
+        if (error instanceof StreamInterruptedError) {
+          interruptedTurnRef.current = { assistantId, clientRequestId };
+        }
         console.warn("chat_stream_failed", error);
         patchAssistant(assistantId, {
           content: "",

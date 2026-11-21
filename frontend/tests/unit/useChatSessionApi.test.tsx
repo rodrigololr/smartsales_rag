@@ -75,4 +75,57 @@ describe("useChatSession against the real middle-end", () => {
     expect(assistant?.citations).toEqual([]);
     expect(assistant?.recommendations).toEqual([]);
   });
+
+  it("manual retry after a double interruption reuses the client_request_id (server state unknown)", async () => {
+    api.streamChat.mockReset();
+    const interrupted = async function* (): AsyncGenerator<StreamEvent> {
+      yield { event: "token", data: { delta: "parcial" } };
+      throw new api.StreamInterruptedError();
+    };
+    api.streamChat
+      .mockImplementationOnce(interrupted)
+      .mockImplementationOnce(interrupted)
+      .mockImplementationOnce(async function* () {
+        yield { event: "token", data: { delta: "Agora sim." } };
+        yield doneEvent;
+      });
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { result } = renderHook(() => useChatSession(findProduct("AF-400-220V") ?? null));
+
+    act(() => result.current.send("Pergunta"));
+    await waitFor(() => expect(result.current.messages.at(-1)?.errorCode).toBe("LLM_UNAVAILABLE"));
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    act(() => result.current.retry(result.current.messages.at(-1)!.id));
+    await waitFor(() => expect(result.current.messages.at(-1)?.content).toBe("Agora sim."));
+
+    const ids = api.streamChat.mock.calls.map(([request]) => request.clientRequestId);
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(1);
+  });
+
+  it("manual retry after a terminal error starts a new client_request_id", async () => {
+    api.streamChat.mockReset();
+    api.streamChat
+      .mockImplementationOnce(async function* (): AsyncGenerator<StreamEvent> {
+        yield* [];
+        throw new Error("HTTP 500");
+      })
+      .mockImplementationOnce(async function* () {
+        yield { event: "token", data: { delta: "Ok." } };
+        yield doneEvent;
+      });
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { result } = renderHook(() => useChatSession(findProduct("AF-400-220V") ?? null));
+
+    act(() => result.current.send("Pergunta"));
+    await waitFor(() => expect(result.current.messages.at(-1)?.errorCode).toBe("INTERNAL_ERROR"));
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    act(() => result.current.retry(result.current.messages.at(-1)!.id));
+    await waitFor(() => expect(result.current.messages.at(-1)?.content).toBe("Ok."));
+
+    const [first, second] = api.streamChat.mock.calls.map(([request]) => request.clientRequestId);
+    expect(second).not.toBe(first);
+  });
 });

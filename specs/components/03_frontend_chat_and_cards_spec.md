@@ -137,7 +137,7 @@ O hook `useSSEChatStream` gerencia o ciclo de vida da requisição `POST /api/v1
    - `COMPLETED`: Ao receber `done` (sempre o último evento), habilita a barra de feedback (`👍` / `👎`) e reabilita o campo de envio.
    - *Estes estados são apenas visuais; não correspondem a `chat_sessions.state` (`ACTIVE | ENDED`).*
 2. **Resiliência em Conexões Móveis Instáveis (Mitigação do Risco `R07`)**:
-   - Se a conexão cair antes do evento `done`, o hook descarta o texto parcial e **reenvia a mesma requisição `POST`, incluindo o mesmo `client_request_id`, uma única vez**; caso persista a falha, exibe botão `"Tentar novamente"` mantendo a pergunta do usuário preservada.
+   - Se a conexão cair antes do evento `done`, o hook descarta o texto parcial e **reenvia a mesma requisição `POST`, incluindo o mesmo `client_request_id`, uma única vez**; caso persista a falha, exibe botão `"Tentar novamente"` mantendo a pergunta do usuário preservada. Como o estado do turno no servidor é desconhecido após a interrupção, esse `Tentar novamente` manual **reutiliza o mesmo `client_request_id`**; um novo ID só é gerado depois que o turno terminou de forma conhecida (`done` ou erro terminal, como HTTP 5xx).
 
 ---
 
