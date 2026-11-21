@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, PlainSerializer, field_validator, model_v
 from app.schemas import CATEGORY_MAX_LENGTH, SKU_MAX_LENGTH
 
 VoltageFilter = Literal["127V", "220V"]
-RecommendationType = Literal["PRIMARY", "UPSELL", "CROSS_SELL"]
+RecommendationType = Literal["PRIMARY", "UPSELL", "CROSS_SELL", "OPTION"]
 ConflictStatus = Literal["OUT_OF_STOCK", "PRICE_CHANGED"]
 Money = Annotated[Decimal, PlainSerializer(float, return_type=float, when_used="json")]
 MAX_POSTGRES_INTEGER = 2_147_483_647

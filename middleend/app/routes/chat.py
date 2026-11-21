@@ -48,7 +48,7 @@ HEALTH_TIMEOUT_SECONDS = 2.0
 class RagBackend(Protocol):
     def open_stream(
         self,
-        sku: str,
+        sku: str | None,
         question: str,
         history: list[HistoryItem],
         *,
@@ -122,7 +122,7 @@ async def _open_answer(
     cache: SemanticCacheService | None,
     backend: RagBackend,
     body: ChatStreamRequest,
-    sku: str,
+    sku: str | None,
     session: SessionSnapshot,
     message_id: str,
     *,
@@ -135,7 +135,7 @@ async def _open_answer(
     history = [{"role": item.role, "content": item.content} for item in session.history]
     cache_key = (
         await cache.key_for(body.message, _resolved_filters(body, sku), history)
-        if cache is not None
+        if cache is not None and sku is not None
         else None
     )
     cached = await cache.lookup(cache_key) if cache is not None and cache_key else None
@@ -228,9 +228,7 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
     if not decision.allowed:
         return rate_limited(decision, settings.rate_limit_per_minute)
     filters = body.context_filters
-    sku = (filters.current_product_sku if filters else None) or session.current_product_sku
-    if not sku:
-        return error_response(422, "PRODUCT_CONTEXT_REQUIRED", "Informe o produto consultado.")
+    sku = (filters.current_product_sku if filters else None) or session.current_product_sku or None
 
     request_id = str(body.client_request_id)
     turn = await store.begin_turn(session.session_id, request_id, _payload_hash(body))
@@ -290,7 +288,7 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
         await store.complete(
             session.session_id, request_id, turn.lock_token, body.message, completed
         )
-        if cache is not None and answer.cache_key is not None:
+        if cache is not None and answer.cache_key is not None and sku is not None:
             await cache.store(answer.cache_key, completed, sku)
 
     async def fail_turn(completed: CompletedTurn) -> None:

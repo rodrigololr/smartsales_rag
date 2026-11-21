@@ -13,6 +13,9 @@ from .models import Citation, ProductCard
 ERROR_CODES = {"GUARDRAIL_BLOCKED", "LOW_SIMILARITY_FALLBACK", "LLM_UNAVAILABLE", "INTERNAL_ERROR"}
 CONTENT_EVENTS = {"token", "correction", "citations", "recommendations", "error"}
 CENT = Decimal("0.01")
+MAX_CARDS = 5
+MAX_OPTIONS = 4
+UNIQUE_ROLES = {"PRIMARY", "UPSELL", "CROSS_SELL"}
 # chat_messages.intent CHECK; the backend may also send diagnostic labels (LOW_SIMILARITY).
 STORED_INTENTS = {"TECHNICAL_QA", "PRODUCT_COMPARISON", "PURCHASE_INTENT", "OUT_OF_DOMAIN"}
 
@@ -58,8 +61,9 @@ def citations(payload: object) -> list[Citation]:
 
 
 def products(payload: object) -> list[ProductCard]:
-    require(isinstance(payload, list) and len(cast(list[object], payload)) <= 3)
+    require(isinstance(payload, list) and len(cast(list[object], payload)) <= MAX_CARDS)
     roles: set[str] = set()
+    options = 0
     for item in cast(list[object], payload):
         card = object_payload(item)
         strings(
@@ -74,8 +78,12 @@ def products(payload: object) -> list[ProductCard]:
         require(card.get("power_watts") is None or integer(card["power_watts"]))
         require(card.get("marketplace") in ("AMAZON", "MERCADO_LIVRE", "SHOPEE", "LOJA_OFICIAL"))
         role = card.get("recommendation_type")
-        require(role in ("PRIMARY", "UPSELL", "CROSS_SELL") and role not in roles)
-        roles.add(cast(str, role))
+        if role == "OPTION":
+            options += 1
+            require(options <= MAX_OPTIONS)
+        else:
+            require(role in UNIQUE_ROLES and role not in roles)
+            roles.add(cast(str, role))
     return cast(list[ProductCard], payload)
 
 
