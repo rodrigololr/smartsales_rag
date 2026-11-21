@@ -10,6 +10,11 @@
 > As evidências de entrega vêm do GitHub e do Git. **Não há atas, pautas nem listas de
 > presença no repositório**: a realização de cada ritual e quem participou constam
 > como **(declarado pelo GP)**.
+>
+> **Governança.** O GP é autor, aprovador e fonte dos valores declarados deste
+> registro. Recomenda-se que o PO Walber (aprovação de entregas na
+> [matriz RACI](../../specs/diagrams_and_pm/02_matriz_raci.md)) revise e aprove, como
+> segundo aprovador, todos os campos *declarado pelo GP*.
 
 **Participantes declarados** (equipe da
 [matriz RACI](../../specs/diagrams_and_pm/02_matriz_raci.md), seção 2): Antônio Rodrigo

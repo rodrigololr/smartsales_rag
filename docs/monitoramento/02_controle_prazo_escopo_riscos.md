@@ -9,6 +9,11 @@
 > e da [rede CPM](../../specs/diagrams_and_pm/07_diagrama_rede_atividades_cpm.md); datas
 > reais do GitHub. Riscos de [`16_gestao_riscos.md`](../../specs/diagrams_and_pm/16_gestao_riscos.md).
 > Aprovador: Antônio Rodrigo. Responsável: Walber.
+>
+> **Governança.** O GP é autor, aprovador e fonte dos valores declarados deste
+> controle. Recomenda-se que o PO Walber (aprovação de entregas na
+> [matriz RACI](../../specs/diagrams_and_pm/02_matriz_raci.md)) revise e aprove, como
+> segundo aprovador, todos os campos *declarado pelo GP*.
 
 ## 1. Caminho crítico (`B01 → B02 → B03 → B04 → F05 → G02`)
 
@@ -18,8 +23,9 @@
 | `B02` | 16/10/2026 | 19/11/2026 | Issue #7 fechada; código no [PR #25](https://github.com/rodrigololr/smartsales_rag/pull/25) (07/11). | **+22** |
 | `B03` | 29/10/2026 | 19/11/2026 | Issue #10 fechada; [PR #28](https://github.com/rodrigololr/smartsales_rag/pull/28). | **+14** |
 | `B04` | 10/11/2026 | 19/11/2026 | Issue #13 fechada; [PR #22](https://github.com/rodrigololr/smartsales_rag/pull/22) (07/11) e [PR #29](https://github.com/rodrigololr/smartsales_rag/pull/29). | **+7** |
-| `F05` | 17/11/2026 | Pendente | Issue #19 aberta; suíte E2E e sonda de SLA no [PR #33](https://github.com/rodrigololr/smartsales_rag/pull/33) (19/11). Em 16/11: 6 testes E2E passando, 4 `fixme`, sonda com código 1 ([relatório de encerramento](../encerramento/02_relatorio_encerramento.md), seção 5). | ≥ +2 (em 19/11) |
-| `G02` | 23/11/2026 | Pendente | Issue #20 aberta; rascunhos no [PR #34](https://github.com/rodrigololr/smartsales_rag/pull/34). | Ainda no prazo |
+| `F05` | 17/11/2026 | Pendente (projeção: 23/11) | Issue #19 aberta; suíte E2E e sonda de SLA no [PR #33](https://github.com/rodrigololr/smartsales_rag/pull/33) (19/11). Em 16/11: 6 testes E2E passando, 4 `fixme`, sonda com código 1 ([relatório de encerramento](../encerramento/02_relatorio_encerramento.md), seção 5). | ≥ +2 (em 19/11); +3 se fechar em 23/11 |
+| `G02` | 23/11/2026 | Pendente (projeção: 24/11, depois de `F05`) | Issue #20 aberta; rascunhos no [PR #34](https://github.com/rodrigololr/smartsales_rag/pull/34). | +1 projetado (usa o dia de reserva) |
+| `G04` (não crítico, folga 2d; predecessor de `G02`) | 13/11/2026 | 19/11/2026 | Issue #18 fechada; [PR #32](https://github.com/rodrigololr/smartsales_rag/pull/32). | **+4** (2 além da folga) |
 
 Método do desvio: dias úteis entre o término planejado e a data real, pelo
 calendário UFAL 2026.2 (sem fins de semana, 12/10, 15/10, 28/10, 02/11 e 20/11).
@@ -29,6 +35,11 @@ Conclusão = issue do pacote fechada.
 `B01` concluiu 30 dias úteis depois do planejado. Os quatro pacotes de backend
 fecharam no mesmo dia (19/11), ou seja, foram executados em paralelo e não em
 sequência. Em 19/11, `F05` já passou do término planejado e `G02` depende dele.
+`G04` não é crítico, mas fechou 4 dias úteis depois do planejado e consumiu a folga de
+2 dias: pela rede, `G02` só poderia começar em 23/11 (primeiro dia útil depois de
+19/11) e, com 3 dias de duração, terminaria em 25/11, depois do `M5`. `G02` só cabe em
+24/11 porque os rascunhos foram adiantados em paralelo (PR #34, 19/11); a projeção de
+fechamento está na seção 5.
 
 Ações previstas na spec e registro:
 
@@ -42,7 +53,7 @@ Ações previstas na spec e registro:
 | Marco | Data planejada | Pacotes condicionantes | Situação em 19/11 |
 | :---: | :---: | :--- | :--- |
 | `M1` | 02/10/2026 | `G01`, `G03`, `B01`, `M01`, `F01` | **Não atingido**: `M01` aberto (issue #5; [PR #36](https://github.com/rodrigololr/smartsales_rag/pull/36) aberto). |
-| `M2` | 16/10/2026 | `B02`, `M02`, `F02` | Atingido em 19/11/2026 (+22 dias úteis). |
+| `M2` | 16/10/2026 | `B02`, `M02`, `F02` | Atingido em 19/11/2026 pelo critério de issue fechada (+22 dias úteis). `B02` fica fora do `EV` conservador por não cumprir a meta de TTFT (seção 3). |
 | `M3` | 29/10/2026 | `B03`, `M03`, `F03` | **Não atingido**: `F03` aberto (issue #12). |
 | `M4` | 10/11/2026 | `B04`, `B05`, `M04`, `M05`, `F04` | **Não atingido**: `M04`, `M05` e `F04` abertos. Além disso, o gate RAGAS do commit integrado não foi executado ([relatório B05](../../backend/tests/ragas_eval/RAGAS_HOMOLOGATION_REPORT.md): status `PENDING`); pela regra da seção 4.2 do Gantt, `M4` fica atrasado e aciona `C06`. |
 | `M5` | 24/11/2026 | `G04`, `F05`, `G02` + reserva | Em risco (ver seção 5). |
@@ -60,13 +71,13 @@ sem PR.
 | `F01` | #6 | 01/10 | Concluído em 07/11 | [PR #23](https://github.com/rodrigololr/smartsales_rag/pull/23) |
 | `F02` | #9 | 13/10 | Concluído em 10/11 | [PR #24](https://github.com/rodrigololr/smartsales_rag/pull/24) |
 | `B01` | #4 | 02/10 | Concluído em 19/11 | PRs #25 e #27 |
-| `B02` | #7 | 16/10 | Concluído em 19/11 | PR #25. A meta de TTFT não foi atingida (seção 4, `R02`). |
+| `B02` | #7 | 16/10 | Concluído em 19/11 (issue fechada); **fora do `EV` conservador** | PR #25. A meta de TTFT não foi atingida (seção 4, `R02`), então o pacote não cumpre a DoD e não gera `EV` ([relatório EVM](03_relatorios_evm_semanais.md), seção 1.1). |
 | `M02` | #8 | 16/10 | Concluído em 19/11 | PRs #22, #25 e #30 |
 | `B03` | #10 | 29/10 | Concluído em 19/11 | PRs #25 e #28 |
 | `M03` | #11 | 27/10 | Concluído em 19/11 | PRs #22 e #31 |
 | `B04` | #13 | 10/11 | Concluído em 19/11 | PRs #22 e #29 |
-| `B05` | #14 | 06/11 | Concluído em 19/11 (preparação) | [PR #26](https://github.com/rodrigololr/smartsales_rag/pull/26). **Inconsistência**: o próprio relatório B05 diz que a issue #14 "deve permanecer aberta até o aceite completo"; a execução real dos 50 casos e a auditoria humana do Golden Set (`audit.json`) estão pendentes. |
-| `G04` | #18 | 13/11 | Concluído em 19/11 | [PR #32](https://github.com/rodrigololr/smartsales_rag/pull/32) |
+| `B05` | #14 | 06/11 | Concluído em 19/11 (issue fechada, preparação); **fora do `EV` conservador** | [PR #26](https://github.com/rodrigololr/smartsales_rag/pull/26). **Inconsistência**: o próprio relatório B05 diz que a issue #14 "deve permanecer aberta até o aceite completo"; a execução real dos 50 casos e a auditoria humana do Golden Set (`audit.json`) estão pendentes. Por isso o pacote não gera `EV`. |
+| `G04` | #18 | 13/11 | Concluído em 19/11 (+4 dias úteis; folga de 2 dias) | [PR #32](https://github.com/rodrigololr/smartsales_rag/pull/32) |
 | `M01` | #5 | 01/10 | Em PR aberto | [PR #36](https://github.com/rodrigololr/smartsales_rag/pull/36) (*rate limiting*, envelope de erros) |
 | `M04` | #15 | 09/11 | Em PR aberto (parte de catálogo) | [PR #35](https://github.com/rodrigololr/smartsales_rag/pull/35) (`Refs #15`); telemetria/métricas não cobertas por ele |
 | `M05` | #16 | 05/11 | Em PR aberto | PR #35 (`Closes #16`) |
@@ -76,8 +87,9 @@ sem PR.
 | `G02` | #20 | 23/11 | Parcial | PR #34 (rascunhos) |
 | `RES` | #21 | 24/11 | Em andamento | Esta pasta |
 
-Resumo: 12 de 19 pacotes concluídos (63%), 3 em PR aberto (`M01`, `M04`, `M05`) e
-4 parciais (`F03`, `F04`, `F05`, `G02`), sem contar `RES`.
+Resumo: 12 de 19 pacotes com issue fechada (63%), dos quais 10 aceitos no `EV`
+conservador (sem `B02` e `B05`); 3 em PR aberto (`M01`, `M04`, `M05`) e 4 parciais
+(`F03`, `F04`, `F05`, `G02`), sem contar `RES`.
 
 Mudanças de escopo: o repositório registra a troca do provedor de IA de OpenAI para
 Google Gemini no MVP (commit `525c1c8`, 07/11), sem registro de aprovação formal no
@@ -88,7 +100,13 @@ repositório. Aprovação (declarado pelo GP): aprovada por Antônio Rodrigo (GP
   passa a cobrir o Gemini no cenário simulado, sem alterar o `BAC`; no cenário real
   o gasto é R$ 0,00 (cota gratuita).
 - **Qualidade:** o novo *embedding* exigiu recalibrar o limiar de similaridade de
-  0,72 para 0,60 (issue #7); fidelidade e `P@5` seguem sem medição (B05 `PENDING`).
+  0,72 para 0,60 (issue #7). Evidência: o commit `525c1c8` (07/11) define
+  `SIMILARITY_THRESHOLD=0.60` em `.env.example` e `backend/.env.example`, com a
+  calibração na mensagem do commit (respostas corretas entre 0,64 e 0,72; fora do
+  escopo perto de 0,47). O padrão em `backend/app/config.py` continua 0,72, e o
+  `CLAUDE.md` da raiz e as specs ainda dizem 0,72: é mudança aplicada só por
+  configuração, pendente de atualização formal da spec. Fidelidade e `P@5` seguem
+  sem medição (B05 `PENDING`).
 - **Risco:** aumentou a exposição em `R02` (TTFT de 1,3 s a 6 s) e `R13` (HTTP 429 da
   cota gratuita); ver seção 4.
 
@@ -117,7 +135,7 @@ mudam os riscos com evidência; os demais mantêm `P` e `I` da linha de base.
 | :---: | :--- | :--- | :--- |
 | `R01` | Alucinação em especificações | Resposta implementada; eficácia **não medida** | Guardrails e citação em `B03` (#10) e verificador de cards por SKU em `B04` (#29). Fidelidade e taxa de alucinação ainda não medidas: [relatório B05](../../backend/tests/ragas_eval/RAGAS_HOMOLOGATION_REPORT.md) `PENDING`. |
 | `R02` | Latência elevada no RAG | **Acionado** | TTFT entre 1,3 s e 6 s com o Gemini (comentário da issue #7, 07/11); sonda de 16/11 com TTFT p95 de 4.739 ms (teto 2.000 ms). Cache no Redis entregue (#31). |
-| `R03` | *Chunks* irrelevantes | Resposta parcial; eficácia não medida | *Top-k* = 5 e limiar recalibrado para 0,60 com o embedding do Gemini (issue #7). `P@5` não medido (B05 `PENDING`). |
+| `R03` | *Chunks* irrelevantes | Resposta parcial; eficácia não medida | *Top-k* = 5 e limiar recalibrado para 0,60 com o embedding do Gemini (issue #7; `SIMILARITY_THRESHOLD=0.60` nos `.env.example` do commit `525c1c8`; spec e `CLAUDE.md` ainda em 0,72). `P@5` não medido (B05 `PENDING`). |
 | `R04` | Falha na extração de tabelas de PDFs | Sem evidência | Os manuais do seed são `.txt` (`data/manuals/`); a extração de tabelas de PDF não foi exercitada. |
 | `R05` | *Prompt injection* | Resposta parcial | Guardrail de entrada na `develop` (ajustado em `b341335`); *rate limiting* só no PR #36, aberto. |
 | `R06` | Ambiguidade semântica | Sem evidência | — |
@@ -141,10 +159,10 @@ mudam os riscos com evidência; os demais mantêm `P` e `I` da linha de base.
 | Item | Valor |
 | :--- | :--- |
 | Reserva planejada | 1 dia útil (24/11/2026), após o fim do desenvolvimento em 23/11 |
-| Dias úteis restantes após 19/11 | 2: 23/11 (último dia de `G02`) e 24/11 (reserva + `M5`) |
+| Dias úteis restantes após 19/11 | 2: 23/11 (último dia de `G02` no plano; na projeção, fechamento de `F05`) e 24/11 (reserva + `M5`; na projeção, `G02` depois de `F05`) |
 | Escopo aberto em 19/11 | `M01`, `M04`, `M05` (PRs abertos), `F03`, `F04`, `F05`, `G02` (parciais) |
 | Probabilidade de cumprir `M5` | A estimativa de ≈ 73% do Gantt supunha o plano em dia e não vale mais. Decisão de corte de escopo (declarado pelo GP), sem nova estimativa numérica: entram na entrega final os pacotes cujas issues fecharem até 24/11; o que não fechar é entregue como parcial, fora do `EV`, e registrado no relatório de encerramento. |
-| Uso da reserva | Consumida (declarado pelo GP): 24/11 é usado para fechar os PRs abertos #35 (`M04`/`M05`), #36 (`M01`), #37 (`M04`, métricas) e #38 (`RES`) e os pacotes de frontend `F03`, `F04` e `F05`; `G02` fica em 23/11. Prioridade: `F05` (caminho crítico), depois `M01`, `M04`/`M05` e `F03`/`F04`. Aprovado por Antônio Rodrigo com o PO Walber e comunicado ao patrocinador (`C06`). A reserva financeira de contingência (R$ 10.515,50) não foi usada. |
+| Uso da reserva | Consumida (declarado pelo GP): `F05` (caminho crítico) fecha em 23/11; 24/11 é usado para fechar `G02`, depois de `F05`, os PRs abertos #35 (`M04`/`M05`), #36 (`M01`), #37 (`M04`, métricas) e #38 (`RES`) e os pacotes de frontend `F03` e `F04`. Prioridade: `F05`, depois `G02`, `M01`, `M04`/`M05` e `F03`/`F04`. Aprovado por Antônio Rodrigo com o PO Walber e comunicado ao patrocinador (`C06`). A reserva financeira de contingência (R$ 10.515,50) não foi consumida; os pedidos de uso exigidos pela spec 09 (`EAC` acima do `PMB` em `S7`, `S8` e `S9`) estão no [relatório EVM](03_relatorios_evm_semanais.md#3-custos-ac-cpi-eac). |
 
 Com sete pacotes ainda abertos e dois dias úteis, a reserva de 24/11 não cobre todo o
 escopo restante. A decisão sobre o que entra na entrega final é do GP e do PO, com o

@@ -10,6 +10,11 @@
 > no repositório: esses campos foram preenchidos como declaração do GP e aparecem
 > marcados com **(declarado pelo GP)**, separados dos dados verificáveis no GitHub.
 > Aprovador: Antônio Rodrigo. Responsável: Walber.
+>
+> **Governança.** O GP é autor, aprovador e fonte dos valores declarados desta pasta.
+> Recomenda-se que o PO Walber (aprovação de entregas na
+> [matriz RACI](../../specs/diagrams_and_pm/02_matriz_raci.md)) revise e aprove, como
+> segundo aprovador, todos os campos *declarado pelo GP*.
 
 ## 1. Conteúdo
 
@@ -37,8 +42,8 @@ Documentos relacionados, sem repetir o conteúdo deles:
 | Dado | Fonte | Regra |
 | :--- | :--- | :--- |
 | Datas planejadas | `08_cronograma_gantt.md` (seção 3) | Data de término de cada pacote. |
-| Orçamento (`BAC`, `PV` da Curva S) | `09_quadro_custos_eac.md` (seções 3.4 e 4.1) | Valores copiados sem alteração. |
-| Data real de conclusão | GitHub: data de fechamento da issue do pacote; para `G01`/`G03`, o merge do PR #1 | Pacote concluído = issue fechada (DoD da spec 09: só conta o que foi aceito). PR mesclado sem issue fechada = parcial (não gera `EV`). |
+| Orçamento (`BAC`, `PMB`, `PV` da Curva S) | `09_quadro_custos_eac.md` (seções 3.4 e 4.1) | `PMB = BAC − reserva de contingência` (R$ 105.155,00, custo base direto); `PV` = acumulado da coluna "Custo Base Semanal" da Curva S. A reserva (R$ 10.515,50) fica fora do `PV` e do `EV` e só é usada com pedido ao patrocinador. |
+| Data real de conclusão | GitHub: data de fechamento da issue do pacote; para `G01`/`G03`, o merge do PR #1 | Pacote concluído = issue fechada. Só gera `EV` se também cumprir a DoD (spec 09: só conta o que foi aceito); `B02` e `B05` têm issue fechada e ficam fora do `EV` conservador. PR mesclado sem issue fechada = parcial (não gera `EV`). |
 | Escopo em andamento | `gh pr list --state open` | PR aberto que fecha a issue = "em PR aberto". |
 | Atividade no repositório | `git log origin/develop --format='%h %ad %s' --date=short` | Usado só como evidência de trabalho, não como aceite. |
 
@@ -57,8 +62,10 @@ Documentos relacionados, sem repetir o conteúdo deles:
    pacotes que mudaram e o estado dos riscos com nova evidência (PR, issue ou
    relatório). Sem evidência, o risco continua "sem evidência no repositório".
 3. Em `03_relatorios_evm_semanais.md`, somar ao `EV` o orçamento dos pacotes cujas
-   issues fecharam até a sexta-feira da semana e recalcular `SPI = EV / PV`. Não
-   alterar o `PV`: ele é a linha de base.
+   issues fecharam até a data de corte e que cumprem a DoD, e recalcular
+   `SPI = EV / PV`, `CPI = EV / AC` e `EAC = PMB / CPI`. Não alterar o `PV`: ele é a
+   linha de base. Se `EAC > PMB`, registrar o pedido de uso da reserva (spec 09,
+   seção 4.2).
 4. Campos sem registro no repositório (ata, planilha de horas, fatura) só entram
    como declaração do GP, marcados com **(declarado pelo GP)**. Quando houver registro
    primário, anexá-lo e substituir a declaração pelo dado registrado.
