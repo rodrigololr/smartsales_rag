@@ -59,7 +59,7 @@ class FakeConsultantCatalog:
                     content=f"[PRODUTO: {product.name} | SKU: {sku} | MANUAL PÁG: {page_num}]\n{text}",
                     similarity_score=1.0,
                 )
-                for page_num, text in pages
+                for page_num, text in enumerate(pages, start=1)
             ]
         self.kb_by_doc: dict[str, list[RetrievedChunk]] = {}
         for doc in knowledge_docs(DATA_DIR / "knowledge"):
@@ -68,15 +68,15 @@ class FakeConsultantCatalog:
                     chunk_id=uuid4(),
                     sku=doc.doc_id,
                     manual_title=doc.title,
-                    page_number=page.page_number,
+                    page_number=page_num,
                     section_title=None,
                     content=(
-                        f"[BASE DE CONHECIMENTO: {doc.title} | PÁG: {page.page_number}]\n"
-                        f"{page.text}"
+                        f"[BASE DE CONHECIMENTO: {doc.title} | PÁG: {page_num}]\n"
+                        f"{page_text}"
                     ),
                     similarity_score=1.0,
                 )
-                for page in doc.pages
+                for page_num, page_text in enumerate(doc.pages, start=1)
             ]
         self.kb_search_results: list[RetrievedChunk] = []
 
