@@ -22,7 +22,11 @@ export default defineConfig({
   projects: [
     {
       name: "chromium-desktop",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+      use: {
+        ...devices["Desktop Chrome"],
+        channel: process.env.E2E_CHROMIUM_CHANNEL || undefined,
+        viewport: { width: 1440, height: 900 },
+      },
     },
   ],
 });

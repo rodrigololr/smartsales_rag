@@ -1,0 +1,55 @@
+# Isolated acceptance stack. The fixture replaces only the upstream LLM provider.
+services:
+  model-fixture:
+    image: python:3.12-slim
+    command: ["python", "/fixtures/model_provider.py"]
+    volumes:
+      - ./tests/e2e/model_provider.py:/fixtures/model_provider.py:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=2)"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  ingest:
+    environment:
+      LLM_API_KEY: f05-fixture
+      LLM_BASE_URL: http://model-fixture:8080/v1/
+      EMBEDDING_MODEL: f05-embeddings
+    depends_on:
+      model-fixture:
+        condition: service_healthy
+
+  backend:
+    environment:
+      LLM_API_KEY: f05-fixture
+      LLM_BASE_URL: http://model-fixture:8080/v1/
+      LLM_MODEL: f05-chat
+      EMBEDDING_MODEL: f05-embeddings
+
+  middleend:
+    environment:
+      ADMIN_TOKEN: ${E2E_ADMIN_TOKEN:?defina E2E_ADMIN_TOKEN para os testes F05}
+      CORS_ALLOWED_ORIGINS: http://localhost:3300
+      CHECKOUT_DECREMENT_STOCK: "false"
+    ports: !override
+      - "127.0.0.1:8800:8000"
+
+  frontend:
+    command: sh -c "corepack pnpm@9.0.0 install --frozen-lockfile --store-dir /pnpm-store && corepack pnpm@9.0.0 dev --hostname 0.0.0.0"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8800
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports: !override
+      - "127.0.0.1:3300:3000"
+    volumes:
+      - f05_pnpm_store:/pnpm-store
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      start_period: 180s
+      interval: 4s
+      timeout: 15s
+      retries: 15
+
+volumes:
+  f05_pnpm_store:
