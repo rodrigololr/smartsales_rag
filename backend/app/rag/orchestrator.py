@@ -322,11 +322,13 @@ class RAGOrchestrator:
                 yield event
             return
         # Deliberate second SQL read (spec 7, R09): emit the cards as they are after the
-        # stream, not the pre-prompt snapshot (stock may have sold out meanwhile).
-        final_events = await self._recommendations(
-            request, product, query_embedding, substitutes=False
+        # stream, not the pre-prompt snapshot (stock may have sold out meanwhile). The
+        # no-alternative notice is decided on that same fresh read.
+        final_events, current = await asyncio.gather(
+            self._recommendations(request, product, query_embedding, substitutes=False),
+            self._products.get_product(request.sku),
         )
-        if _unbuyable(request, product) and not _has_upsell(final_events):
+        if _unbuyable(request, current or product) and not _has_upsell(final_events):
             yield _token(f"\n{NO_ALTERNATIVE_MESSAGE}")
         cited = [chunk for chunk in chunks if chunk.chunk_id in verifier.cited_chunk_ids]
         yield {"event": "citations", "data": {"citations": [_citation(c) for c in cited]}}

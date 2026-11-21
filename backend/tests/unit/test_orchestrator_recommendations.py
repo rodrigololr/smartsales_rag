@@ -381,3 +381,24 @@ def test_answered_turn_for_an_unbuyable_product_states_that_no_alternative_exist
     buyable = run(Catalog(PRODUCT, [chunk()]), ChatModel(["Voltagem: 220V."]), Recommender([]),
                   question="Qual a voltagem?", preferred_voltage="220V")
     assert NO_ALTERNATIVE_MESSAGE not in _published(buyable)
+
+
+class RestockedCatalog(Catalog):
+    """Sold out when the turn starts, restocked by the time the stream ends."""
+
+    def __init__(self, chunks: list[RetrievedChunk]) -> None:
+        super().__init__(PRODUCT.model_copy(update={"stock_quantity": 0}), chunks)
+        self.reads = 0
+
+    async def get_product(self, sku: str) -> CatalogProduct | None:
+        self.reads += 1
+        return self.product if self.reads == 1 else PRODUCT
+
+
+def test_no_alternative_notice_uses_the_stock_read_after_the_stream() -> None:
+    from app.rag.orchestrator import NO_ALTERNATIVE_MESSAGE
+
+    catalog = RestockedCatalog([chunk()])
+    events = run(catalog, ChatModel(["Voltagem: 220V."]), Recommender([]), question="Qual a voltagem?")
+    assert catalog.reads == 2
+    assert NO_ALTERNATIVE_MESSAGE not in _published(events)

@@ -50,14 +50,15 @@ export function useChatSession() {
   const controllerRef = useRef<AbortController | null>(null);
   // Server session (real API only); created lazily on the first question.
   const serverSessionRef = useRef<string | null>(null);
-  // Turn whose last attempt was cut off: the server may have stored it, so a manual retry
-  // must resend the same client_request_id. Cleared once the turn ends for sure.
-  const interruptedTurnRef = useRef<{ assistantId: string; clientRequestId: string } | null>(null);
+  // Turns whose last attempt was cut off, keyed by assistant message: the server may have
+  // stored them, so a manual retry must resend the same client_request_id even after other
+  // questions. An entry is dropped once its turn is retried.
+  const interruptedTurnsRef = useRef(new Map<string, string>());
 
   const reset = useCallback(() => {
     controllerRef.current?.abort();
     controllerRef.current = null;
-    interruptedTurnRef.current = null;
+    interruptedTurnsRef.current.clear();
     const serverSession = serverSessionRef.current;
     serverSessionRef.current = null;
     if (serverSession) {
@@ -194,12 +195,11 @@ export function useChatSession() {
       controllerRef.current = controller;
       // One ID per explicit question, kept on the automatic reconnect and on a manual retry
       // of an interrupted turn; a new one only after the turn ended (done or terminal error).
-      const interrupted = interruptedTurnRef.current;
-      const clientRequestId =
-        replaceAssistantId && interrupted?.assistantId === replaceAssistantId
-          ? interrupted.clientRequestId
-          : createId();
-      interruptedTurnRef.current = null;
+      const interrupted = replaceAssistantId
+        ? interruptedTurnsRef.current.get(replaceAssistantId)
+        : undefined;
+      if (replaceAssistantId) interruptedTurnsRef.current.delete(replaceAssistantId);
+      const clientRequestId = interrupted ?? createId();
 
       try {
         for (let reconnects = 0; ; reconnects++) {
@@ -218,7 +218,7 @@ export function useChatSession() {
       } catch (error) {
         if (isAbort(error)) return;
         if (error instanceof StreamInterruptedError) {
-          interruptedTurnRef.current = { assistantId, clientRequestId };
+          interruptedTurnsRef.current.set(assistantId, clientRequestId);
         }
         console.warn("chat_stream_failed", error);
         patchAssistant(assistantId, {
