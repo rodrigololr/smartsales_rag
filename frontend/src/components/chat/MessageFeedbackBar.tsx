@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Check, RefreshCw, ThumbsDown, ThumbsUp } from "lucide-react";
 import type {
   ChatMessage,
@@ -45,9 +45,12 @@ export function MessageFeedbackBar({
   const [showReasons, setShowReasons] = useState(false);
   const [pending, setPending] = useState(false);
   const [failedAttempt, setFailedAttempt] = useState<FeedbackAttempt | null>(null);
+  const [selectedReason, setSelectedReason] = useState<FeedbackReasonCategory | null>(null);
+  const reasonsId = useId();
   const [error, setError] = useState<string | null>(null);
 
   const submit = async (attempt: FeedbackAttempt) => {
+    setSelectedReason(attempt.reason ?? null);
     setPending(true);
     setError(null);
     try {
@@ -109,6 +112,7 @@ export function MessageFeedbackBar({
           size="xs"
           disabled={pending}
           aria-expanded={showReasons}
+          aria-controls={reasonsId}
           onClick={() => setShowReasons((value) => !value)}
           data-testid={`feedback-dislike-${message.id}`}
           className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
@@ -119,7 +123,12 @@ export function MessageFeedbackBar({
       </div>
 
       {showReasons ? (
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Motivo da avaliação negativa">
+        <div
+          id={reasonsId}
+          className="flex flex-wrap gap-1.5"
+          role="group"
+          aria-label="Motivo da avaliação negativa"
+        >
           {feedbackReasons.map((reason) => (
             <Button
               key={reason.value}
@@ -127,7 +136,7 @@ export function MessageFeedbackBar({
               variant="outline"
               size="xs"
               disabled={pending}
-              aria-pressed={failedAttempt?.reason === reason.value}
+              aria-pressed={selectedReason === reason.value}
               onClick={() => void submit({ rating: "DISLIKE", reason: reason.value })}
               data-testid={`feedback-reason-${reason.value}`}
               className="font-normal aria-pressed:border-rose-300 aria-pressed:bg-rose-50"

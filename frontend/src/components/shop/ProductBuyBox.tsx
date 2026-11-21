@@ -1,6 +1,6 @@
 import { CheckCircle, ShieldAlert, ShoppingCart, Truck } from "lucide-react";
 import type { Product } from "@/types/catalog";
-import { formatBRL, marketplaceLabel } from "@/lib/format";
+import { formatBRL, marketplaceLabel, safeHttpUrl } from "@/lib/format";
 import { checkoutUrlOf, marketplaceOf } from "@/lib/mock-data";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 export function ProductBuyBox({ product }: { product: Product }) {
   const inStock = product.stock_quantity > 0;
   const marketplace = marketplaceLabel(marketplaceOf(product));
+  const checkoutHref = safeHttpUrl(checkoutUrlOf(product));
 
   return (
     <section
@@ -30,9 +31,9 @@ export function ProductBuyBox({ product }: { product: Product }) {
           <ShieldAlert aria-hidden className="size-4" /> Esgotado
         </p>
       )}
-      {inStock ? (
+      {inStock && checkoutHref ? (
         <a
-          href={checkoutUrlOf(product)}
+          href={checkoutHref}
           target="_blank"
           rel="noopener noreferrer"
           data-testid={`buy-btn-${product.sku}`}
@@ -41,6 +42,10 @@ export function ProductBuyBox({ product }: { product: Product }) {
           <ShoppingCart />
           Comprar na {marketplace}
         </a>
+      ) : inStock ? (
+        <p className="text-xs text-muted-foreground">
+          Link de compra indisponível. Pergunte ao Consultor IA onde comprar este modelo.
+        </p>
       ) : (
         <p className="text-xs text-muted-foreground">
           Indisponível no momento. Pergunte ao Consultor IA por um modelo equivalente em estoque.

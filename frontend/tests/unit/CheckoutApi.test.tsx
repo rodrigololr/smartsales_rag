@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { StrictMode } from "react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { buildRecommendations, findProduct } from "@/lib/mock-data";
 import type { ProductCardData } from "@/types/chat";
 
@@ -20,8 +21,7 @@ const sse = (events: [string, unknown][]): Response =>
 const apiError = (status: number, code: string): Response =>
   Response.json({ error: { code, message: code, trace_id: "t", details: {} } }, { status });
 
-const confirmed = (card: ProductCardData, price = card.price): Response =>
-  Response.json({
+const confirmedBody = (card: ProductCardData, price = card.price) => ({
     checkout_event_id: CHECKOUT_EVENT,
     status: "CONFIRMED",
     sku: card.sku,
@@ -34,7 +34,10 @@ const confirmed = (card: ProductCardData, price = card.price): Response =>
     total_amount: price,
     remaining_stock: 7,
     message: "Estoque validado.",
-  });
+});
+
+const confirmed = (card: ProductCardData, price = card.price): Response =>
+  Response.json(confirmedBody(card, price));
 
 const conflict = (card: ProductCardData, status: "PRICE_CHANGED" | "OUT_OF_STOCK", price: number, stock: number) =>
   Response.json(
@@ -51,15 +54,21 @@ const conflict = (card: ProductCardData, status: "PRICE_CHANGED" | "OUT_OF_STOCK
   );
 
 /** Real gateway stub; `checkoutResponses` are served in order. */
-function stubGateway(checkoutResponses: (() => Response)[]) {
+function stubGateway(
+  checkoutResponses: (() => Response)[],
+  { withMetadata = true }: { withMetadata?: boolean } = {}
+) {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit): Promise<Response> => {
     void init;
     if (url.endsWith("/api/v1/sessions")) {
       return Response.json({ session_id: SERVER_SESSION, restored: false, history: [], expires_in_seconds: 1800 }, { status: 201 });
     }
     if (url.endsWith("/api/v1/chat/stream")) {
+      const metadata: [string, unknown][] = withMetadata
+        ? [["metadata", { message_id: SERVER_MESSAGE, session_id: SERVER_SESSION, cache_hit: false, ttft_ms: 120 }]]
+        : [];
       return sse([
-        ["metadata", { message_id: SERVER_MESSAGE, session_id: SERVER_SESSION, cache_hit: false, ttft_ms: 120 }],
+        ...metadata,
         ["token", { delta: "O modelo de 5,5L atende 6 pessoas." }],
         ["recommendations", { products: cards }],
         ["done", { finish_reason: "stop", total_latency_ms: 300, tokens_used: 10 }],
@@ -220,5 +229,63 @@ describe("UT-F04-02: mock checkout ligado ao POST /api/v1/checkout/mock", () => 
     await screen.findByTestId("checkout-confirmed");
     const [failed, retried] = checkoutBodies(fetchMock);
     expect(retried).toEqual(failed);
+  });
+
+  it("sem metadata (sem message_id do servidor) não permite checkout", async () => {
+    const fetchMock = stubGateway([], { withMetadata: false });
+    const { ProductPageView } = await import("@/components/shop/ProductPageView");
+    render(<ProductPageView product={airfryer} />);
+    fireEvent.click(screen.getByTestId("quick-suggestion-0"));
+
+    const carousel = await screen.findByTestId("recommendation-carousel");
+    const buy = within(carousel).getByTestId(`buy-now-btn-${upsell.sku}`);
+    expect(buy).toBeDisabled();
+    fireEvent.click(buy);
+    expect(screen.queryByTestId("checkout-dialog")).not.toBeInTheDocument();
+    expect(checkoutBodies(fetchMock)).toEqual([]);
+  });
+
+  it("em StrictMode envia um único POST por abertura, mesmo com novo objeto do card", async () => {
+    const fetchMock = stubGateway([() => confirmed(upsell), () => confirmed(upsell)]);
+    const { CheckoutDialog } = await import("@/components/checkout/CheckoutDialog");
+    const dialog = (card: ProductCardData) => (
+      <StrictMode>
+        <CheckoutDialog card={card} open onOpenChange={() => undefined} sessionId={SERVER_SESSION} messageId={SERVER_MESSAGE} />
+      </StrictMode>
+    );
+    const { rerender } = render(dialog(upsell));
+
+    await screen.findByTestId("checkout-confirmed");
+    rerender(dialog({ ...upsell }));
+    await waitFor(() => expect(screen.getByTestId("checkout-confirmed")).toBeInTheDocument());
+    expect(checkoutBodies(fetchMock)).toHaveLength(1);
+  });
+
+  it.each([
+    ["envelope de erro", { error: { code: "CONFLICT", message: "x", trace_id: "t", details: {} } }],
+    ["status desconhecido", { status: "LOCKED", current_price: 1, current_stock: 1 }],
+    ["preço não numérico", { status: "PRICE_CHANGED", current_price: "659,90", current_stock: 8 }],
+  ])("409 com corpo inválido (%s) vira erro genérico", async (_label, body) => {
+    stubGateway([() => Response.json(body, { status: 409 })]);
+    await renderCarousel();
+    fireEvent.click(screen.getByTestId(`buy-now-btn-${upsell.sku}`));
+
+    expect(await screen.findByTestId("checkout-error")).toHaveTextContent(/indisponível/i);
+    expect(screen.queryByTestId("checkout-conflict")).not.toBeInTheDocument();
+  });
+
+  it("não cria link para redirect_checkout_url fora de http/https", async () => {
+    stubGateway([
+      () =>
+        Response.json({
+          ...(confirmedBody(upsell)),
+          redirect_checkout_url: "javascript:alert(1)",
+        }),
+    ]);
+    await renderCarousel();
+    fireEvent.click(screen.getByTestId(`buy-now-btn-${upsell.sku}`));
+
+    await screen.findByTestId("checkout-confirmed");
+    expect(screen.queryByTestId("checkout-redirect-link")).not.toBeInTheDocument();
   });
 });

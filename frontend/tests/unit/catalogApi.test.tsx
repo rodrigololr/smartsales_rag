@@ -68,6 +68,38 @@ describe("UT-F04-04: catálogo dinâmico do GET /api/v1/products", () => {
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ cache: "no-store" });
   });
 
+  it("para depois de ceil(total/page_size) páginas mesmo se o gateway continuar devolvendo itens", async () => {
+    let calls = 0;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      void init;
+      if (++calls > 100) throw new Error("loop sem fim");
+      const page = Number(new URL(url).searchParams.get("page"));
+      return Response.json({ items: [apiProduct(`SKU-${page}`)], page, page_size: 100, total: 250 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { fetchCatalog } = await import("@/lib/catalog-api");
+
+    expect(await fetchCatalog()).toHaveLength(3);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("tem limite rígido de páginas quando o gateway não informa total", async () => {
+    let calls = 0;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      void init;
+      if (++calls > 1000) throw new Error("loop sem fim");
+      const page = Number(new URL(url).searchParams.get("page"));
+      return Response.json({ items: [apiProduct(`SKU-${page}`)], page, page_size: 100 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { fetchCatalog } = await import("@/lib/catalog-api");
+    await fetchCatalog();
+
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(50);
+  });
+
   it("prefere API_INTERNAL_BASE_URL no servidor", async () => {
     vi.stubEnv("API_INTERNAL_BASE_URL", "http://middleend:8000");
     const fetchMock = vi.fn(async () => Response.json({ items: [], page: 1, page_size: 100, total: 0 }));

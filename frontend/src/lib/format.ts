@@ -98,3 +98,14 @@ export const formatMs = (value: number): string => `${formatNumber(Math.round(va
 
 export const formatPercent = (value: number): string =>
   `${(value * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+
+/** Only http(s) links from the gateway become hrefs (blocks javascript:, data:, ...). */
+export const safeHttpUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  try {
+    const { protocol } = new URL(url);
+    return protocol === "http:" || protocol === "https:" ? url : null;
+  } catch {
+    return null;
+  }
+};

@@ -69,6 +69,12 @@ describe("Página do produto com Consultor IA ao lado", () => {
     expect(mockCheckout).not.toHaveBeenCalled();
   });
 
+  it("o buy box não cria link para checkout_url fora de http/https", () => {
+    render(<ProductPageView product={{ ...product("AF-400-220V"), checkout_url: "javascript:alert(1)" }} />);
+
+    expect(screen.queryByTestId("buy-btn-AF-400-220V")).not.toBeInTheDocument();
+  });
+
   it("sugere perguntas coerentes com o tipo de produto", () => {
     expect(suggestionsFor(product("CF-15B-127V"))).toContain("Como faço a descalcificação?");
     expect(suggestionsFor(product("AF-400-220V"))).toContain(
