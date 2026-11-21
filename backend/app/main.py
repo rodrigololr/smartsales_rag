@@ -6,6 +6,7 @@ POST /internal/rag/stream answers with NDJSON: one internal M02 event per line.
 import json
 import logging
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from functools import lru_cache
 
 import tiktoken
@@ -22,7 +23,22 @@ from app.recommendation.service import RecommendationService
 TOKEN_COUNT_ENCODING = "o200k_base"  # gpt-4o family tokenizer
 
 logging.basicConfig(level=logging.INFO)
-app = FastAPI(title="SmartSales RAG Backend (interno)")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # The threshold is calibrated per embedding model (RN02): make the pairing visible.
+    settings = get_settings()
+    logger.info(
+        "rag_settings similarity_threshold=%s embedding_model=%s llm_model=%s llm_fallback_model=%s",
+        settings.similarity_threshold, settings.embedding_model, settings.llm_model,
+        settings.llm_fallback_model or "-",
+    )
+    yield
+
+
+app = FastAPI(title="SmartSales RAG Backend (interno)", lifespan=lifespan)
 
 
 @lru_cache
@@ -39,6 +55,7 @@ def get_orchestrator() -> RAGOrchestrator:
             model=settings.embedding_model,
             dimensions=settings.embedding_dimensions,
             batch_size=settings.embedding_batch_size,
+            timeout=settings.embedding_timeout_seconds,
         ),
         OpenAIChatModel(
             client,
@@ -47,6 +64,7 @@ def get_orchestrator() -> RAGOrchestrator:
             max_tokens=settings.llm_max_tokens,
             first_token_timeout=settings.llm_first_token_timeout_seconds,
             first_token_attempts=settings.llm_first_token_attempts,
+            fallback_model=settings.llm_fallback_model,
         ),
         settings,
         count_tokens=lambda text: len(encoding.encode(text)),

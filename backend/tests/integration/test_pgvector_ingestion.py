@@ -10,6 +10,7 @@ import asyncio
 import json
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 import psycopg
 import pytest
@@ -150,3 +151,66 @@ def test_ingestion_indexes_catalog_and_manuals_then_search_stays_on_the_product(
     gone = asyncio.run(catalog.get_product("CF-15B-127V"))
     assert gone is not None and not gone.is_active
     assert asyncio.run(catalog.search("CF-15B-127V", query, 5)) == []
+
+
+async def _chunk_counts() -> dict[str, int]:
+    async with await psycopg.AsyncConnection.connect(DATABASE_URL, autocommit=True) as conn:
+        # Without the btree the planner can only filter by sku after the HNSW scan.
+        await conn.execute("DROP INDEX IF EXISTS idx_manual_chunks_sku")
+        await conn.execute("ANALYZE manual_chunks")
+        cursor = await conn.execute("SELECT sku, count(*) FROM manual_chunks GROUP BY sku")
+        return {row[0]: row[1] for row in await cursor.fetchall()}
+
+
+def test_sku_scoped_search_returns_the_product_chunks_even_when_hnsw_is_planned(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # HNSW returns ~ef_search (40) global neighbours and *then* applies WHERE sku = ...,
+    # so a product whose chunks are not among them used to get 0 rows (false fallback).
+    asyncio.run(_reset())
+    embedder = HashingEmbedder()
+    asyncio.run(ingest(DATABASE_URL, DATA_DIR / "catalog.json", DATA_DIR / "manuals", embedder, Settings()))
+    counts = asyncio.run(_chunk_counts())
+    monkeypatch.setenv("PGOPTIONS", "-c enable_seqscan=off -c enable_bitmapscan=off")
+    catalog = PostgresCatalog(DATABASE_URL)
+    [query] = asyncio.run(embedder.embed(["Qual a capacidade do cesto da airfryer em litros?"]))
+    limit = 5
+
+    for sku, count in sorted(counts.items()):
+        found = asyncio.run(catalog.search(sku, query, limit))
+        assert len(found) == min(limit, count), sku
+        assert {chunk.sku for chunk in found} == {sku}
+        scores = [chunk.similarity_score for chunk in found]
+        assert scores == sorted(scores, reverse=True)
+
+
+async def _description(sku: str) -> str | None:
+    async with await psycopg.AsyncConnection.connect(DATABASE_URL) as conn:
+        cursor = await conn.execute("SELECT description FROM products WHERE sku = %s", (sku,))
+        row = await cursor.fetchone()
+    assert row is not None
+    return cast(str | None, row[0])
+
+
+def test_ingestion_stores_the_catalog_description_and_migrates_old_tables(
+    tmp_path: Path,
+) -> None:
+    asyncio.run(_reset())
+    embedder = HashingEmbedder()
+    catalog_path = DATA_DIR / "catalog.json"
+    rows = json.loads(catalog_path.read_text(encoding="utf-8"))
+    expected = next(row["description"] for row in rows if row["sku"] == "AF-400-220V")
+    asyncio.run(ingest(DATABASE_URL, catalog_path, DATA_DIR / "manuals", embedder, Settings()))
+    assert asyncio.run(_description("AF-400-220V")) == expected
+
+    async def drop_column() -> None:  # a database created before the column existed
+        async with await psycopg.AsyncConnection.connect(DATABASE_URL, autocommit=True) as conn:
+            await conn.execute("ALTER TABLE products DROP COLUMN description")
+
+    asyncio.run(drop_column())
+    changed = tmp_path / "catalog.json"
+    rows = [{**row, "description": "Nova descrição."} if row["sku"] == "AF-400-220V" else row
+            for row in rows]
+    changed.write_text(json.dumps(rows), encoding="utf-8")
+    asyncio.run(ingest(DATABASE_URL, changed, DATA_DIR / "manuals", embedder, Settings()))
+    assert asyncio.run(_description("AF-400-220V")) == "Nova descrição."

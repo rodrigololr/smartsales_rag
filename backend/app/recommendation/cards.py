@@ -2,7 +2,7 @@
 
 from decimal import ROUND_HALF_UP, Decimal
 
-from app.models.schemas import CatalogProduct
+from app.models.schemas import CatalogProduct, ProductRecommendation
 from app.recommendation.models import RecommendationType
 
 PRIMARY_BADGE = "Produto Consultado"
@@ -72,3 +72,16 @@ def build_card(
         "badge_label": _BADGES[role],
         "justification": primary_justification(product) if role == "PRIMARY" else justification,
     }
+
+
+def option_facts(option: CatalogProduct | ProductRecommendation) -> list[str]:
+    """SQL facts of one product, one attribute per "SKU <code>:" sentence (the G-OUT format)."""
+    facts = []
+    if option.capacity_liters is not None:
+        facts.append(f"Possui capacidade de {_liters(option.capacity_liters)} L.")
+    if option.power_watts is not None:
+        facts.append(f"A potência é {option.power_watts} W.")
+    if option.voltage != UNPOWERED_VOLTAGE:
+        facts.append(f"Voltagem: {option.voltage}.")
+    facts.append(f"Preço atual: {_brl(option.price)}.")
+    return [f"SKU {option.sku}: {fact}" for fact in facts]

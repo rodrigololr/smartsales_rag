@@ -22,6 +22,7 @@ from .metrics import (
 )
 from .models import EvalCaseResult, EvaluationReport, GoldenSetFixture, ObservedTurn, RunIdentity
 from .pipeline import Pipeline, ProductionPipeline
+from .retry import ProviderRetry, RetrySettings
 
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_FIXTURE_PATH = Path(__file__).with_name("golden_set.json")
@@ -219,11 +220,15 @@ async def _live(
             first_token_timeout=settings.llm_first_token_timeout_seconds,
             first_token_attempts=settings.llm_first_token_attempts,
         )
-        pipeline = ProductionPipeline(catalog, catalog, embedder, model, settings, corpus, catalog)
+        # One pacer for generator and judge: they usually share the provider quota.
+        retry = ProviderRetry(RetrySettings())
+        pipeline = ProductionPipeline(
+            catalog, catalog, embedder, model, settings, corpus, catalog, retry
+        )
         report = await run_ragas_evaluation(
             fixtures=fixtures[: args.limit] if args.limit else fixtures,
             pipeline=pipeline,
-            judge=RagasJudge.from_settings(judge_settings),
+            judge=RagasJudge.from_settings(judge_settings, retry),
             corpus=corpus,
             identity=identity,
             checkpoint_path=args.checkpoint,

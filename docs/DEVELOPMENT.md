@@ -82,6 +82,7 @@ em `http://localhost:8001/docs`.
 | backend | `REDIS_URL` | não definida | Com ela, a ingestão executa `INCR catalog:version`. Sem ela, a CLI avisa e não invalida o cache. |
 | backend | `REDIS_CONNECT_TIMEOUT_SECONDS` | `5.0` | Limite para conectar ao Redis no `INCR catalog:version`. |
 | backend | `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, `EMBEDDING_MODEL` | OpenAI, `gpt-4o-mini`, `text-embedding-3-small` | Provedor compatível com a API da OpenAI. |
+| backend | `LLM_FALLBACK_MODEL` | vazio | Modelo da segunda tentativa do RNF07 (429, 5xx, erro de rede ou primeiro token acima de `LLM_FIRST_TOKEN_TIMEOUT_SECONDS`). No Gemini gratuito a cota (RPM/RPD) é por modelo: `gemini-3.5-flash-lite` como principal e `gemini-3.1-flash-lite` como fallback somam as duas cotas. Erros 400/401/404 não trocam de modelo. **Não existe fallback de embedding:** vetores de modelos diferentes não são comparáveis, então o `EMBEDDING_MODEL` da consulta tem de ser o mesmo da ingestão. |
 | backend | `SIMILARITY_THRESHOLD` | `0.72` | Abaixo dele o turno vira `LOW_SIMILARITY_FALLBACK`. |
 | backend | `INGESTION_MAX_ATTEMPTS`, `INGESTION_BACKOFF_SECONDS` | `3`, `1.0` | Tentativas por fonte (mínimo 1) e espera inicial (dobra a cada falha). |
 | backend | `HISTORY_MAX_MESSAGES` | `6` | Mensagens do histórico que entram no prompt. A janela de 10 é a que o gateway guarda e envia; o backend usa as 6 mais recentes. |
@@ -110,7 +111,7 @@ em `http://localhost:8001/docs`.
 | Módulo | Pacote | O que faz |
 | --- | --- | --- |
 | `ingestion/` | `B01`, `B03` | CLI `python -m app.ingestion.run`: adquire *advisory lock* de sessão no PostgreSQL (rejeitando execuções concorrentes com código 1), valida o catálogo, faz *upsert* em `products`, substitui `product_relations` sob lock de tabela quando `--relations` é informado (sem a flag a tabela não é tocada; arquivo inexistente é erro), e indexa a ficha técnica e o manual de cada produto em chunks de 500 tokens (sobreposição de 50) a partir de um *snapshot* único de bytes e de um *fingerprint* de configuração (contexto, título, modelo/provedor, dimensão e chunking). Cada fonte roda sob `ingestion_jobs` (`RUNNING` → `INDEXED`), com até 3 tentativas e *backoff* apenas para falhas transitórias (`LLMUnavailableError`, `psycopg.OperationalError`); esgotadas, ou em erro permanente (PDF corrompido/vazio, erro de leitura, `IntegrityError`), fica `NEEDS_INTERVENTION`, preserva a versão anterior sob `lock_product`, segue para a próxima fonte e a CLI termina com código 1. Troca de extensão aposenta a fonte antiga do SKU. O `INCR catalog:version` roda ao final em `finally`; se o Redis falhar, o relatório traz `catalog_version_error` e a CLI termina com código 1. |
-| `db/` | `B01`, `B03`, `B04` | `schema.sql` (idempotente) com `products`, `manual_chunks` (HNSW), `product_relations` e `ingestion_jobs`; `repository.py` com as consultas e snapshot `REPEATABLE READ READ ONLY` para recomendações. |
+| `db/` | `B01`, `B03`, `B04` | `schema.sql` (idempotente) com `products`, `manual_chunks` (HNSW), `product_relations` e `ingestion_jobs`; `repository.py` com as consultas e snapshot `REPEATABLE READ READ ONLY` para recomendações. A busca de chunks é exata sobre os chunks do SKU (CTE `MATERIALIZED`), sem passar pelo índice HNSW: com ele o filtro por `sku` seria aplicado depois dos ~40 vizinhos globais e um produto fora deles ficaria sem nenhum chunk. |
 | `clients/` | `B02`, `B03` | Cliente compatível com a API da OpenAI e `RedisCatalogVersion` (`INCR catalog:version`). |
 | `rag/orchestrator.py` | `B02`, `B03`, `B04` | Turno de um produto: G-IN, busca dos 5 chunks do SKU, limiar, seleção SQL pré-prompt de recomendações, geração com G-OUT por sentença (`SentenceVerifier` / `ConsultativeVerifier`), releitura SQL dos cards e citações. |
 | `guardrails/` | `B03`, `B04` | Bloqueio de *prompt injection* (`input.py`) e verificação por sentença (`output.py`, `publication.py`): valida preço, voltagem, potência e capacidade contra o SQL do SKU (com normalização de `mL`/`L` e `kW`/`W`), exige trecho literal verificado e página real para fatos de manual, permite fatos SQL de alternativas em `<RECOMENDACOES_SQL>` quando prefixadas por `SKU <codigo>:`, e só emite o aviso *"não consta no manual"* quando a sentença bloqueada contém afirmação técnica (descartando saudações/paráfrases sem número silenciosamente). |
@@ -131,7 +132,9 @@ Quando o evento `recommendations` é emitido:
 
 As opções elegíveis são lidas em snapshot `REPEATABLE READ READ ONLY` antes do prompt
 (entrando em `<RECOMENDACOES_SQL>` para comparação consultiva verificada por SKU) e
-relidas novamente antes de emitir o evento `recommendations`. Se qualquer etapa das
+relidas novamente antes de emitir o evento `recommendations`. A leitura para o prompt
+roda em paralelo com a busca de chunks (e a consulta do produto em paralelo com o
+embedding da pergunta). Se qualquer etapa das
 recomendações falhar, o turno segue sem cards.
 
 ### Gateway (`middleend/app/`)
