@@ -95,6 +95,8 @@ em `http://localhost:8001/docs`.
 | middleend | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Origens aceitas, separadas por vírgula. |
 | middleend | `SESSION_TTL_SECONDS`, `SESSION_HISTORY_MAX_MESSAGES`, `SESSION_LOCK_TTL_SECONDS` | `1800`, `10`, `60` | TTL da sessão, janela do histórico (número par, mínimo 2) e validade do lease/lock de turno. |
 | middleend | `SESSION_HEARTBEAT_SECONDS`, `SESSION_MAINTENANCE_SECONDS`, `TURN_RETRY_AFTER_SECONDS` | `10.0`, `60.0`, `1` | Intervalo de renovação do lease durante o stream, intervalo de limpeza SQL de sessões/turnos expirados e cabeçalho `Retry-After` em `409 TURN_IN_PROGRESS`. |
+| middleend | `RATE_LIMIT_PER_MINUTE` | `30` | Limite de requisições por minuto, em janela fixa de 60 s (`429 RATE_LIMITED` com cabeçalho `Retry-After`): por sessão em `POST /chat/stream` (`ratelimit:session:{session_id}`, com um teto grosso de 10× por IP em `ratelimit:ip-chat:{client_ip}` que barra `session_id` inventados antes da consulta ao banco) e por IP nas demais rotas (`ratelimit:ip:{client_ip}`). Se o Redis cair, o limitador deixa as requisições passarem (*fail-open*, decisão de disponibilidade coberta por teste). |
+| middleend | `RATE_LIMIT_TRUSTED_PROXY_HOPS` | `0` | Quantos proxies reversos confiáveis ficam na frente do gateway. Com `0`, o `X-Forwarded-For` é ignorado e o IP é o da conexão; com `N`, usa o endereço anexado pelo proxy mais externo (o cliente não consegue forjar o próprio IP). |
 | middleend | `CACHE_TTL_SECONDS`, `CACHE_POLICY_VERSION` | `3600`, `p1` | TTL das respostas em cache; mude a versão ao alterar prompts, guardrails, ranking ou modelo. |
 
 ## Arquitetura implementada
@@ -132,7 +134,8 @@ recomendações falhar, o turno segue sem cards.
 
 | Módulo | Pacote | O que faz |
 | --- | --- | --- |
-| `routes/chat.py` | `M02`, `M03` | `POST /api/v1/sessions` (201 para sessão nova, 200 com o histórico quando o `session_id` enviado ainda está ativo), `DELETE /api/v1/sessions/{id}`, `POST /api/v1/chat/stream` e `GET /api/v1/health` (`backend`, `redis`, `postgres`). Indisponibilidade de Redis ou PostgreSQL responde 503 `SERVICE_UNAVAILABLE` no envelope de erro. |
+| `routes/chat.py` | `M01`, `M02`, `M03` | `POST /api/v1/sessions` (201 para sessão nova, 200 com o histórico quando o `session_id` enviado ainda está ativo), `DELETE /api/v1/sessions/{id}`, `POST /api/v1/chat/stream` e `GET /api/v1/health` (`backend`, `redis`, `postgres`). Indisponibilidade de Redis ou PostgreSQL responde 503 `SERVICE_UNAVAILABLE` no envelope de erro, e falhas de validação Pydantic respondem 422 `VALIDATION_ERROR` no mesmo envelope. |
+| `ratelimit/` | `M01` | `RedisRateLimiter` (contador atômico Lua em `ratelimit:ip:{client_ip}` ou, no chat, `ratelimit:session:{session_id}`, TTL de 60 s, 30 req/min por padrão) e `InMemoryRateLimiter` (quando `REDIS_URL` não está definida), retornando `429 RATE_LIMITED` com cabeçalho `Retry-After`. |
 | `sessions/` e `db/` | `M02` | `PostgresSessionStore` (autoridade durável em `chat_sessions`, `chat_messages` e `chat_turn_requests`, migradas sob *advisory lock* em `middleend/app/db/schema.sql`), `SessionCache` (projeção e máquina de estados no Redis), `LeaseStream` (renovação de lease por *heartbeat* a cada 10 s e bloqueio de entrega caso a posse seja perdida), `replay.py` (revalidação SQL dos cards antes de entregar um *replay* idempotente) e `SessionStreamingResponse`, além dos adaptadores auxiliares `RedisSessionStore` e `InMemorySessionStore`. |
 | `cache/` | `M03` | `build_cache_key` (identidade canônica), `SemanticCacheService` e `RedisCacheStorage`. |
 | `repositories/products.py` | `M03` | Leitura de preço, estoque e status em `products` (ADR-06). |
@@ -150,6 +153,7 @@ Chaves no Redis:
 | `session:{id}:turns` | SET | 1800 s | Ids dos turnos no modo auxiliar Redis-only, para o `DELETE` remover tudo. |
 | `cache:sem:v{versão}:{sha256}` | STRING | 3600 s | Texto, citações e cards de um turno respondido, mais `consulted` (SKU, preço e disponibilidade do produto consultado). |
 | `catalog:version` | STRING | sem expiração | Contador incrementado pela ingestão. |
+| `ratelimit:ip:{client_ip}` | STRING | 60 s | Contador de requisições por minuto por IP (`INCR` + `EXPIRE 60`, limite padrão de 30 req/min). |
 
 Regras do cache:
 
@@ -174,8 +178,7 @@ Regras do cache:
   `openapi.yaml` define a restauração pelo `POST /api/v1/sessions` com `session_id`.
 - Em relação à seção 4 de `specs/architecture/02_database_pgvector_and_redis_schema.md`:
   o HASH `session:{id}:state` não persiste `voltage_pref` separado (a preferência de
-  voltagem vem em `context_filters` por turno) e `ratelimit:ip:{client_ip}` ainda não
-  existe (`M01`).
+  voltagem vem em `context_filters` por turno).
 - Quando o backend está inacessível, a contingência do gateway não publica cards.
 - Os testes unitários não medem RAGAS com provedor externo, latência de rede real nem
   *cache hit ratio* de produção. Essas medições pertencem à homologação viva do `B05` e

@@ -16,7 +16,8 @@ from fastapi.responses import JSONResponse
 from app.cache.service import CachedAnswer, SemanticCacheService
 from app.clients.backend import ReplayStream
 from app.config import Settings
-from app.schemas import ChatStreamRequest, Filters, SessionCreate
+from app.ratelimit import RateDecision, RateLimiter
+from app.schemas import ChatStreamRequest, Error, Filters, SessionCreate
 from app.sessions.lease import LeaseStream
 from app.sessions.response import SessionStreamingResponse
 from app.sessions.store import HistoryItem, SessionSnapshot, SessionStore, TurnDecision, TurnState
@@ -26,6 +27,20 @@ from app.sse.models import BackendStream, CompletedTurn, ProductCard
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1")
+
+REST_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
+    422: {"model": Error, "description": "Error"},
+    429: {
+        "model": Error,
+        "description": "Error",
+        "headers": {
+            "Retry-After": {
+                "description": "Segundos até uma nova tentativa permitida.",
+                "schema": {"type": "integer", "minimum": 1},
+            }
+        },
+    },
+}
 
 SSE_HEADERS = {
     "Cache-Control": "no-cache, no-transform",
@@ -53,6 +68,15 @@ def error_response(
         "error": {"code": code, "message": message, "trace_id": str(uuid.uuid4()), "details": {}}
     }
     return JSONResponse(body, status_code=status, headers=headers)
+
+
+def rate_limited(decision: RateDecision, limit: int) -> JSONResponse:
+    return error_response(
+        429,
+        "RATE_LIMITED",
+        f"Limite de {limit} requisições por minuto excedido.",
+        headers={"Retry-After": str(decision.retry_after_seconds)},
+    )
 
 
 def _payload_hash(body: ChatStreamRequest) -> str:
@@ -151,7 +175,7 @@ def _session_body(
     }
 
 
-@router.post("/sessions", status_code=201)
+@router.post("/sessions", status_code=201, responses=REST_ERROR_RESPONSES)
 async def create_session(body: SessionCreate, request: Request) -> JSONResponse:
     """201 for a new session; 200 with the history window when `session_id` is still active."""
     store: SessionStore = request.app.state.store
@@ -165,7 +189,9 @@ async def create_session(body: SessionCreate, request: Request) -> JSONResponse:
     return JSONResponse(_session_body(session, settings, restored=False), status_code=201)
 
 
-@router.delete("/sessions/{session_id}", status_code=204, response_model=None)
+@router.delete(
+    "/sessions/{session_id}", status_code=204, response_model=None, responses=REST_ERROR_RESPONSES
+)
 async def end_session(session_id: uuid.UUID, request: Request) -> Response:
     store: SessionStore = request.app.state.store
     request.state.session_id = str(session_id)  # for error logs
@@ -174,7 +200,7 @@ async def end_session(session_id: uuid.UUID, request: Request) -> Response:
     return Response(status_code=204)
 
 
-@router.post("/chat/stream", response_model=None)
+@router.post("/chat/stream", response_model=None, responses=REST_ERROR_RESPONSES)
 async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
     started_at = time.perf_counter()
     store: SessionStore = request.app.state.store
@@ -185,6 +211,11 @@ async def chat_stream(body: ChatStreamRequest, request: Request) -> Response:
     session = await store.get(str(body.session_id))
     if session is None:
         return error_response(404, "SESSION_NOT_FOUND", "Sessão não encontrada ou expirada.")
+    # Chat is limited per session (not per IP): a class behind one NAT shares one IP.
+    limiter: RateLimiter = request.app.state.rate_limiter
+    decision = await limiter.check(f"session:{session.session_id}")
+    if not decision.allowed:
+        return rate_limited(decision, settings.rate_limit_per_minute)
     filters = body.context_filters
     sku = (filters.current_product_sku if filters else None) or session.current_product_sku
     if not sku:
