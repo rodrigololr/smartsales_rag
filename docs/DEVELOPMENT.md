@@ -1,8 +1,9 @@
 # Desenvolvimento local
 
 Guia para rodar cada camada fora do Docker, executar os testes e entender o que
-está implementado no backend (`B01`–`B04`) e no gateway (`M02`, `M03`). O passo a
-passo com Docker Compose está no [README](../README.md#como-rodar-docker-compose).
+está implementado no backend (`B01`–`B05`), no gateway (`M01`–`M05`) e no frontend
+(`F01`–`F05`). O passo a passo com Docker Compose está no
+[README](../README.md#como-rodar-docker-compose).
 
 ## Preparação (uv + Python 3.12)
 

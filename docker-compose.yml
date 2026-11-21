@@ -27,6 +27,8 @@ services:
   # Indexa data/catalog.json + data/manuals/ (UC08). Fontes inalteradas são puladas.
   ingest:
     build: ./backend
+    # Falhas transitórias (ex.: HTTP 429 do provedor) não travam a pilha de primeira.
+    restart: on-failure:3
     command: ["python", "-m", "app.ingestion.run", "--catalog", "/data/catalog.json", "--manuals", "/data/manuals", "--relations", "/data/product_relations.json"]
     environment: &backend-env
       DATABASE_URL: postgresql://smartsales:smartsales@db:5432/smartsales
@@ -34,6 +36,7 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:?defina LLM_API_KEY no .env da raiz}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       SIMILARITY_THRESHOLD: ${SIMILARITY_THRESHOLD:-0.72}
     volumes:
@@ -47,6 +50,7 @@ services:
   backend:
     build: ./backend
     environment: *backend-env
+    restart: unless-stopped
     depends_on:
       ingest:
         condition: service_completed_successfully
@@ -62,18 +66,27 @@ services:
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
     ports:
       - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    # Not tied to the ingestion: catalog/checkout come up with the database, and chat
+    # degrades to the controlled LLM_UNAVAILABLE fallback until the backend is ready.
     depends_on:
-      backend:
-        condition: service_started
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
   frontend:
     image: node:22-alpine
     working_dir: /app
-    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm dev --hostname 0.0.0.0"
+    # Build de produção: NEXT_PUBLIC_* entra no bundle no build; as páginas buscam o catálogo por requisição.
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm build && pnpm start --hostname 0.0.0.0"
     environment:
-      # Lido pelo navegador, por isso aponta para a porta publicada no host.
+      # Lido pelo navegador (embutido no build), por isso aponta para a porta publicada no host.
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
       # Lido pelo servidor Next (catálogo SSR) dentro da rede do compose.
       API_INTERNAL_BASE_URL: http://middleend:8000
@@ -83,7 +96,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - middleend
+      middleend:
+        condition: service_healthy
 
 volumes:
   pgdata:
