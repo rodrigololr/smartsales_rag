@@ -43,6 +43,7 @@ def assert_contract(response: httpx.Response, path: str, status: int) -> dict:
 
 
 REDIS_URL = os.environ.get("TEST_REDIS_URL", "")
+RATE_LIMIT_OFF = 1_000_000
 
 
 @pytest.fixture
@@ -143,6 +144,9 @@ async def client_for(
         redis_url=REDIS_URL,
         checkout_decrement_stock=decrement_stock,
         admin_token=admin_token,
+        # Not a rate-limit test: the shared Redis bucket of 127.0.0.1 must not trip
+        # (M01, #36; the field is ignored by Settings until M01 is merged).
+        rate_limit_per_minute=RATE_LIMIT_OFF,
     )
     app = create_app(settings, StubBackend(fallback))
     async with (
