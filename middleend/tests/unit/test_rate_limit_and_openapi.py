@@ -6,16 +6,20 @@ import os
 import uuid
 from pathlib import Path
 
+import httpx
 import pytest
+from app.commerce import CatalogQuery, CheckoutCreate
 from app.config import Settings
-from app.main import create_app
+from app.main import build_redis, create_app
 from app.ratelimit import (
+    CATALOG_READS_PER_IP,
     CHAT_SESSIONS_PER_IP,
     InMemoryRateLimiter,
     RedisRateLimiter,
     client_ip_from_request,
 )
 from fastapi.testclient import TestClient
+from pydantic import BaseModel, ValidationError
 from redis.asyncio import Redis
 from redis.exceptions import ConnectionError as RedisConnectionError
 from starlette.requests import Request
@@ -129,6 +133,22 @@ def test_ct_m01_01_runtime_openapi_matches_normative_session_and_chat_contracts(
             assert method in runtime["paths"][path]
             if path in normative["paths"]:
                 assert method in normative["paths"][path]
+
+    shared = set(runtime["paths"]) & set(normative["paths"])
+    assert {"/api/v1/sessions", "/api/v1/chat/stream", "/api/v1/health"} <= shared
+    for path in shared:
+        for method, operation in normative["paths"][path].items():
+            if method == "parameters":  # path-level, not an operation
+                continue
+            served = runtime["paths"][path][method]
+            assert served["operationId"] == operation["operationId"], (path, method)
+            assert set(served["responses"]) == set(operation["responses"]), (path, method)
+            if "422" in served["responses"]:
+                schema = served["responses"]["422"]["content"]["application/json"]["schema"]
+                assert schema["$ref"].endswith("/ErrorEnvelope"), (path, method)
+
+    stream_ok = runtime["paths"]["/api/v1/chat/stream"]["post"]["responses"]["200"]
+    assert list(stream_ok["content"]) == ["text/event-stream"]
 
     normative_stream_req = normative["components"]["schemas"]["ChatStreamRequest"]
     runtime_stream_req = runtime["components"]["schemas"]["ChatStreamRequest"]
@@ -275,4 +295,95 @@ def test_chat_stream_has_a_coarse_ip_bucket_before_the_session_lookup() -> None:
             for _ in range(CHAT_SESSIONS_PER_IP + 1)
         ]
     assert statuses[:-1] == [404] * CHAT_SESSIONS_PER_IP
+    assert statuses[-1] == 429
+
+
+def test_catalog_reads_skip_the_ip_bucket_but_writes_stay_limited() -> None:
+    # The Next.js server renders the storefront from a single container IP (SSR).
+    with _limited_app(limit=1) as client:
+        reads = [
+            client.get(path).status_code
+            for path in ("/api/v1/products", "/api/v1/products/AF-400-220V") * 3
+        ]
+        assert 429 not in reads
+        writes = [client.post("/api/v1/feedback", json={}).status_code for _ in range(2)]
+        assert writes[-1] == 429
+        # Only the list and the single-product route are exempt, not deeper paths.
+        assert client.get("/api/v1/products/AF-400-220V/extra").status_code == 429
+
+
+def _stream_with_filters(client: TestClient, filters: str) -> httpx.Response:
+    body = (
+        f'{{"session_id": "{uuid.uuid4()}", "client_request_id": "{uuid.uuid4()}", '
+        f'"message": "Qual a voltagem?", "context_filters": {filters}}}'
+    )
+    return client.post(
+        "/api/v1/chat/stream", content=body, headers={"Content-Type": "application/json"}
+    )
+
+
+@pytest.mark.parametrize(
+    ("filters", "field"),
+    [
+        ('{"capacity_min": NaN}', "capacity_min"),
+        ('{"capacity_min": Infinity}', "capacity_min"),
+        ('{"capacity_min": -1}', "capacity_min"),
+        (json.dumps({"category": "x" * 65}), "category"),
+    ],
+)
+def test_chat_filters_reject_non_finite_negative_or_oversized_values(
+    filters: str, field: str
+) -> None:
+    settings = Settings(backend_internal_url="http://127.0.0.1:9")
+    with TestClient(create_app(settings, FakeBackend([TOKEN, END]))) as client:
+        response = _stream_with_filters(client, filters)
+    assert response.status_code == 422
+    assert response.json()["error"]["details"]["errors"][0]["loc"][-1] == field
+
+
+@pytest.mark.parametrize(
+    ("model", "payload", "field"),
+    [
+        (CatalogQuery, {"category": "x" * 65}, "category"),
+        (
+            CheckoutCreate,
+            {
+                "session_id": str(uuid.uuid4()),
+                "message_id": str(uuid.uuid4()),
+                "sku": "S" * 65,
+                "recommendation_type": "PRIMARY",
+                "quantity": 1,
+                "displayed_price": 10.0,
+            },
+            "sku",
+        ),
+    ],
+)
+def test_commerce_request_strings_are_bounded(
+    model: type[BaseModel], payload: dict[str, object], field: str
+) -> None:
+    with pytest.raises(ValidationError) as invalid:
+        model.model_validate(payload)
+    assert invalid.value.errors()[0]["loc"][-1] == field
+
+
+def test_redis_client_pings_idle_connections_before_reuse() -> None:
+    # Upstash and NAT gateways drop idle TCP connections; a stale one would fail a request.
+    settings = Settings(redis_url="redis://127.0.0.1:9/0")
+    assert settings.redis_health_check_interval_seconds == 30
+    redis = build_redis(settings, "redis://127.0.0.1:9/0")
+    try:
+        assert redis.connection_pool.connection_kwargs["health_check_interval"] == 30
+    finally:
+        asyncio.run(redis.aclose())
+
+
+def test_catalog_reads_have_their_own_generous_ip_bucket() -> None:
+    # Exempt from the 30/min bucket (SSR), but a scraper is still capped.
+    settings = Settings(backend_internal_url="http://127.0.0.1:9", rate_limit_per_minute=1)
+    with TestClient(create_app(settings, FakeBackend([TOKEN, END]))) as client:
+        statuses = [
+            client.get("/api/v1/products").status_code for _ in range(CATALOG_READS_PER_IP + 1)
+        ]
+    assert 429 not in statuses[:-1]
     assert statuses[-1] == 429

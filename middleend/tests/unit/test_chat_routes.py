@@ -397,6 +397,52 @@ def test_backend_http_error_is_a_connection_error() -> None:
         _collect(BackendClient(http, "http://backend:8001"))
 
 
+def _flaky_worker(first: httpx.Response | Exception) -> tuple[httpx.AsyncClient, list[int]]:
+    """First attempt fails as given; any retry gets a normal NDJSON answer."""
+    attempts: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        attempts.append(1)
+        if len(attempts) == 1:
+            if isinstance(first, Exception):
+                raise first
+            return first
+        return httpx.Response(200, text="\n".join(json.dumps(e) for e in (TOKEN, END)))
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler)), attempts
+
+
+@pytest.mark.parametrize(
+    "first", [httpx.ConnectError("refused"), httpx.ConnectTimeout("syn"), httpx.Response(503)]
+)
+def test_backend_retries_once_when_the_request_never_reached_a_generation(
+    first: httpx.Response | Exception,
+) -> None:
+    http, attempts = _flaky_worker(first)
+    assert _collect(BackendClient(http, "http://backend:8001")) == [TOKEN, END]
+    assert len(attempts) == 2
+
+
+@pytest.mark.parametrize(
+    ("first", "expected"),
+    [
+        (httpx.ReadTimeout("slow LLM"), TimeoutError),  # the worker may already pay for tokens
+        (httpx.Response(422), ConnectionError),  # same payload would fail again
+    ],
+)
+def test_backend_does_not_retry_read_timeouts_or_client_errors(
+    first: httpx.Response | Exception, expected: type[Exception]
+) -> None:
+    http, attempts = _flaky_worker(first)
+    with pytest.raises(expected):
+        _collect(BackendClient(http, "http://backend:8001"))
+    assert len(attempts) == 1
+
+
+def test_first_event_timeout_default_covers_the_backend_path_to_a_first_sentence() -> None:
+    assert Settings().backend_first_event_timeout_seconds == 12.0
+
+
 @pytest.mark.parametrize("voltage", ["127V", "220V"])
 def test_gateway_forwards_the_voltage_preference_to_the_worker(voltage: str) -> None:
     seen: list[dict[str, object]] = []

@@ -1,6 +1,7 @@
 """Rate limiting primitives for the API Gateway (M01, RNF09)."""
 
 from app.ratelimit.limiter import (
+    CATALOG_READS_PER_IP,
     CHAT_SESSIONS_PER_IP,
     RATE_LIMIT_KEY_PREFIX,
     RATE_LIMIT_WINDOW_SECONDS,
@@ -12,6 +13,7 @@ from app.ratelimit.limiter import (
 )
 
 __all__ = [
+    "CATALOG_READS_PER_IP",
     "CHAT_SESSIONS_PER_IP",
     "InMemoryRateLimiter",
     "RATE_LIMIT_KEY_PREFIX",

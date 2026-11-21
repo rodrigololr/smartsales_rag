@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
 
@@ -17,12 +16,14 @@ from redis.asyncio import Redis
 from redis.asyncio.retry import Retry
 from redis.backoff import NoBackoff
 from redis.exceptions import RedisError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.cache.redis_storage import RedisCacheStorage
 from app.cache.service import SemanticCacheService
 from app.clients.backend import BackendClient
 from app.config import Settings, get_settings
 from app.ratelimit import (
+    CATALOG_READS_PER_IP,
     CHAT_SESSIONS_PER_IP,
     RATE_LIMIT_WINDOW_SECONDS,
     InMemoryRateLimiter,
@@ -39,8 +40,14 @@ from app.sessions.postgres_store import PostgresSessionStore
 from app.sessions.redis_store import RedisSessionStore
 from app.sessions.store import InMemorySessionStore, SessionStore
 from app.telemetry.http_errors import ResponseCounter
+from app.telemetry.tracing import (
+    REQUEST_ID_HEADER,
+    RequestIdMiddleware,
+    configure_logging,
+    current_trace_id,
+)
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 # /chat/stream: per session_id in the route, plus a coarse per-IP bucket here.
@@ -51,6 +58,29 @@ _EXEMPT_IP_LIMIT_PATHS = {
     "/openapi.json",
     "/redoc",
 }
+# Read-only catalog: the Next.js SSR fetches it for every visitor from one container IP.
+_CATALOG_PATH = "/api/v1/products"
+
+
+def _ip_limit_exempt(request: Request) -> bool:
+    return request.method == "OPTIONS" or request.url.path in _EXEMPT_IP_LIMIT_PATHS
+
+
+def _catalog_read(request: Request) -> bool:
+    path = request.url.path
+    if request.method != "GET":
+        return False
+    sku = path.removeprefix(_CATALOG_PATH + "/")  # GET /products/{sku}, nothing deeper
+    return path == _CATALOG_PATH or (sku != path and sku != "" and "/" not in sku)
+
+
+def _ip_bucket(request: Request) -> tuple[RateLimiter, str, int]:
+    state = request.app.state
+    if request.url.path == _CHAT_STREAM_PATH:
+        return state.chat_ip_limiter, "ip-chat", CHAT_SESSIONS_PER_IP
+    if _catalog_read(request):
+        return state.catalog_ip_limiter, "ip-catalog", CATALOG_READS_PER_IP
+    return state.rate_limiter, "ip", 1
 
 
 async def redis_unavailable(request: Request, failure: Exception) -> JSONResponse:
@@ -87,11 +117,42 @@ async def validation_failed(request: Request, failure: Exception) -> JSONRespons
         "error": {
             "code": "VALIDATION_ERROR",
             "message": "Payload de requisição inválido.",
-            "trace_id": str(uuid.uuid4()),
+            "trace_id": current_trace_id(),
             "details": {"errors": errors},
         }
     }
     return JSONResponse(body, status_code=422)
+
+
+_HTTP_ERROR_CODES = {
+    404: ("NOT_FOUND", "Recurso não encontrado."),
+    405: ("METHOD_NOT_ALLOWED", "Método não permitido para este recurso."),
+}
+
+
+async def http_error(request: Request, failure: Exception) -> JSONResponse:
+    """Router-level 404/405 (and any other HTTPException) in the REST error envelope."""
+    status = failure.status_code if isinstance(failure, StarletteHTTPException) else 500
+    headers = failure.headers if isinstance(failure, StarletteHTTPException) else None
+    code, message = _HTTP_ERROR_CODES.get(status, ("HTTP_ERROR", "Requisição não atendida."))
+    return error_response(status, code, message, headers=headers)
+
+
+async def unhandled_error(request: Request, failure: Exception) -> JSONResponse:
+    """Last resort: logged with its trace_id, never a stack trace to the client."""
+    trace_id = current_trace_id()
+    logger.error(
+        "unhandled_error",
+        exc_info=failure,
+        extra={"trace_id": trace_id, "session_id": getattr(request.state, "session_id", None)},
+    )
+    # Sent by Starlette's outermost middleware, outside RequestIdMiddleware: add the header here.
+    return error_response(
+        500,
+        "INTERNAL_ERROR",
+        "Erro interno. Tente novamente.",
+        headers={REQUEST_ID_HEADER: trace_id},
+    )
 
 
 async def maintain_sessions(store: PostgresSessionStore, interval: float) -> None:
@@ -161,6 +222,18 @@ def build_commerce(settings: Settings) -> PostgresCommerce | None:
     )
 
 
+def build_redis(settings: Settings, url: str) -> Redis:
+    return Redis.from_url(
+        url,
+        decode_responses=True,
+        retry=Retry(NoBackoff(), 0),
+        socket_timeout=settings.redis_socket_timeout_seconds,
+        socket_connect_timeout=settings.redis_socket_connect_timeout_seconds,
+        # PING a connection idle longer than this before reusing it (Upstash/NAT drop idle TCP).
+        health_check_interval=settings.redis_health_check_interval_seconds,
+    )
+
+
 def build_rate_limiter(
     settings: Settings, redis: Redis | None, *, per_ip_factor: int = 1
 ) -> RateLimiter:
@@ -182,14 +255,8 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         async with AsyncExitStack() as resources:
-            redis: Redis | None = (
-                Redis.from_url(
-                    settings.redis_url,
-                    decode_responses=True,
-                    retry=Retry(NoBackoff(), 0),
-                    socket_timeout=settings.redis_socket_timeout_seconds,
-                    socket_connect_timeout=settings.redis_socket_connect_timeout_seconds,
-                )
+            redis = (
+                build_redis(settings, settings.redis_url)
                 if settings.redis_url and store is None
                 else None
             )
@@ -200,6 +267,9 @@ def create_app(
             app.state.rate_limiter = rate_limiter or build_rate_limiter(settings, redis)
             app.state.chat_ip_limiter = build_rate_limiter(
                 settings, redis, per_ip_factor=CHAT_SESSIONS_PER_IP
+            )
+            app.state.catalog_ip_limiter = build_rate_limiter(
+                settings, redis, per_ip_factor=CATALOG_READS_PER_IP
             )
             app.state.redis_enabled = redis is not None
             app.state.redis = redis  # INCR catalog:version on mock checkout (M05)
@@ -230,37 +300,44 @@ def create_app(
     app.state.chat_ip_limiter = build_rate_limiter(
         settings, None, per_ip_factor=CHAT_SESSIONS_PER_IP
     )
+    app.state.catalog_ip_limiter = build_rate_limiter(
+        settings, None, per_ip_factor=CATALOG_READS_PER_IP
+    )
 
     @app.middleware("http")
     async def enforce_rate_limit(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        if request.method != "OPTIONS" and request.url.path not in _EXEMPT_IP_LIMIT_PATHS:
+        if not _ip_limit_exempt(request):
             client_ip = client_ip_from_request(
                 request, trusted_proxy_hops=settings.rate_limit_trusted_proxy_hops
             )
-            chat = request.url.path == _CHAT_STREAM_PATH
-            limiter: RateLimiter = (
-                request.app.state.chat_ip_limiter if chat else request.app.state.rate_limiter
-            )
-            decision = await limiter.check(f"{'ip-chat' if chat else 'ip'}:{client_ip}")
+            limiter, bucket, factor = _ip_bucket(request)
+            decision = await limiter.check(f"{bucket}:{client_ip}")
             if not decision.allowed:
-                factor = CHAT_SESSIONS_PER_IP if chat else 1
                 return rate_limited(decision, settings.rate_limit_per_minute * factor)
-        return await call_next(request)
+        try:
+            return await call_next(request)
+        except Exception as failure:  # noqa: BLE001 - last resort, logged with trace_id
+            # Answered here, inside CORSMiddleware, so the browser can read the envelope.
+            return await unhandled_error(request, failure)
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Accept", "X-Admin-Token"],
-        expose_headers=["Retry-After"],
+        allow_headers=["Content-Type", "Accept", "X-Admin-Token", REQUEST_ID_HEADER],
+        expose_headers=["Retry-After", REQUEST_ID_HEADER],
     )
     # Added last = outside CORS: counts every response, CORS preflights included (M04).
     app.add_middleware(ResponseCounter)
+    # Outermost: every response, 429 and CORS preflight included, carries the request id.
+    app.add_middleware(RequestIdMiddleware)
     app.add_exception_handler(RedisError, redis_unavailable)
     app.add_exception_handler(DatabaseError, storage_unavailable)
     app.add_exception_handler(RequestValidationError, validation_failed)
+    app.add_exception_handler(StarletteHTTPException, http_error)
+    app.add_exception_handler(Exception, unhandled_error)
     app.include_router(router)
     app.include_router(commerce_router)
     return app

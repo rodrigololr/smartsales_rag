@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, PlainSerializer, field_validator, model_validator
 
+from app.schemas import CATEGORY_MAX_LENGTH, SKU_MAX_LENGTH
+
 VoltageFilter = Literal["127V", "220V"]
 RecommendationType = Literal["PRIMARY", "UPSELL", "CROSS_SELL"]
 ConflictStatus = Literal["OUT_OF_STOCK", "PRICE_CHANGED"]
@@ -34,7 +36,7 @@ class Product(BaseModel):
 
 class CatalogQuery(BaseModel):
     q: str | None = Field(default=None, max_length=200)
-    category: str | None = None
+    category: str | None = Field(default=None, max_length=CATEGORY_MAX_LENGTH)
     voltage: VoltageFilter | None = None
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=20, ge=1, le=100)
@@ -71,7 +73,7 @@ class FeedbackRecorded(BaseModel):
 
 
 class CheckoutCreate(MessageReference):
-    sku: str
+    sku: str = Field(max_length=SKU_MAX_LENGTH)
     recommendation_type: RecommendationType
     quantity: int = Field(ge=1, le=MAX_POSTGRES_INTEGER)
     displayed_price: Decimal = Field(gt=0, decimal_places=2)

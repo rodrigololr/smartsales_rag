@@ -114,7 +114,8 @@
             "name": "category",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 64
             }
           },
           {
@@ -393,6 +394,16 @@
             "description": "Encerrada"
           },
           "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Error",
             "content": {
               "application/json": {
@@ -978,13 +989,16 @@
             ]
           },
           "category": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64
           },
           "current_product_sku": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64
           },
           "capacity_min": {
-            "type": "number"
+            "type": "number",
+            "minimum": 0
           },
           "budget_max": {
             "type": "number",
@@ -1329,7 +1343,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "maxLength": 64
           }
         },
         "required": []
@@ -1465,7 +1480,8 @@
             "format": "uuid"
           },
           "sku": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64
           },
           "recommendation_type": {
             "type": "string",
@@ -1613,7 +1629,8 @@
                 "type": "string"
               },
               "trace_id": {
-                "type": "string"
+                "type": "string",
+                "description": "Id de correlação da requisição: o X-Request-ID recebido (se for UUID válido) ou um UUID gerado; é devolvido no cabeçalho X-Request-ID e repassado ao backend."
               },
               "details": {}
             },

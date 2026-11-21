@@ -8,8 +8,10 @@ from app.sse.stream import SSEStream
 
 
 class SessionStreamingResponse(StreamingResponse):
+    media_type = "text/event-stream"
+
     def __init__(self, stream: SSEStream, *, headers: dict[str, str]) -> None:
-        super().__init__(stream, media_type="text/event-stream", headers=headers)
+        super().__init__(stream, media_type=self.media_type, headers=headers)
         self._stream = stream
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

@@ -38,7 +38,7 @@ Configurações adicionais (padrões):
 | SESSION_DB_QUERY_TIMEOUT_MS | 2000 |
 | REDIS_SOCKET_TIMEOUT_SECONDS | 2 |
 | REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS | 2 |
-| BACKEND_FIRST_EVENT_TIMEOUT_SECONDS | 3, uma nova tentativa antes do conteúdo |
+| BACKEND_FIRST_EVENT_TIMEOUT_SECONDS | 8, uma nova tentativa só em erro de conexão ou HTTP 5xx antes de qualquer evento |
 | BACKEND_TIMEOUT_SECONDS | 30, timeout HTTP após início |
 
 Retries automáticos do cliente Redis estão desativados. Indisponibilidade de storage

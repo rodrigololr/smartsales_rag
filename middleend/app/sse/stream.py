@@ -327,6 +327,7 @@ async def _sse_frames(
     transition: Callable[[TurnState], Awaitable[None]] | None,
 ) -> AsyncGenerator[str, None]:
     session_id, message_id = turn.session_id, turn.message_id
+    persisted_state: TurnState | None = None  # each transition is a DB transaction: once per change
     try:
         try:
             if not await _connected(request, turn):
@@ -336,11 +337,12 @@ async def _sse_frames(
                     return
                 event, payload = parse(item)
                 turn.accept(event, payload)
-                if transition is not None:
-                    stage: TurnState = ("ERROR_CONTINGENCY" if event == "error" else
-                                        "STREAMING_TOKENS" if event == "token" else
-                                        "EMITTING_CARDS_AND_CITATIONS")
+                stage: TurnState = ("ERROR_CONTINGENCY" if event == "error" else
+                                    "STREAMING_TOKENS" if event == "token" else
+                                    "EMITTING_CARDS_AND_CITATIONS")
+                if transition is not None and stage != persisted_state:
                     await transition(stage)
+                    persisted_state = stage
                 if event == "end":
                     break
                 async for frame in _frames(request, turn, cast(PublicEventName, event), payload):
@@ -357,7 +359,7 @@ async def _sse_frames(
             logger.exception(
                 "stream_failed", extra={"session_id": session_id, "message_id": message_id}
             )
-            if transition is not None:
+            if transition is not None and persisted_state != "ERROR_CONTINGENCY":
                 try:
                     await transition("ERROR_CONTINGENCY")
                 except Exception:
