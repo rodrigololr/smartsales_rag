@@ -9,7 +9,13 @@ import unicodedata
 from collections.abc import Sequence
 from uuid import UUID
 
-from app.guardrails.output import Claim, pt_br_number, technical_claims
+from app.guardrails.output import (
+    UNIT_WORDS,
+    Claim,
+    measured_values,
+    pt_br_number,
+    technical_claims,
+)
 from app.models.schemas import CatalogProduct, ProductRecommendation, RetrievedChunk
 
 CITATION_MARK = re.compile(r"\[Fonte:\s*(.+?),\s*p\.\s*(\d+)\]")
@@ -34,6 +40,12 @@ _NUMERAL = re.compile(r"\d+(?:[.,]\d+)*")
 _HEADER = re.compile(r"(\s*(?:-\s+)?)SKU ([A-Za-z0-9_-]+):(\s*)", re.IGNORECASE)
 _BULLET = re.compile(r"\s*-\s")
 _PRICE_WORDS = re.compile(r"\b(?:pre[cç]o|custa|custo|valor|reais)\b|R\$", re.IGNORECASE)
+_TABLE_ROW = re.compile(r"^\s*\|(.+)\|\s*$", re.MULTILINE)
+# Words a table-row sentence may wrap around its label and values without stating a new fact.
+_ROW_CONNECTIVES = frozenset(
+    "para a o os as e de da do das dos por em no na com durante use utilize deixe ajuste "
+    "programe indica recomenda recomendado recomendada indicado indicada sao".split()
+)
 
 
 def normalized_words(text: str) -> str:
@@ -78,7 +90,29 @@ def _literal_support(sentence: str, chunk: RetrievedChunk) -> bool:
             if not (set(remainder.split()) & _QUALIFIERS or _NUMERAL.search(remainder)
                     or _CONTINUATIONS.match(remainder)):
                 return True
-    return False
+    return _table_row_support(sentence, chunk)
+
+
+def _table_row_support(sentence: str, chunk: RetrievedChunk) -> bool:
+    """A markdown table row ("| Batata congelada | 200 °C | 18 a 20 min |") supports a
+    sentence naming exactly that row label with only that row's values, ranges whole."""
+    values = measured_values(sentence)
+    if not values or len(_NUMERAL.findall(sentence)) != sum(1 + bool(high) for _, high, _ in values):
+        return False  # a bare number (no unit) or a value outside a measure
+    rows = []
+    for row in _TABLE_ROW.finditer(_body(chunk)):
+        label, *cells = row.group(1).split("|")
+        rows.append((normalized_words(label), measured_values(" ".join(cells)), " ".join(cells)))
+    wanted = f" {normalized_words(sentence)} "
+    named = [(label, row_values) for label, row_values, _ in rows
+             if row_values and label and f" {label} " in wanted]
+    if len(named) != 1 or not set(values) <= set(named[0][1]):
+        return False
+    headers = {word for label, row_values, cells in rows if not row_values
+               for word in normalized_words(f"{label} {cells}").split()}
+    allowed = _ROW_CONNECTIVES | headers | {normalized_words(unit) for unit in UNIT_WORDS}
+    rest = wanted.replace(f" {named[0][0]} ", " ", 1).split()
+    return all(word.isdigit() or word in allowed for word in rest)
 
 
 class SentenceVerifier:
@@ -101,9 +135,9 @@ class SentenceVerifier:
         plain = CITATION_MARK.sub("", sentence).strip().rstrip(".!? ")
         if "[Fonte:" in plain:
             return None  # malformed citation must not slip through as ordinary prose
-        if any(any(char.isdigit() for char in sku) and sku != self._product.sku
-               for sku in _SKU.findall(plain)):
-            return None
+        # Another SKU is publishable only inside a literal manual extract that names it.
+        foreign_sku = any(any(char.isdigit() for char in sku) and sku != self._product.sku
+                          for sku in _SKU.findall(plain))
         claims = technical_claims(plain)
         if _PRICE_WORDS.search(plain) and any(char.isdigit() for char in plain):
             if not any(unit == "BRL" for _, unit in claims):
@@ -118,7 +152,7 @@ class SentenceVerifier:
             if _literal_support(plain, chunk):
                 self.cited_chunk_ids.add(chunk.chunk_id)
                 return self._with_citation(sentence, chunk)
-        return sentence if self._sql_statement(plain, claims) else None
+        return sentence if not foreign_sku and self._sql_statement(plain, claims) else None
 
     def _sql_statement(self, sentence: str, claims: set[Claim]) -> bool:
         if not claims or not claims <= self._sql_claims:

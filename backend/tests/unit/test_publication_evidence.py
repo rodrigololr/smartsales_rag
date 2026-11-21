@@ -323,3 +323,67 @@ def test_prompt_renders_sql_values_in_pt_br_and_asks_for_prefixed_sentences() ->
 def test_g_out_accepts_the_pt_br_forms_the_prompt_renders(answer: str) -> None:
     product = PRODUCT.model_copy(update={"price": Decimal("1299.90"), "capacity_liters": Decimal("1.5")})
     assert SentenceVerifier(product, []).approve(answer) == answer
+
+
+TABLE_MANUAL = (
+    "## Tabela de preparo\n| Alimento | Temperatura | Tempo |\n"
+    "| Batata congelada | 200 °C | 18 a 20 min |\n| Coxa de frango | 180 °C | 25 a 30 min |\n"
+    "| Pão de queijo congelado | 180 °C | 15 min |"
+)
+CITE_P7 = " [Fonte: Manual Airfryer SmartChef 4L, p. 7]."
+
+
+@pytest.mark.parametrize("answer", [
+    "Para batata congelada, a temperatura é 200 °C e o tempo é 18 a 20 min",
+    "Para batata congelada, use 200 °C por 18 a 20 minutos",
+    "Batata congelada: 200 °C",
+    "Para pão de queijo congelado, o tempo é 15 min",
+])
+def test_a_table_row_supports_its_label_with_its_own_values(answer: str) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=TABLE_MANUAL)])
+    assert verifier.approve(answer + CITE_P7) == answer + CITE_P7
+    assert verifier.approve(answer + ".") == answer + CITE_P7  # uncited: gets its real page
+
+
+@pytest.mark.parametrize("answer", [
+    "Para batata congelada, a temperatura é 180 °C e o tempo é 18 a 20 min",  # wrong value
+    "Para batata congelada, a temperatura é 200 °C e o tempo é 25 a 30 min",  # another row's value
+    "Para batata congelada, o tempo é 18 min",  # truncated range
+    "Para batata congelada, o tempo é 20 min",
+    "Para batata congelada, use 200 °C por 18 a 20 min e mais 5 min",  # extra number
+    "Para batata congelada, use 200 °C por 18 a 20 min, 2 vezes",
+    "Para batata congelada e coxa de frango, use 200 °C",  # two row labels
+    "Para batata, use 200 °C",  # partial label
+    "Para batata congelada, use 200 °C sem pré-aquecer",  # unsupported added instruction
+    "Não use 200 °C para batata congelada",
+    "Para frango, 200 °C",
+])
+def test_a_table_row_never_supports_wrong_partial_or_foreign_values(answer: str) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=TABLE_MANUAL)])
+    assert verifier.approve(answer + CITE_P7) is None
+    assert verifier.approve(answer + ".") is None
+
+
+DESCALING = (
+    "Faça a descalcificação a cada 2 meses, ou antes se a água da região for dura, usando o "
+    "Kit de Limpeza e Descalcificação AromaTech (KIT-CAF-01) conforme a embalagem."
+)
+
+
+def test_a_literal_manual_sentence_may_name_the_accessory_sku_it_contains() -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=DESCALING)])
+    cited = DESCALING[:-1] + CITE_P7
+    assert verifier.approve(cited) == cited
+    assert verifier.approve(DESCALING) == cited
+
+
+@pytest.mark.parametrize("answer", [
+    "Use o KIT-CAF-01 a cada 2 meses.",  # paraphrase naming another SKU
+    "Faça a descalcificação a cada 3 meses usando o KIT-CAF-01.",
+    "O KIT-CAF-01 custa R$ 499,90.",  # base SQL value transferred to another SKU
+    "O KIT-CAF-01 tem potência de 1500 W.",
+])
+def test_another_sku_outside_a_literal_manual_sentence_is_still_blocked(answer: str) -> None:
+    verifier = SentenceVerifier(PRODUCT, [chunk(content=DESCALING)])
+    assert verifier.approve(answer) is None
+    assert verifier.approve(answer[:-1] + CITE_P7) is None

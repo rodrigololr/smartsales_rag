@@ -19,12 +19,12 @@ _UNITS = {
 }  # fmt: skip
 # pt-BR numbers: "1.500" is a thousands separator (1500), "1,5" a decimal comma.
 _THOUSANDS = r"[1-9]\d{0,2}(?:\.\d{3})+(?:,\d+)?"
-_FIGURE = re.compile(
-    rf"({_THOUSANDS}|\d+(?:[.,]\d+)?)\s*("
-    + "|".join(sorted(map(re.escape, _UNITS), key=len, reverse=True))
-    + r")(?![a-zà-ú])",
-    re.IGNORECASE,
-)
+_NUMBER = rf"({_THOUSANDS}|\d+(?:[.,]\d+)?)"
+_UNIT = "(" + "|".join(sorted(map(re.escape, _UNITS), key=len, reverse=True)) + r")(?![a-zà-ú])"
+_FIGURE = re.compile(rf"{_NUMBER}\s*{_UNIT}", re.IGNORECASE)
+# "18 a 20 min" is one value: its range must never be read as "18 min" or "20 min".
+_MEASURE = re.compile(rf"{_NUMBER}(?:\s*(?:a|até|-|–)\s*{_NUMBER})?\s*{_UNIT}", re.IGNORECASE)
+UNIT_WORDS = frozenset(_UNITS)
 _BIVOLT = re.compile(r"\bbivolt\b", re.IGNORECASE)
 _MONEY = re.compile(
     r"(?:R\$\s*|\b(?:custa|pre[cç]o(?:\s+atual)?(?:\s+é)?(?:\s+de)?)\s*:?\s*)(\d[\d.,]*)"
@@ -62,6 +62,14 @@ def technical_claims(text: str) -> set[Claim]:
     if _BIVOLT.search(text):
         claims.add(("bivolt", "V"))
     return claims
+
+
+def measured_values(text: str) -> list[tuple[str, str, str]]:
+    """(low, high, unit) per figure, pt-BR parsed; `high` is "" unless it is a range."""
+    return [
+        (pt_br_number(low), pt_br_number(high) if high else "", _UNITS[unit.lower()])
+        for low, high, unit in _MEASURE.findall(text)
+    ]
 
 
 def unsupported_claims(sentence: str, evidence: set[Claim]) -> set[Claim]:
