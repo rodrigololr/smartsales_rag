@@ -113,8 +113,8 @@ resultado de homologação: código de saída 1, 30 requisições, 23 geradas, 2
 | Falha | Sinal | Saída |
 | :--- | :--- | :--- |
 | Provedor de IA fora do ar, lento ou com cota esgotada (HTTP 429, visto em 16/11) | Alerta `LLM_UNAVAILABLE` na conversa. | Mostrar que o sistema não inventa resposta e seguir com um vídeo gravado na véspera **[PREENCHER: gravar]**. |
-| Sem internet | Nenhuma resposta sai. | Mesmo vídeo. A geração depende do provedor, e o build de produção do frontend baixa a fonte do Google Fonts: não derrube a pilha sem rede. |
-| `ingest` falha na subida mesmo após as 3 tentativas | O `backend` não sobe; `docker compose ps -a` mostra o `ingest` com código 1. | Os dados da véspera estão no `pgdata`: `docker compose up -d db redis` e depois `docker compose up -d --no-deps backend middleend frontend`. |
+| Sem internet | Nenhuma resposta sai. | Mesmo vídeo. A geração depende do provedor, e o build de produção do frontend baixa a fonte do Google Fonts: se a rede cair, **não reinicie** a pilha, porque ela não sobe de novo sem rede. |
+| `ingest` falha na subida mesmo após as 3 tentativas (429 do provedor ou fonte em `NEEDS_INTERVENTION`, como um PDF ilegível) | O `backend` não sobe; `docker compose ps -a` mostra o `ingest` com código 1. | Os dados da véspera estão no `pgdata`: `docker compose up -d db redis` e depois `docker compose up -d --no-deps backend middleend frontend`. |
 | Ingestão falha ao vivo (jornada do lojista) | `docker compose run --rm ingest` termina com código 1. | Mostrar `needs_intervention` (ou `catalog_version_error`, se o Redis caiu) na saída da CLI como comportamento esperado e restaurar o catálogo. |
 | Painel de métricas recusa o token | Mensagem de token inválido em `/admin/metricas` (`401`). | Conferir `ADMIN_TOKEN` no `.env`, recriar o gateway (`docker compose up -d middleend`) e informar o token de novo no painel. |
 | Máquina da demo falha | — | Segunda máquina já com a pilha no ar **[PREENCHER: de quem]**. |
