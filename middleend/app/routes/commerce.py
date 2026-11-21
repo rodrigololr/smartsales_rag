@@ -11,7 +11,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from pydantic import AwareDatetime, BaseModel
+from pydantic import AwareDatetime
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
@@ -34,21 +34,11 @@ from app.commerce import (
 from app.metrics import InvalidMetricsWindow, Metrics, resolve_window
 from app.repositories.commerce import PostgresCommerce
 from app.routes.chat import error_response
+from app.schemas import ERROR_RESPONSES
 from app.telemetry.http_errors import error_5xx_rate
 from app.telemetry.tracing import current_trace_id
 
 logger = logging.getLogger(__name__)
-
-
-class ErrorDetail(BaseModel):
-    code: str
-    message: str
-    trace_id: str
-    details: object
-
-
-class ErrorEnvelope(BaseModel):
-    error: ErrorDetail
 
 
 class DatabaseNotConfigured(Exception):
@@ -109,7 +99,7 @@ class CommerceRoute(APIRoute):
 router = APIRouter(
     prefix="/api/v1",
     route_class=CommerceRoute,
-    responses={code: {"model": ErrorEnvelope} for code in (404, 410, 422, 500, 503)},
+    responses=ERROR_RESPONSES,
 )
 
 
@@ -148,7 +138,6 @@ async def get_product(sku: str, repository: Repository) -> Product:
     "/feedback",
     status_code=201,
     operation_id="createFeedback",
-    responses={409: {"model": ErrorEnvelope}},
 )
 async def record_feedback(body: FeedbackCreate, repository: Repository) -> FeedbackRecorded:
     return await repository.record_feedback(body)
@@ -183,7 +172,6 @@ async def mock_checkout(
     "/metrics/summary",
     operation_id="metricsSummary",
     dependencies=[Depends(require_admin)],  # runs before the query and the database
-    responses={401: {"model": ErrorEnvelope}},
 )
 async def metrics_summary(
     repository: Repository,

@@ -130,6 +130,22 @@ def test_ct_m01_01_runtime_openapi_matches_normative_session_and_chat_contracts(
             if path in normative["paths"]:
                 assert method in normative["paths"][path]
 
+    shared = set(runtime["paths"]) & set(normative["paths"])
+    assert {"/api/v1/sessions", "/api/v1/chat/stream", "/api/v1/health"} <= shared
+    for path in shared:
+        for method, operation in normative["paths"][path].items():
+            if method == "parameters":  # path-level, not an operation
+                continue
+            served = runtime["paths"][path][method]
+            assert served["operationId"] == operation["operationId"], (path, method)
+            assert set(served["responses"]) == set(operation["responses"]), (path, method)
+            if "422" in served["responses"]:
+                schema = served["responses"]["422"]["content"]["application/json"]["schema"]
+                assert schema["$ref"].endswith("/ErrorEnvelope"), (path, method)
+
+    stream_ok = runtime["paths"]["/api/v1/chat/stream"]["post"]["responses"]["200"]
+    assert list(stream_ok["content"]) == ["text/event-stream"]
+
     normative_stream_req = normative["components"]["schemas"]["ChatStreamRequest"]
     runtime_stream_req = runtime["components"]["schemas"]["ChatStreamRequest"]
     assert set(normative_stream_req["required"]) == set(runtime_stream_req["required"])
