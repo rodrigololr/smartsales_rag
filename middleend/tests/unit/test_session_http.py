@@ -33,6 +33,7 @@ def clear_semantic_cache() -> None:
     async def flush() -> None:
         async with Redis.from_url(REDIS_URL, decode_responses=True) as redis:
             stale = [key async for key in redis.scan_iter("cache:sem:*")]
+            stale.extend([key async for key in redis.scan_iter("ratelimit:ip:*")])
             if stale:
                 await redis.delete(*stale)
 
