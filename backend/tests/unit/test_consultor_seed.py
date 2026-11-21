@@ -365,3 +365,31 @@ def test_knowledge_base_files_and_frozen_strings() -> None:
     ]
     assert len(clearance_pages) == 1
     assert SOFA_CURATION_NOTE in clearance_pages[0].splitlines()
+
+
+def test_knowledge_docs_parses_files_and_rejects_comma_in_title(tmp_path: Path) -> None:
+    from app.ingestion.knowledge import knowledge_docs
+
+    docs = {doc.doc_id: doc for doc in knowledge_docs(KNOWLEDGE_DIR)}
+    assert set(docs) == set(EXPECTED_KB_TITLES)
+    for doc_id, doc in docs.items():
+        assert doc.title == EXPECTED_KB_TITLES[doc_id]
+        assert len(doc.version) == 64
+        assert len(doc.pages) >= 2
+
+    bad = tmp_path / "KB-INVALID.txt"
+    bad.write_text("Título inválido, com vírgula\nConteúdo\f## Fontes\nhttps://example.com\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="vírgula"):
+        knowledge_docs(tmp_path)
+
+
+def test_load_catalog_accepts_multiple_files_and_rejects_duplicate_skus(
+    tmp_path: Path,
+) -> None:
+    combined = load_catalog(
+        [DATA_DIR / "catalog.json", DATA_DIR / "catalog_consultor.json"]
+    )
+    assert len(combined) == 47
+    with pytest.raises(ValueError, match="duplicado"):
+        load_catalog([DATA_DIR / "catalog_consultor.json", DATA_DIR / "catalog_consultor.json"])
+
