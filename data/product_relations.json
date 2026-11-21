@@ -33,5 +33,75 @@
     "relation_type": "CROSS_SELL",
     "affinity_weight": "0.900",
     "justification_template": "Solução descalcificante e escova de limpeza para cafeteiras expresso."
+  },
+  {
+    "base_sku": "AR-200-BIV",
+    "related_sku": "KIT-AR-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.950",
+    "justification_template": "Filtros e escovas de reposição compatíveis com o Aspirador Robô Varrix R200."
+  },
+  {
+    "base_sku": "AR-300-BIV",
+    "related_sku": "KIT-AR-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.950",
+    "justification_template": "Filtros e escovas de reposição compatíveis com o Aspirador Robô Varrix R300 Mapeamento."
+  },
+  {
+    "base_sku": "MS-SEM-01",
+    "related_sku": "MP-XL-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.850",
+    "justification_template": "Mousepad extragrande de 90 x 40 cm que comporta o mouse e o teclado."
+  },
+  {
+    "base_sku": "MS-GAM-02",
+    "related_sku": "MP-XL-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.850",
+    "justification_template": "Mousepad extragrande de 90 x 40 cm que comporta o mouse e o teclado."
+  },
+  {
+    "base_sku": "TC-MEC-01",
+    "related_sku": "MP-XL-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.800",
+    "justification_template": "Mousepad extragrande de 90 x 40 cm que comporta um teclado de tamanho completo e o mouse."
+  },
+  {
+    "base_sku": "TC-MEC-02",
+    "related_sku": "MP-XL-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.800",
+    "justification_template": "Mousepad extragrande de 90 x 40 cm que comporta um teclado de tamanho completo e o mouse."
+  },
+  {
+    "base_sku": "SC-1900-127V",
+    "related_sku": "PT-200-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Protetor térmico para usar antes do secador, com proteção até 230 °C."
+  },
+  {
+    "base_sku": "SC-2200-127V",
+    "related_sku": "PT-200-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Protetor térmico para usar antes do secador, com proteção até 230 °C."
+  },
+  {
+    "base_sku": "PR-230-BIV",
+    "related_sku": "PT-200-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.950",
+    "justification_template": "Protetor térmico com proteção até 230 °C, a temperatura máxima desta prancha."
+  },
+  {
+    "base_sku": "ES-1000-127V",
+    "related_sku": "PT-200-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Protetor térmico para usar antes da escova rotativa, com proteção até 230 °C."
   }
 ]

@@ -1,0 +1,23 @@
+Fone Bluetooth Sonaro Pulse
+Modelo FN-BT100
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o produto e guarde-o para consultas futuras.## Instruções de segurança
+Evite ouvir em volume alto por longos períodos.
+Não exponha o fone à chuva, ao calor excessivo ou à luz solar direta.
+Não use o fone ao dirigir ou atravessar ruas.## Componentes
+1. Fone com arco ajustável
+2. Botões de volume e multifunção
+3. Microfone integrado
+4. Cabo USB-C de carregamento## Especificações técnicas
+Este produto não é ligado diretamente à tomada: funciona com bateria interna recarregável pelo cabo USB-C que acompanha a embalagem.
+Bluetooth 5.3 com alcance de até 10 metros sem obstáculos.
+Autonomia de até 30 horas de reprodução por carga; a recarga completa leva cerca de 2 horas.## Pareamento
+1. Com o fone desligado, mantenha o botão multifunção pressionado por 5 segundos até a luz piscar em azul e vermelho.
+2. No celular, ative o Bluetooth e selecione Sonaro Pulse.
+3. O fone se reconecta sozinho ao último aparelho pareado.## Limpeza e manutenção
+Limpe as almofadas com pano levemente úmido.
+Não use álcool nem produtos abrasivos.
+Para armazenar por longos períodos, recarregue a bateria a cada 3 meses.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros.
