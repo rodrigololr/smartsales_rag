@@ -300,6 +300,8 @@ Mesmos campos do *Product Card* (`sku`, `name`, `price`, `stock_quantity`, `volt
 
 #### Query params: `from`, `to` (ISO-8601, opcionais — padrão: últimos 7 dias)
 
+Para `error_5xx_rate`, uma janela sem interseção com o período disponível (até agora e dentro da retenção dos contadores) retorna `0`, sem consultar buckets de outras horas. Isso inclui janelas inteiramente futuras.
+
 #### Response (`200 OK` — `MetricsSummaryResponse`; `401` sem token válido)
 ```json
 {

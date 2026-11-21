@@ -1,4 +1,4 @@
-"""Public API gateway (:8000) for the MVP chat."""
+"""Public API gateway (:8000) for chat and commerce."""
 
 import asyncio
 import logging
@@ -30,12 +30,15 @@ from app.ratelimit import (
     RedisRateLimiter,
     client_ip_from_request,
 )
+from app.repositories.commerce import PostgresCommerce
 from app.repositories.products import PostgresProductSnapshots
 from app.routes.chat import RagBackend, error_response, rate_limited, router
+from app.routes.commerce import router as commerce_router
 from app.sessions.cache import SessionCache
 from app.sessions.postgres_store import PostgresSessionStore
 from app.sessions.redis_store import RedisSessionStore
 from app.sessions.store import InMemorySessionStore, SessionStore
+from app.telemetry.http_errors import ResponseCounter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -156,6 +159,18 @@ def build_rate_limiter(
     return InMemoryRateLimiter(limit=limit, window_seconds=RATE_LIMIT_WINDOW_SECONDS)
 
 
+def build_commerce(settings: Settings) -> PostgresCommerce | None:
+    if not settings.database_url:
+        return None
+    return PostgresCommerce(
+        settings.database_url,
+        decrement_stock=settings.checkout_decrement_stock,
+        session_ttl_seconds=settings.session_ttl_seconds,
+        connect_timeout_seconds=settings.database_connect_timeout_seconds,
+        query_timeout_ms=settings.session_db_query_timeout_ms,
+    )
+
+
 def create_app(
     settings: Settings | None = None,
     backend: RagBackend | None = None,
@@ -188,12 +203,16 @@ def create_app(
                 settings, redis, per_ip_factor=CHAT_SESSIONS_PER_IP
             )
             app.state.redis_enabled = redis is not None
+            app.state.redis = redis  # INCR catalog:version on mock checkout (M05)
             if isinstance(app.state.store, PostgresSessionStore):
                 await app.state.store.initialize()
                 maintenance = asyncio.create_task(
                     maintain_sessions(app.state.store, settings.session_maintenance_seconds)
                 )
                 resources.push_async_callback(stop_maintenance, maintenance)
+            # After the session schema: feedback/checkout reference chat_messages.
+            if app.state.commerce is not None and not await app.state.commerce.initialize():
+                logger.warning("commerce_schema_waiting_for_products_ingestion")
             http = await resources.enter_async_context(
                 httpx.AsyncClient(timeout=settings.backend_timeout_seconds)
             )
@@ -230,6 +249,7 @@ def create_app(
                 return rate_limited(decision, settings.rate_limit_per_minute * factor)
         return await call_next(request)
 
+    app.state.commerce = build_commerce(settings)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
@@ -237,10 +257,13 @@ def create_app(
         allow_headers=["Content-Type", "Accept", "X-Admin-Token"],
         expose_headers=["Retry-After"],
     )
+    # Added last = outside CORS: counts every response, CORS preflights included (M04).
+    app.add_middleware(ResponseCounter)
     app.add_exception_handler(RedisError, redis_unavailable)
     app.add_exception_handler(DatabaseError, storage_unavailable)
     app.add_exception_handler(RequestValidationError, validation_failed)
     app.include_router(router)
+    app.include_router(commerce_router)
     return app
 
 

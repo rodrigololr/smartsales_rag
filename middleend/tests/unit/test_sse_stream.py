@@ -487,3 +487,13 @@ def test_cancellation_during_release_waits_for_resource_cleanup():
         assert harness.backend.closed and harness.released == 1
 
     run(consume())
+
+
+def test_backend_diagnostic_intent_completes_and_is_not_stored():
+    # backend/app/rag/orchestrator.py ends fallbacks with intent="LOW_SIMILARITY".
+    fallback = {"code": "LOW_SIMILARITY_FALLBACK", "recoverable": True, "fallback_message": "x"}
+    finish = {"event": "end", "data": {"tokens_used": 0, "intent": "LOW_SIMILARITY"}}
+    harness = Harness(Backend([{"event": "error", "data": fallback}, finish]))
+    events = run(harness.collect())
+    assert events[-1][1]["finish_reason"] == "fallback"
+    assert harness.completed[0].intent is None

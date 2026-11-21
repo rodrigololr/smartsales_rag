@@ -92,6 +92,8 @@ em `http://localhost:8001/docs`.
 | middleend | `DATABASE_URL` | não definida | Persistência durável de sessões/turnos (`chat_sessions`, `chat_messages`, `chat_turn_requests`, requer `REDIS_URL`) e leitura de `products` para revalidar o cache e o *replay*. |
 | middleend | `DATABASE_CONNECT_TIMEOUT_SECONDS` | `2` | Limite para conectar ao PostgreSQL na revalidação do cache (inteiro, mínimo 2). |
 | middleend | `SESSION_DB_CONNECT_TIMEOUT_SECONDS`, `SESSION_DB_QUERY_TIMEOUT_MS` | `2`, `2000` | Limite de conexão e `statement_timeout` (ms) do repositório SQL de sessões. |
+| middleend | `CHECKOUT_DECREMENT_STOCK` | `true` | O *mock checkout* confirmado desconta `products.stock_quantity`. Com `false`, só registra a conversão em `checkout_events`. |
+| middleend | `ADMIN_TOKEN` | não definida | Valor exigido no cabeçalho `X-Admin-Token` de `GET /api/v1/metrics/summary`. Sem ele (ou vazio), a rota responde sempre `401`. |
 | middleend | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Origens aceitas, separadas por vírgula. |
 | middleend | `SESSION_TTL_SECONDS`, `SESSION_HISTORY_MAX_MESSAGES`, `SESSION_LOCK_TTL_SECONDS` | `1800`, `10`, `60` | TTL da sessão, janela do histórico (número par, mínimo 2) e validade do lease/lock de turno. |
 | middleend | `SESSION_HEARTBEAT_SECONDS`, `SESSION_MAINTENANCE_SECONDS`, `TURN_RETRY_AFTER_SECONDS` | `10.0`, `60.0`, `1` | Intervalo de renovação do lease durante o stream, intervalo de limpeza SQL de sessões/turnos expirados e cabeçalho `Retry-After` em `409 TURN_IN_PROGRESS`. |
@@ -138,6 +140,8 @@ recomendações falhar, o turno segue sem cards.
 | `ratelimit/` | `M01` | `RedisRateLimiter` (contador atômico Lua em `ratelimit:ip:{client_ip}` ou, no chat, `ratelimit:session:{session_id}`, TTL de 60 s, 30 req/min por padrão) e `InMemoryRateLimiter` (quando `REDIS_URL` não está definida), retornando `429 RATE_LIMITED` com cabeçalho `Retry-After`. |
 | `sessions/` e `db/` | `M02` | `PostgresSessionStore` (autoridade durável em `chat_sessions`, `chat_messages` e `chat_turn_requests`, migradas sob *advisory lock* em `middleend/app/db/schema.sql`), `SessionCache` (projeção e máquina de estados no Redis), `LeaseStream` (renovação de lease por *heartbeat* a cada 10 s e bloqueio de entrega caso a posse seja perdida), `replay.py` (revalidação SQL dos cards antes de entregar um *replay* idempotente) e `SessionStreamingResponse`, além dos adaptadores auxiliares `RedisSessionStore` e `InMemorySessionStore`. |
 | `cache/` | `M03` | `build_cache_key` (identidade canônica), `SemanticCacheService` e `RedisCacheStorage`. |
+| `routes/commerce.py`, `repositories/commerce.py` | `M04`, `M05` | `GET /api/v1/products` (busca, filtros e paginação só com itens ativos em estoque), `GET /api/v1/products/{sku}`, `POST /api/v1/feedback` (um like/dislike por mensagem do assistente) e `POST /api/v1/checkout/mock` (`SELECT ... FOR UPDATE` em `products`, `409` para `OUT_OF_STOCK`/`PRICE_CHANGED`, `INCR catalog:version` quando o preço muda ou o estoque zera). Feedback e checkout usam o `session_id` e o `message_id` do evento SSE `metadata`; sessão encerrada responde `410`. Tabelas `feedback_logs` e `checkout_events` em `repositories/commerce.sql`, criadas após o schema de sessões (exige `products` já criada pelo backend). |
+| `routes/commerce.py` (`metrics_summary`), `metrics.py`, `telemetry/http_errors.py` | `M04` | `GET /api/v1/metrics/summary` (`UC09`), protegido por `X-Admin-Token`. Janela `[from, to)`; padrão: últimos 7 dias até agora. Definições: `turns` = respostas do assistente em `chat_messages` (inclui turnos com falha); `ttft_p50_ms`, `ttft_p95_ms` e `total_latency_p95_ms` = `percentile_cont` sobre essas respostas; `cache_hit_ratio` = fração com `cache_hit`; `like_ratio` = likes / (likes + dislikes) em `feedback_logs`; `card_ctr` = respostas com cards que receberam ao menos um clique no *mock checkout* (qualquer status) / respostas com cards; `confirmed_checkouts` = `checkout_events` com `CONFIRMED`; `top_questions` = 5 perguntas do usuário mais frequentes (minúsculas, sem espaços nas pontas); `error_5xx_rate` = respostas HTTP `>= 500` / todas as respostas do gateway, contadas por um *middleware* em buckets horários no Redis (granularidade de 1 h, retenção de 31 dias; sem Redis vale 0). Sem dados, tudo é 0. |
 | `repositories/products.py` | `M03` | Leitura de preço, estoque e status em `products` (ADR-06). |
 | `sse/` | `M02` | `sse_chat_generator`: protocolo público, transições de estado, ordem dos eventos, falhas e liberação do turno. |
 | `clients/backend.py` | `M02`, `B04` | Adaptador NDJSON do backend (encaminhando filtros de compra, com timeout de 3 s até o primeiro evento e 1 retry antes de publicar tokens) e `ReplayStream` para turnos concluídos ou vindos do cache. |
@@ -153,6 +157,7 @@ Chaves no Redis:
 | `session:{id}:turns` | SET | 1800 s | Ids dos turnos no modo auxiliar Redis-only, para o `DELETE` remover tudo. |
 | `cache:sem:v{versão}:{sha256}` | STRING | 3600 s | Texto, citações e cards de um turno respondido, mais `consulted` (SKU, preço e disponibilidade do produto consultado). |
 | `catalog:version` | STRING | sem expiração | Contador incrementado pela ingestão. |
+| `metrics:http:{AAAAMMDDHH}` | HASH | 31 dias | `total` e `5xx`: respostas HTTP do gateway naquela hora UTC (fonte de `error_5xx_rate`, `M04`). |
 | `ratelimit:ip:{client_ip}` | STRING | 60 s | Contador de requisições por minuto por IP (`INCR` + `EXPIRE 60`, limite padrão de 30 req/min). |
 
 Regras do cache:
@@ -179,6 +184,8 @@ Regras do cache:
 - Em relação à seção 4 de `specs/architecture/02_database_pgvector_and_redis_schema.md`:
   o HASH `session:{id}:state` não persiste `voltage_pref` separado (a preferência de
   voltagem vem em `context_filters` por turno).
+- `error_5xx_rate` não registra respostas enquanto o próprio Redis está fora, e um turno
+  SSE que falha depois do `200` termina em `done: error`, não em `5xx`.
 - Quando o backend está inacessível, a contingência do gateway não publica cards.
 - Os testes unitários não medem RAGAS com provedor externo, latência de rede real nem
   *cache hit ratio* de produção. Essas medições pertencem à homologação viva do `B05` e

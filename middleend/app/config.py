@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # Unset = sessions in process memory (single replica, lost on restart).
     redis_url: str | None = None
     database_url: str | None = None
+    # M05: mock checkout decrements products.stock_quantity on CONFIRMED.
+    checkout_decrement_stock: bool = True
     session_db_connect_timeout_seconds: int = Field(default=2, ge=1)
     session_db_query_timeout_ms: int = Field(default=2000, ge=1)
     session_heartbeat_seconds: float = Field(default=10.0, gt=0)
@@ -35,6 +37,8 @@ class Settings(BaseSettings):
         default=60, ge=1
     )  # SET NX EX: one turn at a time per session
     turn_retry_after_seconds: int = 1
+    # M04: X-Admin-Token for GET /metrics/summary. Unset or blank = endpoint always answers 401.
+    admin_token: SecretStr | None = None
     rate_limit_per_minute: int = Field(default=30, ge=1)  # spec: RATE_LIMIT_PER_MINUTE
     # Reverse proxies in front of the gateway that append to X-Forwarded-For. With 0 the
     # header is ignored: a client could otherwise forge it to dodge or exhaust a bucket.
@@ -50,6 +54,14 @@ class Settings(BaseSettings):
         ):
             raise ValueError("session_heartbeat_seconds must be below session and lock TTL")
         return self
+
+    @field_validator("admin_token", mode="before")
+    @classmethod
+    def blank_admin_token_is_unset(cls, value: object) -> object:
+        """docker-compose passes ADMIN_TOKEN=${ADMIN_TOKEN:-} as an empty string."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
