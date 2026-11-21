@@ -129,7 +129,7 @@ describe("useChatSession against the real middle-end", () => {
     await waitFor(() => expect(result.current.messages.at(-1)?.errorCode).toBe("LLM_UNAVAILABLE"));
     await waitFor(() => expect(result.current.isStreaming).toBe(false));
 
-    act(() => result.current.retry(result.current.messages.at(-1)!.id, product));
+    act(() => result.current.retry(result.current.messages.at(-1)!.id));
     await waitFor(() => expect(result.current.messages.at(-1)?.content).toBe("Agora sim."));
 
     const ids = api.streamChat.mock.calls.map(([request]) => request.clientRequestId);
@@ -137,7 +137,7 @@ describe("useChatSession against the real middle-end", () => {
     expect(new Set(ids).size).toBe(1);
   });
 
-  it("keeps the retry ID of an interrupted turn when another question is sent first", async () => {
+  it("retries an interrupted turn with its own ID and SKU after another question on another page", async () => {
     api.streamChat.mockReset();
     const interrupted = async function* (): AsyncGenerator<StreamEvent> {
       yield { event: "token", data: { delta: "parcial" } };
@@ -153,23 +153,26 @@ describe("useChatSession against the real middle-end", () => {
       .mockImplementationOnce(answered)
       .mockImplementationOnce(answered);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { result } = renderHook(() => useChatSession(findProduct("AF-400-220V") ?? null));
+    const { result } = renderHook(() => useChatSession());
 
-    act(() => result.current.send("Primeira"));
+    act(() => result.current.send("Primeira", findProduct("AF-400-220V") ?? null));
     await waitFor(() => expect(result.current.messages.at(-1)?.errorCode).toBe("LLM_UNAVAILABLE"));
     await waitFor(() => expect(result.current.isStreaming).toBe(false));
     const interruptedId = result.current.messages[1].id;
 
-    act(() => result.current.send("Segunda"));
+    // The shopper navigates to another product page and asks there first.
+    act(() => result.current.send("Segunda", findProduct("CF-15B-127V") ?? null));
     await waitFor(() => expect(result.current.messages.at(-1)?.content).toBe("Ok."));
     await waitFor(() => expect(result.current.isStreaming).toBe(false));
 
     act(() => result.current.retry(interruptedId));
     await waitFor(() => expect(api.streamChat).toHaveBeenCalledTimes(4));
 
-    const ids = api.streamChat.mock.calls.map(([request]) => request.clientRequestId);
-    expect(ids[3]).toBe(ids[0]);
-    expect(ids[2]).not.toBe(ids[0]);
+    const requests = api.streamChat.mock.calls.map(([request]) => request);
+    expect(requests[3].clientRequestId).toBe(requests[0].clientRequestId);
+    expect(requests[2].clientRequestId).not.toBe(requests[0].clientRequestId);
+    expect(requests[2].currentProductSku).toBe("CF-15B-127V");
+    expect(requests[3].currentProductSku).toBe("AF-400-220V");
   });
 
   it("manual retry after a terminal error starts a new client_request_id", async () => {
@@ -191,7 +194,7 @@ describe("useChatSession against the real middle-end", () => {
     await waitFor(() => expect(result.current.messages.at(-1)?.errorCode).toBe("INTERNAL_ERROR"));
     await waitFor(() => expect(result.current.isStreaming).toBe(false));
 
-    act(() => result.current.retry(result.current.messages.at(-1)!.id, product));
+    act(() => result.current.retry(result.current.messages.at(-1)!.id));
     await waitFor(() => expect(result.current.messages.at(-1)?.content).toBe("Ok."));
 
     const [first, second] = api.streamChat.mock.calls.map(([request]) => request.clientRequestId);

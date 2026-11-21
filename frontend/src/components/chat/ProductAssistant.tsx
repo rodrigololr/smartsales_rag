@@ -229,7 +229,7 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
                 key={message.id}
                 message={message}
                 sessionId={sessionId}
-                onRetry={(messageId) => retry(messageId, product)}
+                onRetry={retry}
                 onFeedback={submitFeedback}
               />
             )

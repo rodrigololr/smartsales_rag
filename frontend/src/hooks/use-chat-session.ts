@@ -54,11 +54,15 @@ export function useChatSession() {
   // stored them, so a manual retry must resend the same client_request_id even after other
   // questions. An entry is dropped once its turn is retried.
   const interruptedTurnsRef = useRef(new Map<string, string>());
+  // Product each assistant turn was asked about: a retry resends it even after the
+  // shopper moved to another page (same client_request_id must keep the same SKU).
+  const turnProductsRef = useRef(new Map<string, Product | null>());
 
   const reset = useCallback(() => {
     controllerRef.current?.abort();
     controllerRef.current = null;
     interruptedTurnsRef.current.clear();
+    turnProductsRef.current.clear();
     const serverSession = serverSessionRef.current;
     serverSessionRef.current = null;
     if (serverSession) {
@@ -171,6 +175,7 @@ export function useChatSession() {
       const question = prompt.trim();
 
       const assistantId = replaceAssistantId ?? createId();
+      turnProductsRef.current.set(assistantId, activeProduct);
       const userMessage: ChatMessage = {
         id: createId(),
         role: "user",
@@ -249,14 +254,14 @@ export function useChatSession() {
   );
 
   const retry = useCallback(
-    (assistantId: string, activeProduct: Product | null = null) => {
+    (assistantId: string) => {
       const index = messages.findIndex((message) => message.id === assistantId);
       if (index < 0) return;
       const userMessage = [...messages.slice(0, index)]
         .reverse()
         .find((message) => message.role === "user");
       if (!userMessage) return;
-      void run(userMessage.content, activeProduct, assistantId);
+      void run(userMessage.content, turnProductsRef.current.get(assistantId) ?? null, assistantId);
     },
     [messages, run]
   );
