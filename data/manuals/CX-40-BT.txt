@@ -1,0 +1,24 @@
+Caixa de Som Bluetooth Sonaro Wave 40W
+Modelo CX-40-BT
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o produto e guarde-o para consultas futuras.## Instruções de segurança
+Evite volume alto por longos períodos.
+Feche bem a tampa da entrada USB-C antes de expor a caixa à água.
+Não carregue a caixa com a entrada molhada.## Componentes
+1. Caixa de som com alça e luzes de LED
+2. Botões de liga/desliga, volume, LED e Bluetooth
+3. Entrada USB-C protegida por tampa
+4. Cabo USB-C de carregamento## Especificações técnicas
+Este produto não é ligado diretamente à tomada: funciona com bateria interna recarregável pelo cabo USB-C que acompanha a embalagem.
+Potência de saída: 40 W RMS.
+Resistência à água IPX7: suporta imersão temporária, mas não deve ser usada submersa.
+Autonomia de até 20 horas por carga com as luzes de LED desligadas.## Modo de uso
+1. Mantenha o botão liga/desliga pressionado por 3 segundos.
+2. No celular, ative o Bluetooth e selecione Sonaro Wave 40W.
+3. Pressione o botão LED para alternar os efeitos de luz ou desligá-los.
+4. Para emparelhar duas caixas Sonaro Wave em estéreo, pressione o botão Bluetooth duas vezes em cada uma.## Limpeza e manutenção
+Após contato com água salgada ou de piscina, enxágue com água doce e deixe secar naturalmente.
+Não use secador de cabelo para secar a caixa.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros.
