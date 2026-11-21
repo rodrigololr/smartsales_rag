@@ -36,6 +36,7 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:?defina LLM_API_KEY no .env da raiz}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       SIMILARITY_THRESHOLD: ${SIMILARITY_THRESHOLD:-0.72}
     volumes:
