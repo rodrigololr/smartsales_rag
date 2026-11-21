@@ -183,7 +183,11 @@ fontes. Não inventar um content_hash para um arquivo que não pôde ser lido.
 
 Na publicação, preço e valores elétricos/capacidade são conferidos contra o SQL
 do SKU consultado. Sentenças SQL usam estruturas simples que vinculam atributo
-e unidade; afirmações não verificáveis caem no fallback. Para outros fatos,
+e unidade (aceitando as formas usuais em português: "A potência é de 1500 W",
+"A capacidade é de 4 litros", "O preço atual é de R$ 499,90", "Este produto é 220V");
+o valor continua tendo de ser exatamente o do SQL daquele SKU. Números com ponto de
+milhar ("1.500 W") valem 1500; vírgula é separador decimal ("1,5 kW"). Afirmações não
+verificáveis caem no fallback. Para outros fatos,
 exigir extrato literal da evidência, preservando negações e restrições. Citações
 precisam sustentar a sentença na página indicada; se um extrato não vier com
 citação, vinculá-lo deterministicamente ao chunk de suporte. Emitir apenas seus

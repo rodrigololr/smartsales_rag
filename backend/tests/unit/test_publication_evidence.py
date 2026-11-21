@@ -1,6 +1,9 @@
 """B03: verify SQL facts and the actual cited evidence before publishing a sentence."""
 
 import pytest
+from app.guardrails.output import technical_claims
+from app.guardrails.publication import SentenceVerifier
+from app.models.schemas import CatalogProduct
 from test_orchestrator import PRODUCT, Catalog, ChatModel, chunk, names, run
 
 
@@ -91,3 +94,51 @@ def test_consultative_facts_never_borrow_values_or_manuals_from_another_sku() ->
     assert verifier.approve('SKU AF-UNKNOWN-220V: Voltagem: 220V.') is None
     assert verifier.approve(f'SKU {FAMILY.sku}: Possui capacidade de 5,5 L e {PRODUCT.sku} tem 4 L.') is None
     assert verifier.cited_chunk_ids == set()
+
+
+@pytest.mark.parametrize("answer", [
+    "A capacidade é de 4 litros.",
+    "A potência é de 1500 W.",
+    "A potência é de 1.500 W.",
+    "Possui 1.500 watts de potência.",
+    "A voltagem é de 220V.",
+    "A tensão é de 220 volts.",
+    "O preço atual é de R$ 499,90.",
+    "O preço é de R$ 499,90.",
+    "Este produto é 220V.",
+    "Ele é 220V.",
+])
+def test_common_portuguese_phrasings_of_sql_facts_are_published(answer: str) -> None:
+    assert SentenceVerifier(PRODUCT, []).approve(answer) == answer
+
+
+PRODUCT_127V = PRODUCT.model_copy(update={"voltage": "127V"})
+
+
+@pytest.mark.parametrize("product,answer", [
+    (PRODUCT, "A potência é de 1800 W."),
+    (PRODUCT, "A potência é de 1.800 W."),
+    (PRODUCT, "A capacidade é de 5 litros."),
+    (PRODUCT, "O preço atual é de R$ 349,90."),
+    (PRODUCT, "A voltagem é de 1500 W."),
+    (PRODUCT, "A potência é de 220V."),
+    (PRODUCT_127V, "A voltagem é de 220V."),
+    (PRODUCT_127V, "Este produto é 220V."),
+    (PRODUCT_127V, "Este produto é bivolt."),
+])
+def test_wrong_values_in_those_phrasings_are_still_blocked(
+    product: CatalogProduct, answer: str
+) -> None:
+    assert SentenceVerifier(product, []).approve(answer) is None
+
+
+@pytest.mark.parametrize("text,claim", [
+    ("1.500 W", ("1500", "W")),
+    ("2.000 mL", ("2", "L")),
+    ("1,5 L", ("1.5", "L")),
+    ("0.5 L", ("0.5", "L")),
+])
+def test_thousands_separator_is_not_read_as_a_decimal_point(
+    text: str, claim: tuple[str, str]
+) -> None:
+    assert technical_claims(text) == {claim}

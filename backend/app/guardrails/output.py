@@ -17,21 +17,25 @@ _UNITS = {
     "°c": "°C", "ºc": "°C", "graus": "°C",
     "cm": "cm", "mm": "mm",
 }  # fmt: skip
+# pt-BR numbers: "1.500" is a thousands separator (1500), "1,5" a decimal comma.
+_THOUSANDS = r"[1-9]\d{0,2}(?:\.\d{3})+(?:,\d+)?"
 _FIGURE = re.compile(
-    r"(\d+(?:[.,]\d+)?)\s*("
+    rf"({_THOUSANDS}|\d+(?:[.,]\d+)?)\s*("
     + "|".join(sorted(map(re.escape, _UNITS), key=len, reverse=True))
     + r")(?![a-zà-ú])",
     re.IGNORECASE,
 )
 _BIVOLT = re.compile(r"\bbivolt\b", re.IGNORECASE)
 _MONEY = re.compile(
-    r"(?:R\$\s*|\b(?:custa|pre[cç]o(?:\s+atual)?(?:\s+(?:de|é))?)\s*:?\s*)(\d[\d.,]*)"
+    r"(?:R\$\s*|\b(?:custa|pre[cç]o(?:\s+atual)?(?:\s+é)?(?:\s+de)?)\s*:?\s*)(\d[\d.,]*)"
     r"|(\d[\d.,]*)\s*reais\b", re.IGNORECASE,
 )
 _SENTENCE_END = ".!?"
 
 
 def _number(raw: str) -> str:
+    if re.fullmatch(_THOUSANDS, raw):
+        raw = raw.replace(".", "")
     try:
         return format(Decimal(raw.replace(",", ".")).normalize(), "f")
     except InvalidOperation:
@@ -42,10 +46,12 @@ def technical_claims(text: str) -> set[Claim]:
     claims: set[Claim] = set()
     for value, raw_unit in _FIGURE.findall(text):
         unit = _UNITS[raw_unit.lower()]
+        amount = _number(value)
         if unit in {"mL", "kW"}:
-            value = str(Decimal(_number(value)) * (Decimal("0.001") if unit == "mL" else 1000))
+            scaled = Decimal(amount) * (Decimal("0.001") if unit == "mL" else 1000)
+            amount = format(scaled.normalize(), "f")
             unit = "L" if unit == "mL" else "W"
-        claims.add((_number(value), unit))
+        claims.add((amount, unit))
     for prefixed, suffixed in _MONEY.findall(text):
         raw = (prefixed or suffixed).rstrip(".,")
         if "," in raw:

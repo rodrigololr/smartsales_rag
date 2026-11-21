@@ -16,13 +16,14 @@ CITATION_MARK = re.compile(r"\[Fonte:\s*(.+?),\s*p\.\s*(\d+)\]")
 _SKU = re.compile(r"\b[A-Z0-9]+(?:-[A-Z0-9]+)+\b", re.IGNORECASE)
 _CRITICAL_UNITS = {"V", "W", "L", "BRL"}
 _COURTESIES = {"bom uso", "obrigado", "obrigada", "de nada", "posso ajudar com outra duvida"}
+_IS = r"(?: e(?: de)?| de)?"  # "é", "é de", "de" or nothing ("A potência é de 1500 W")
 _SQL_STATEMENTS = tuple(re.compile(pattern) for pattern in (
-    r"(?:custa|(?:o )?preco(?: atual)?(?: e| de)?) (?:r )?number(?: reais)?",
-    r"(?:opera|funciona) em number (?:v|volts?)",
-    r"(?:a )?(?:voltagem|tensao)(?: e| de)? number (?:v|volts?)",
-    r"(?:a )?potencia(?: e| de)? number (?:w|watts?|kw|quilowatts?)",
+    rf"(?:custa|(?:o )?preco(?: atual)?{_IS}) (?:r )?number(?: reais)?",
+    r"(?:(?:opera|funciona) em|e) number (?:v|volts?)",
+    rf"(?:a )?(?:voltagem|tensao){_IS} number (?:v|volts?)",
+    rf"(?:a )?potencia{_IS} number (?:w|watts?|kw|quilowatts?)",
     r"(?:tem|possui)(?: potencia de)? number (?:w|watts?|kw|quilowatts?)(?: de potencia)?",
-    r"(?:a )?capacidade(?: e| de)? number (?:l|litros?|ml|mililitros?)",
+    rf"(?:a )?capacidade{_IS} number (?:l|litros?|ml|mililitros?)",
     r"(?:tem|possui)(?: capacidade de| cesto de)? number (?:l|litros?|ml|mililitros?)(?: de capacidade)?",
     r"(?:e |(?:a )?voltagem(?: e)? )?bivolt",
 ))
