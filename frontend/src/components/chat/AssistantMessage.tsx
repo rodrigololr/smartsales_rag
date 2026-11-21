@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CitationList } from "@/components/chat/CitationList";
 import { MessageFeedbackBar } from "@/components/chat/MessageFeedbackBar";
+import { canReferenceServerMessage } from "@/hooks/use-chat-session";
 import { ProductRecommendationCarousel } from "@/components/shop/ProductRecommendationCarousel";
 
 export interface AssistantMessageProps {
@@ -118,7 +119,10 @@ export function AssistantMessage({
         />
       ) : null}
 
-      {!message.isStreaming && !message.errorFallback && message.content ? (
+      {!message.isStreaming &&
+      !message.errorFallback &&
+      message.content &&
+      canReferenceServerMessage(message) ? (
         <MessageFeedbackBar
           message={message}
           onSubmit={(rating, reason) => onFeedback(message.id, rating, reason)}

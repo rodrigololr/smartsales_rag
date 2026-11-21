@@ -23,15 +23,21 @@ const recorded = (): Response =>
   );
 
 /** Routes the real gateway calls; `feedbackResponses` are served in order. */
-function stubGateway(feedbackResponses: (() => Response | Promise<Response>)[]) {
+function stubGateway(
+  feedbackResponses: (() => Response | Promise<Response>)[],
+  { withMetadata = true }: { withMetadata?: boolean } = {}
+) {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit): Promise<Response> => {
     void init;
     if (url.endsWith("/api/v1/sessions")) {
       return Response.json({ session_id: SERVER_SESSION, restored: false, history: [], expires_in_seconds: 1800 }, { status: 201 });
     }
     if (url.endsWith("/api/v1/chat/stream")) {
+      const metadata: [string, unknown][] = withMetadata
+        ? [["metadata", { message_id: SERVER_MESSAGE, session_id: SERVER_SESSION, cache_hit: false, ttft_ms: 120 }]]
+        : [];
       return sse([
-        ["metadata", { message_id: SERVER_MESSAGE, session_id: SERVER_SESSION, cache_hit: false, ttft_ms: 120 }],
+        ...metadata,
         ["token", { delta: "Opera em 220V." }],
         ["done", { finish_reason: "stop", total_latency_ms: 300, tokens_used: 10 }],
       ]);
@@ -149,5 +155,17 @@ describe("UT-F03-02: feedback ligado ao POST /api/v1/feedback do gateway", () =>
     expect(screen.getByTestId(/^feedback-dislike-/)).toBeDisabled();
     release(recorded());
     expect(await screen.findByText(/Obrigado pelo feedback/i)).toBeInTheDocument();
+  });
+
+  it("sem metadata (sem message_id do servidor) não oferece feedback", async () => {
+    const fetchMock = stubGateway([], { withMetadata: false });
+    const { ProductPageView } = await import("@/components/shop/ProductPageView");
+    render(<ProductPageView product={airfryer} />);
+    fireEvent.click(screen.getByTestId("quick-suggestion-0"));
+
+    expect(await screen.findByText("Opera em 220V.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/Consultando manuais/i)).not.toBeInTheDocument());
+    expect(screen.queryByTestId(/^feedback-bar-/)).not.toBeInTheDocument();
+    expect(feedbackBodies(fetchMock)).toEqual([]);
   });
 });
