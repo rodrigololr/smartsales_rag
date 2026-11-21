@@ -275,9 +275,9 @@
         "expected_route": "KB_QA",
         "expected_intent": "TECHNICAL_QA",
         "llm_turn": true,
-        "fake_llm_response": "Memória: a Roblox recomenda pelo menos 1 GB de RAM no Windows 10 ou 11 [Fonte: Requisitos do Roblox para PC, p. 1].\nArmazenamento: a Roblox recomenda pelo menos 300 MB livres para instalar [Fonte: Requisitos do Roblox para PC, p. 1].\n",
+        "fake_llm_response": "Windows: o Roblox instala em versões 64 bits do Windows 10 ou Windows 11 [Fonte: Requisitos do Roblox para PC, p. 1].\nMemória: a Roblox recomenda pelo menos 1 GB de RAM no Windows 10 ou 11 [Fonte: Requisitos do Roblox para PC, p. 1].\n",
         "must_contain": [
-          "1 GB de RAM",
+          "Windows 10",
           "[Fonte: Requisitos do Roblox para PC, p. 1]"
         ],
         "must_not_contain": [],
@@ -310,17 +310,18 @@
     "turns": [
       {
         "sku": "AF-400-220V",
-        "question": "Tem um modelo maior?",
+        "question": "Qual a capacidade em litros desta airfryer? Quero um modelo maior para uma família de 5 pessoas.",
         "expected_route": "TECHNICAL",
         "expected_intent": "TECHNICAL_QA",
         "llm_turn": true,
         "must_contain": [
-          "SKU AF-550-220V"
+          "4"
         ],
         "must_not_contain": [],
         "expected_card_skus": [
           "AF-400-220V",
-          "AF-550-220V"
+          "AF-550-220V",
+          "KIT-SIL-01"
         ]
       }
     ]

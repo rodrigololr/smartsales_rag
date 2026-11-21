@@ -164,9 +164,10 @@ class FakeRag:
         self.requests.append(request)
         base = self.catalog.by_sku[request.sku]
         upsell = self.catalog.by_sku["AF-550-220V"]
+        cross = self.catalog.by_sku["KIT-SIL-01"]
         yield {
             "event": "token",
-            "data": {"delta": f"SKU {upsell.sku}: Possui capacidade de 5,5 L.\n"},
+            "data": {"delta": f"Possui capacidade de 4 L. SKU {upsell.sku}: Possui capacidade de 5,5 L.\n"},
         }
         yield {
             "event": "recommendations",
@@ -174,6 +175,7 @@ class FakeRag:
                 "products": [
                     build_card(base, "PRIMARY", ""),
                     build_card(upsell, "UPSELL", "Capacidade superior."),
+                    build_card(cross, "CROSS_SELL", "Acessório compatível."),
                 ]
             },
         }
