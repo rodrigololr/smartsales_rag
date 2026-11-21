@@ -31,6 +31,8 @@ _QUALIFIERS = {"nao", "apenas", "somente", "exceto", "desde", "proibido", "proib
 # A prefix extract must not cut a range or condition off its figure ("2 kg a 3 kg").
 _CONTINUATIONS = re.compile(r"(?:a|ate|ou|exceto|quando|(?:no|em) modo)(?: |$)")
 _NUMERAL = re.compile(r"\d+(?:[.,]\d+)*")
+_HEADER = re.compile(r"(\s*(?:-\s+)?)SKU ([A-Za-z0-9_-]+):(\s*)", re.IGNORECASE)
+_BULLET = re.compile(r"\s*-\s")
 _PRICE_WORDS = re.compile(r"\b(?:pre[cç]o|custa|custo|valor|reais)\b|R\$", re.IGNORECASE)
 
 
@@ -48,10 +50,21 @@ def _numbers(text: str) -> list[str]:
     return [pt_br_number(numeral) for numeral in _NUMERAL.findall(text)]
 
 
+def _clauses(sentence: str) -> list[str]:
+    """The manual sentence plus each tail that starts a new clause after ";".
+
+    ":" is not a boundary: a label ("Proibido:", "Nunca utilize:") governs all that
+    follows it, so nothing after a colon is an independent clause.
+    """
+    return [sentence] + [sentence[boundary.end():] for boundary in re.finditer(r";\s*", sentence)
+                         if ":" not in sentence[:boundary.start()]]
+
+
 def _literal_support(sentence: str, chunk: RetrievedChunk) -> bool:
     wanted = normalized_words(sentence)
     figures = _numbers(sentence)
-    for fragment in re.split(r"(?<=[.!?])\s+|\n", _body(chunk)):
+    manual_sentences = re.split(r"(?<=[.!?])\s+|\n", _body(chunk))
+    for fragment in (clause for manual in manual_sentences for clause in _clauses(manual)):
         evidence = normalized_words(fragment)
         # Word folding drops separators ("1,500 kg" == "1.500 kg"): compare values too.
         if not wanted or _numbers(fragment)[:len(figures)] != figures:
@@ -141,7 +154,10 @@ class ConsultativeVerifier:
     """Each explicitly named SQL recommendation has an isolated fact verifier.
 
     No manual evidence is borrowed between products. Multi-product compound
-    claims are refused; one SKU and one verified attribute per sentence.
+    claims are refused; one SKU and one verified attribute per sentence. A sentence
+    that is only "SKU <code>:" opens a block whose following lines are verified
+    against that SKU, until a blank line (`end_block`), another header or, for a
+    "- " list, the first line that is not a bullet.
     """
 
     def __init__(
@@ -152,18 +168,58 @@ class ConsultativeVerifier:
         self._options = {card.sku: SentenceVerifier(card, []) for card in recommendations
                          if card.sku != product.sku}
         self._options[product.sku] = self._base
+        self._line_start = True
+        self.end_block()
 
     @property
     def cited_chunk_ids(self) -> set[UUID]:
         return self._base.cited_chunk_ids
 
+    def end_block(self) -> None:
+        self._block_open = False
+        self._block: SentenceVerifier | None = None  # None in an open block = unknown SKU
+        self._block_is_list: bool | None = None
+        self._held_header = ""
+
     def approve(self, sentence: str) -> str | None:
+        """Approved text, None when blocked, or "" for a header held for its first fact."""
+        at_line_start, self._line_start = self._line_start, sentence.endswith("\n")
+        header = _HEADER.fullmatch(sentence)
+        if header is not None:
+            return self._open_block(header)
+        if self._block_open and at_line_start:
+            self._continue_or_end_list(_BULLET.match(sentence) is not None)
         anchored = re.fullmatch(
             r"(\s*(?:-\s+)?)SKU ([A-Za-z0-9_-]+):\s*(.+)", sentence, re.DOTALL | re.IGNORECASE
         )
-        if anchored is None:
+        if anchored is not None:
+            return self._approve_anchored(*anchored.groups())
+        if not self._block_open:
             return self._base.approve(sentence)
-        bullet, raw_sku, statement = anchored.groups()
+        approved = self._block.approve(sentence) if self._block is not None else None
+        if approved is None:
+            return None
+        held, self._held_header = self._held_header, ""
+        return held + approved
+
+    def _open_block(self, header: re.Match[str]) -> str | None:
+        self.end_block()
+        bullet, raw_sku, trailing = header.groups()
+        sku = raw_sku.upper()
+        self._block_open = True
+        self._block = self._options.get(sku)
+        if self._block is None:
+            return None
+        self._held_header = f"{bullet}SKU {sku}:{trailing}"
+        return ""
+
+    def _continue_or_end_list(self, bullet: bool) -> None:
+        if self._block_is_list is None:
+            self._block_is_list = bullet
+        elif self._block_is_list and not bullet:
+            self.end_block()
+
+    def _approve_anchored(self, bullet: str, raw_sku: str, statement: str) -> str | None:
         sku = raw_sku.upper()
         verifier = self._options.get(sku)
         if verifier is None:

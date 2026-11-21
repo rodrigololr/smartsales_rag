@@ -312,6 +312,7 @@ class _PublicationGate:
 
     def review(self, sentence: str) -> list[str]:
         if not sentence.strip():
+            self._verifier.end_block()  # a blank line closes an "SKU <code>:" block
             return [sentence] if self.approved else []
         if normalized_words(sentence) == _NOTICE_WORDS:
             # Prompt rule 3 wording: publish our canonical notice (once, next to approved text).
@@ -335,6 +336,8 @@ class _PublicationGate:
             )
             self._notice_pending = self._notice_pending or technical
             return []
+        if not approved:
+            return []  # "SKU <code>:" header, held and published with its first verified fact
         self.approved += 1
         return [*self._notice(), approved]
 
