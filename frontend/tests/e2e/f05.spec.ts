@@ -89,11 +89,14 @@ for (const [scenario, question] of [
 ]) {
   test(`F05: recusa pergunta fora do domínio ${scenario}`, async ({ page }) => {
     const assistant = await openProduct(page, AIRFRYER_4L);
+    const stream = page.waitForResponse((response) => response.url().includes("/chat/stream"));
     const answer = await ask(assistant, question);
     await waitForDone(assistant);
     const refusal = answer.locator('[data-testid^="assistant-fallback-"]');
     await expect(refusal).toBeVisible();
-    await expect(refusal).toContainText("LOW_SIMILARITY_FALLBACK");
+    // The UI shows a friendly title after #49 and the raw code before it; the SSE body is the contract.
+    await expect(refusal).toContainText(/LOW_SIMILARITY_FALLBACK|Informação não encontrada no manual/);
+    expect(await (await stream).text()).toMatch(/"code":\s*"LOW_SIMILARITY_FALLBACK"/);
     await expect(answerText(answer)).toHaveCount(0);
     await expect(answer.getByTestId("citation-list")).toHaveCount(0);
   });
