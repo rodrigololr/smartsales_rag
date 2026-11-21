@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import React from "react";
 import { inter } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
+import { themeInitScript } from "@/lib/theme";
+import { ThemeSync } from "@/components/layout/ThemeToggle";
 
 export const metadata: Metadata = {
   title: "SmartSales RAG — Consultor Especialista de Vendas",
@@ -15,8 +17,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className={cn("font-sans", inter.variable)}>
+    // The inline script adds `.dark` before React hydrates, hence suppressHydrationWarning.
+    <html lang="pt-BR" className={cn("font-sans", inter.variable)} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-screen antialiased">
+        <ThemeSync />
         <a
           href="#conteudo"
           className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"

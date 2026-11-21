@@ -7,9 +7,16 @@ import type {
   FeedbackRating,
   FeedbackReasonCategory,
 } from "@/types/chat";
-import { feedbackReasons } from "@/lib/mock-data";
 import { ChatApiError } from "@/lib/chat-api";
 import { Button } from "@/components/ui/button";
+
+/** DISLIKE reasons (openapi `reason_category`) with their pt-BR labels. */
+const feedbackReasons: { value: FeedbackReasonCategory; label: string }[] = [
+  { value: "HALLUCINATION", label: "Informação imprecisa" },
+  { value: "WRONG_VOLTAGE", label: "Voltagem/medida incorreta" },
+  { value: "SLOW", label: "Demorou a responder" },
+  { value: "OTHER", label: "Outro" },
+];
 
 export interface MessageFeedbackBarProps {
   message: ChatMessage;
@@ -81,7 +88,7 @@ export function MessageFeedbackBar({
   if (message.feedback) {
     return (
       <p
-        className="flex items-center gap-1.5 text-xs text-emerald-700"
+        className="flex items-center gap-1.5 text-xs text-success"
         data-testid={`feedback-confirmation-${message.id}`}
       >
         <Check className="size-3.5" />
@@ -101,7 +108,7 @@ export function MessageFeedbackBar({
           disabled={pending}
           onClick={() => void submit({ rating: "LIKE" })}
           data-testid={`feedback-like-${message.id}`}
-          className="text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+          className="text-success hover:bg-success/10 hover:text-success"
         >
           <ThumbsUp />
           Útil
@@ -115,7 +122,7 @@ export function MessageFeedbackBar({
           aria-controls={reasonsId}
           onClick={() => setShowReasons((value) => !value)}
           data-testid={`feedback-dislike-${message.id}`}
-          className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+          className="text-danger hover:bg-danger/10 hover:text-danger"
         >
           <ThumbsDown />
           Não útil
@@ -139,7 +146,7 @@ export function MessageFeedbackBar({
               aria-pressed={selectedReason === reason.value}
               onClick={() => void submit({ rating: "DISLIKE", reason: reason.value })}
               data-testid={`feedback-reason-${reason.value}`}
-              className="font-normal aria-pressed:border-rose-300 aria-pressed:bg-rose-50"
+              className="font-normal aria-pressed:border-danger/40 aria-pressed:bg-danger/10"
             >
               {reason.label}
             </Button>
@@ -148,7 +155,7 @@ export function MessageFeedbackBar({
       ) : null}
 
       {error && failedAttempt ? (
-        <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-rose-700">
+        <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-danger">
           <span>{error}</span>
           <Button
             type="button"

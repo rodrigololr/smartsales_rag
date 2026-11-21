@@ -3,6 +3,7 @@ import { BarChart3, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 /** `contained` aligns the bar with centered pages; the product page keeps it full-bleed. */
 export function StoreHeader({ contained = false }: { contained?: boolean }) {
@@ -26,14 +27,17 @@ export function StoreHeader({ contained = false }: { contained?: boolean }) {
           </Badge>
         </Link>
 
-        <Link
-          href="/admin/metricas"
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-10 min-w-10 gap-1.5 sm:h-8")}
-          aria-label="Abrir painel de métricas"
-        >
-          <BarChart3 />
-          <span className="hidden sm:inline">Métricas</span>
-        </Link>
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <ThemeToggle />
+          <Link
+            href="/admin/metricas"
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-10 min-w-10 gap-1.5 sm:h-8")}
+            aria-label="Abrir painel de métricas"
+          >
+            <BarChart3 />
+            <span className="hidden sm:inline">Métricas</span>
+          </Link>
+        </div>
       </div>
     </header>
   );

@@ -4,6 +4,7 @@ import { ProductPageView } from "@/components/shop/ProductPageView";
 import { suggestionsFor } from "@/components/chat/ProductAssistant";
 import { findProduct } from "@/lib/mock-data";
 import { specsJsonRows } from "@/lib/format";
+import type { ApiProduct } from "@/types/catalog";
 
 const mockCheckout = vi.hoisted(() => vi.fn(() => new Promise<never>(() => {})));
 vi.mock("@/lib/mock-api", async (importOriginal) => ({
@@ -129,5 +130,33 @@ describe("specsJsonRows", () => {
       ["Validade", "24 meses"],
     ]);
     expect(specsJsonRows(undefined)).toEqual([]);
+  });
+
+  it("produto do gateway: a descrição opcional aparece em 'Sobre este item'", () => {
+    const gatewayProduct: ApiProduct = {
+      sku: "SEC-AUR-2200",
+      name: "Secador Aurélia 2200W",
+      price: 289.9,
+      stock_quantity: 4,
+      voltage: "BIVOLT",
+      capacity_liters: null,
+      power_watts: 2200,
+      image_url: "/images/secador-aurelia-2200w.svg",
+      marketplace: "LOJA_OFICIAL",
+      checkout_url: "https://loja.example.com/secador",
+      category: "Cosméticos",
+      subcategory: "Secadores",
+      brand: "Aurélia",
+      specs_json: {},
+      updated_at: "2026-11-20T10:00:00Z",
+      description: "Secador profissional com íons e 3 temperaturas.",
+    };
+    const { unmount } = render(<ProductPageView product={gatewayProduct} />);
+    const about = screen.getByRole("region", { name: "Sobre este item" });
+    expect(about).toHaveTextContent("Secador profissional com íons e 3 temperaturas.");
+    unmount();
+
+    render(<ProductPageView product={{ ...gatewayProduct, description: null }} />);
+    expect(screen.queryByRole("region", { name: "Sobre este item" })).not.toBeInTheDocument();
   });
 });

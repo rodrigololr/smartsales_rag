@@ -16,7 +16,10 @@ export const FIRST_TEXT_SMOKE_LIMIT_MS = 15_000;
 /** Cache hit (E2E-06): resposta em menos de 200 ms. */
 export const CACHE_HIT_LIMIT_MS = 200;
 
-/** Abre o produto pela vitrine e devolve o painel do Consultor IA visível. */
+/**
+ * Abre o produto pela vitrine e devolve o painel do Consultor IA visível. Abaixo de `lg`
+ * o painel não fica docado: o botão flutuante abre a *sheet*.
+ */
 export async function openProduct(page: Page, sku: string): Promise<Locator> {
   await page.goto("/");
   await page.getByTestId(`product-card-${sku}`).click();
@@ -25,6 +28,14 @@ export async function openProduct(page: Page, sku: string): Promise<Locator> {
     .locator(`[data-testid="product-assistant"][data-sku="${sku}"]`)
     .filter({ visible: true })
     .first();
+  const openAssistant = page.getByTestId("open-assistant-btn");
+  if (await openAssistant.isVisible()) {
+    // Retried: a click that lands before hydration does nothing.
+    await expect(async () => {
+      await openAssistant.click();
+      await expect(assistant).toBeVisible({ timeout: 2_000 });
+    }).toPass();
+  }
   await expect(assistant).toBeVisible();
   return assistant;
 }
@@ -51,9 +62,9 @@ export async function ask(assistant: Locator, question: string): Promise<Locator
   return answers.nth(before);
 }
 
-/** Espera o turno terminar: o campo de pergunta volta a ficar habilitado no `done`. */
+/** Espera o turno terminar: o histórico deixa de estar `aria-busy` no `done`. */
 export async function waitForDone(assistant: Locator): Promise<void> {
-  await expect(assistant.getByTestId("chat-prompt-input")).toBeEnabled({ timeout: 30_000 });
+  await expect(assistant.getByTestId("chat-log")).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
 }
 
 /** TTFT do servidor exibido na bolha ("TTFT 890 ms"). */

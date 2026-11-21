@@ -10,7 +10,6 @@ import type {
   StreamEvent,
 } from "@/types/chat";
 import { createId } from "@/lib/format";
-import { mockFeedback, streamMockChat } from "@/lib/mock-api";
 import {
   USE_REAL_API,
   ChatApiError,
@@ -51,10 +50,15 @@ export function useChatSession(product: Product | null) {
   const controllerRef = useRef<AbortController | null>(null);
   // Server session (real API only); created lazily on the first question.
   const serverSessionRef = useRef<string | null>(null);
+  // Turns whose last attempt was cut off, keyed by assistant message: the server may have
+  // stored them, so a manual retry must resend the same client_request_id even after other
+  // questions. An entry is dropped once its turn is retried.
+  const interruptedTurnsRef = useRef(new Map<string, string>());
 
   const reset = useCallback(() => {
     controllerRef.current?.abort();
     controllerRef.current = null;
+    interruptedTurnsRef.current.clear();
     const serverSession = serverSessionRef.current;
     serverSessionRef.current = null;
     if (serverSession) {
@@ -139,6 +143,8 @@ export function useChatSession(product: Product | null) {
       signal: AbortSignal
     ): AsyncGenerator<StreamEvent> {
       if (!USE_REAL_API) {
+        // Loaded on demand so the mock never ships in the real-API bundle path.
+        const { streamMockChat } = await import("@/lib/mock-api");
         yield* streamMockChat({ sessionId, message: prompt, product: activeProduct }, signal);
         return;
       }
@@ -187,8 +193,13 @@ export function useChatSession(product: Product | null) {
 
       const controller = new AbortController();
       controllerRef.current = controller;
-      // One ID per explicit question, kept on the automatic reconnect.
-      const clientRequestId = createId();
+      // One ID per explicit question, kept on the automatic reconnect and on a manual retry
+      // of an interrupted turn; a new one only after the turn ended (done or terminal error).
+      const interrupted = replaceAssistantId
+        ? interruptedTurnsRef.current.get(replaceAssistantId)
+        : undefined;
+      if (replaceAssistantId) interruptedTurnsRef.current.delete(replaceAssistantId);
+      const clientRequestId = interrupted ?? createId();
 
       try {
         for (let reconnects = 0; ; reconnects++) {
@@ -206,6 +217,9 @@ export function useChatSession(product: Product | null) {
         }
       } catch (error) {
         if (isAbort(error)) return;
+        if (error instanceof StreamInterruptedError) {
+          interruptedTurnsRef.current.set(assistantId, clientRequestId);
+        }
         console.warn("chat_stream_failed", error);
         patchAssistant(assistantId, {
           content: "",
@@ -263,7 +277,8 @@ export function useChatSession(product: Product | null) {
           ? { ...target, rating, reason_category: reason }
           : { ...target, rating: "LIKE" };
       try {
-        await (USE_REAL_API ? postFeedback(feedback) : mockFeedback(feedback));
+        if (USE_REAL_API) await postFeedback(feedback);
+        else await (await import("@/lib/mock-api")).mockFeedback(feedback);
         patchAssistant(messageId, { feedback: rating, feedbackReason: reason ?? null });
       } catch (error) {
         // One rating per message (UC06): a 409 means it is already stored, not a failure.

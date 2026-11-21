@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, X } from "lucide-react";
 import type { Product } from "@/types/catalog";
+import type { VoltageType } from "@/types/chat";
 import { API_BASE_URL } from "@/lib/chat-api";
 import { StoreHeader } from "@/components/layout/StoreHeader";
 import { ProductGrid } from "@/components/catalog/ProductGrid";
@@ -11,14 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const VOLTAGE_FILTERS = ["ALL", "127V", "220V"] as const;
+const VOLTAGE_FILTERS = ["ALL", "127V", "220V", "BIVOLT"] as const;
 type VoltageFilter = (typeof VOLTAGE_FILTERS)[number];
 
 const filterLabel: Record<VoltageFilter, string> = {
   ALL: "Todas",
   "127V": "127V",
   "220V": "220V",
+  BIVOLT: "Bivolt",
 };
+
+/** A bivolt product works on both mains voltages, so it matches 127V and 220V too. */
+const matchesVoltageFilter = (voltage: VoltageType, filter: VoltageFilter): boolean =>
+  filter === "ALL" || voltage === filter || (voltage === "BIVOLT" && filter !== "BIVOLT");
 
 export interface CatalogViewProps {
   products: Product[];
@@ -33,7 +39,7 @@ export function CatalogView({ products, unavailable = false }: CatalogViewProps)
   const filteredProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return products.filter((product) => {
-      const matchesVoltage = voltageFilter === "ALL" || product.voltage === voltageFilter;
+      const matchesVoltage = matchesVoltageFilter(product.voltage, voltageFilter);
       const matchesQuery =
         !normalizedQuery ||
         [product.name, product.sku, product.brand, product.category, product.subcategory]
@@ -114,7 +120,7 @@ export function CatalogView({ products, unavailable = false }: CatalogViewProps)
           <p
             role="alert"
             data-testid="catalog-error"
-            className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-800"
+            className="rounded-2xl border border-danger/30 bg-danger/10 p-6 text-center text-sm text-danger"
           >
             O catálogo está indisponível agora.{" "}
             <Link href="/" prefetch={false} className="font-medium underline underline-offset-2">
@@ -128,6 +134,10 @@ export function CatalogView({ products, unavailable = false }: CatalogViewProps)
                 ? "1 produto"
                 : `${filteredProducts.length} produtos`}
               {filteredProducts.length !== products.length ? ` de ${products.length}` : ""}
+              {(voltageFilter === "127V" || voltageFilter === "220V") &&
+              filteredProducts.some((product) => product.voltage === "BIVOLT")
+                ? ". Inclui modelos bivolt, que funcionam em 127V e 220V."
+                : ""}
             </p>
             <ProductGrid
               products={filteredProducts}

@@ -1,10 +1,11 @@
 "use client";
 
-import { Bot, Loader2, RefreshCw, ShieldAlert, Zap } from "lucide-react";
+import { BookOpen, Bot, CloudOff, Loader2, RefreshCw, ShieldAlert, Zap, type LucideIcon } from "lucide-react";
 import type {
   ChatMessage,
   FeedbackRating,
   FeedbackReasonCategory,
+  StreamErrorCode,
 } from "@/types/chat";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,31 @@ import { CitationList } from "@/components/chat/CitationList";
 import { MessageFeedbackBar } from "@/components/chat/MessageFeedbackBar";
 import { canReferenceServerMessage } from "@/hooks/use-chat-session";
 import { ProductRecommendationCarousel } from "@/components/shop/ProductRecommendationCarousel";
+import { cn } from "@/lib/utils";
+
+type FallbackTone = "info" | "warning" | "error";
+
+/** Users see a plain title per code, never the raw code; only real failures offer a retry. */
+const FALLBACK_BY_CODE: Record<
+  StreamErrorCode,
+  { title: string; tone: FallbackTone; icon: LucideIcon; retryable: boolean }
+> = {
+  // Expected safe answer (R01): the manual simply does not say it.
+  LOW_SIMILARITY_FALLBACK: { title: "Informação não encontrada no manual", tone: "info", icon: BookOpen, retryable: false },
+  GUARDRAIL_BLOCKED: { title: "Pergunta fora do escopo do consultor", tone: "warning", icon: ShieldAlert, retryable: false },
+  LLM_UNAVAILABLE: { title: "Consultor indisponível no momento", tone: "error", icon: CloudOff, retryable: true },
+  INTERNAL_ERROR: { title: "Não foi possível concluir a resposta", tone: "error", icon: CloudOff, retryable: true },
+};
+
+/** "Title. message" for a fallback turn, as screen readers should hear it. */
+export const fallbackAnnouncement = (message: ChatMessage): string =>
+  `${FALLBACK_BY_CODE[message.errorCode ?? "INTERNAL_ERROR"].title}. ${message.errorFallback ?? ""}`;
+
+const toneClass: Record<FallbackTone, string> = {
+  info: "border-primary/25 bg-primary/5 *:[svg]:text-primary *:data-[slot=alert-description]:text-foreground",
+  warning: "border-warning/40 bg-warning/10 *:[svg]:text-warning *:data-[slot=alert-description]:text-foreground",
+  error: "",
+};
 
 export interface AssistantMessageProps {
   message: ChatMessage;
@@ -70,32 +96,7 @@ export function AssistantMessage({
         </div>
       ) : null}
 
-      {message.errorFallback ? (
-        <Alert variant="destructive" data-testid={`assistant-fallback-${message.id}`}>
-          <ShieldAlert />
-          <AlertTitle>Resposta bloqueada com segurança</AlertTitle>
-          <AlertDescription>
-            {message.errorFallback}
-            {message.errorCode ? (
-              <span className="mt-1 block font-mono text-[11px] opacity-80">
-                {message.errorCode}
-              </span>
-            ) : null}
-          </AlertDescription>
-          <div className="mt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="xs"
-              onClick={() => onRetry(message.id)}
-              className="gap-1.5"
-            >
-              <RefreshCw />
-              Tentar novamente
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+      {message.errorFallback ? <FallbackAlert message={message} onRetry={onRetry} /> : null}
 
       {message.content ? (
         <div
@@ -129,5 +130,37 @@ export function AssistantMessage({
         />
       ) : null}
     </div>
+  );
+}
+
+function FallbackAlert({ message, onRetry }: Pick<AssistantMessageProps, "message" | "onRetry">) {
+  const { title, tone, icon: Icon, retryable } = FALLBACK_BY_CODE[message.errorCode ?? "INTERNAL_ERROR"];
+  return (
+    <Alert
+      variant={tone === "error" ? "destructive" : "default"}
+      // The finished answer is announced once by ProductAssistant's live region.
+      role={undefined}
+      data-tone={tone}
+      data-testid={`assistant-fallback-${message.id}`}
+      className={cn(toneClass[tone], tone === "error" && "border-destructive/30")}
+    >
+      <Icon aria-hidden />
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>{message.errorFallback}</AlertDescription>
+      {retryable ? (
+        <div className="col-start-2 mt-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            onClick={() => onRetry(message.id)}
+            className="gap-1.5"
+          >
+            <RefreshCw />
+            Tentar novamente
+          </Button>
+        </div>
+      ) : null}
+    </Alert>
   );
 }

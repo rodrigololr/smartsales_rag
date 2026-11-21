@@ -12,16 +12,20 @@ import type {
   StreamEvent,
 } from "@/types/chat";
 import { createId, marketplaceLabel } from "./format";
+import { ADMIN_DEMO_TOKEN, ChatApiError } from "./chat-api";
 import {
+  airfryerServings,
   buildRecommendations,
   citationsForProduct,
   checkoutUrlOf,
   findProduct,
   marketplaceOf,
+  mockKnowsSubcategory,
   MOCK_METRICS,
+  upsellCardOf,
 } from "./mock-data";
 
-export const ADMIN_DEMO_TOKEN = "admin-demo";
+export { ADMIN_DEMO_TOKEN };
 
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
@@ -46,13 +50,10 @@ const createAbortError = () => {
   return error;
 };
 
-export class MockApiError extends Error {
-  constructor(
-    public status: number,
-    public code: string,
-    message: string
-  ) {
-    super(message);
+/** Same shape as the gateway errors, so callers handle both without importing the mock. */
+export class MockApiError extends ChatApiError {
+  constructor(status: number, code: string, message: string) {
+    super(status, code, message);
     this.name = "MockApiError";
   }
 }
@@ -69,11 +70,35 @@ type MockPlan = {
 
 const isCafeteira = (product: Product) => product.subcategory === "Cafeteiras";
 
+const NOT_IN_MANUAL_MESSAGE =
+  "Não encontrei essa informação nos manuais técnicos indexados. Para não arriscar uma resposta imprecisa, recomendo confirmar prazo, garantia ou condições diretamente com o marketplace.";
+
+const capacityAnswer = (product: Product, upsell: ProductCardData | undefined): string => {
+  const liters = product.capacity_liters ?? 0;
+  const upgrade = upsell
+    ? ` Para uma rotina maior, o upgrade ${upsell.name} (${upsell.capacity_liters}L) reduz o número de ${isCafeteira(product) ? "reabastecimentos" : "fornadas"}.`
+    : "";
+  const base = isCafeteira(product)
+    ? `O reservatório de ${liters}L rende aproximadamente ${Math.round(liters * 8)} cafés expresso por envase.`
+    : `O cesto de ${liters}L atende ${airfryerServings(liters)} em uma única fornada.`;
+  return `${base}${upgrade}\n\nTodos os itens sugeridos abaixo estão em estoque e são compatíveis com a voltagem ${product.voltage}.`;
+};
+
 const planResponse = (product: Product, message: string): MockPlan => {
   const citations = citationsForProduct(product);
   const allCards = buildRecommendations(product);
   const primaryOnly = allCards.slice(0, 1);
   const normalized = message.toLowerCase();
+
+  // The mock only has "manuals" for airfryers and coffee makers; anything else is a safe fallback.
+  if (!mockKnowsSubcategory(product)) {
+    return {
+      answer: "",
+      citations: [],
+      recommendations: primaryOnly,
+      fallback: { code: "LOW_SIMILARITY_FALLBACK", message: NOT_IN_MANUAL_MESSAGE },
+    };
+  }
 
   if (
     /ignore (todas|as) instru|jailbreak|prompt injection|desconsidere|finja que|custa r\$ ?1,00/.test(
@@ -101,20 +126,12 @@ const planResponse = (product: Product, message: string): MockPlan => {
       answer: "",
       citations: [],
       recommendations: allProductsFallback(product),
-      fallback: {
-        code: "LOW_SIMILARITY_FALLBACK",
-        message:
-          "Não encontrei essa informação nos manuais técnicos indexados. Para não arriscar uma resposta imprecisa, recomendo confirmar prazo, garantia ou condições diretamente com o marketplace.",
-      },
+      fallback: { code: "LOW_SIMILARITY_FALLBACK", message: NOT_IN_MANUAL_MESSAGE },
     };
   }
 
   if (/pessoa|fam[ií]lia|capacidade|litro|atende|por[cç][oõ]es/.test(normalized)) {
-    const answer = isCafeteira(product)
-      ? `O reservatório de ${product.capacity_liters ?? 1.5}L rende aproximadamente 12 cafés expresso por envase. Para um uso mais intenso, o modelo de 2L com moedor integrado reduz o número de reabastecimentos ao longo do dia.\n\nTodos os itens sugeridos abaixo estão em estoque e são compatíveis com a voltagem ${product.voltage}.`
-      : product.capacity_liters && product.capacity_liters <= 4.5
-        ? `O cesto de ${product.capacity_liters}L atende confortavelmente 3 a 4 pessoas. Para famílias de 5 ou 6 pessoas, o upgrade de 5,5L permite uma única fornada com até 1,8 kg de batatas pré-preparadas.\n\nSeparei abaixo o item consultado, um upgrade de maior capacidade e um acessório compatível — todos com estoque disponível.`
-        : `O cesto de ${product.capacity_liters}L comporta até 1,8 kg de batatas pré-preparadas e atende de 5 a 6 pessoas em uma única fornada. Para uma rotina com poucas pessoas, o modelo de 4L pode ser suficiente e mais econômico.\n\nVeja abaixo as opções em estoque que selecionei para o seu contexto.`;
+    const answer = capacityAnswer(product, upsellCardOf(allCards));
 
     return {
       answer,

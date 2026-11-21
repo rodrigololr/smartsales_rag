@@ -1,7 +1,6 @@
 import { CheckCircle, ShieldAlert, ShoppingCart, Truck } from "lucide-react";
 import type { Product } from "@/types/catalog";
 import { formatBRL, marketplaceLabel, safeHttpUrl } from "@/lib/format";
-import { checkoutUrlOf, marketplaceOf } from "@/lib/mock-data";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -13,8 +12,8 @@ import { cn } from "@/lib/utils";
  */
 export function ProductBuyBox({ product }: { product: Product }) {
   const inStock = product.stock_quantity > 0;
-  const marketplace = marketplaceLabel(marketplaceOf(product));
-  const checkoutHref = safeHttpUrl(checkoutUrlOf(product));
+  const marketplace = marketplaceLabel(product.marketplace ?? "LOJA_OFICIAL");
+  const checkoutHref = safeHttpUrl(product.checkout_url);
 
   return (
     <section
@@ -23,11 +22,11 @@ export function ProductBuyBox({ product }: { product: Product }) {
     >
       <p className="text-3xl font-bold tabular-nums text-foreground">{formatBRL(product.price)}</p>
       {inStock ? (
-        <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-700">
+        <p className="flex items-center gap-1.5 text-sm font-medium text-success">
           <CheckCircle aria-hidden className="size-4" /> Em estoque ({product.stock_quantity} un.)
         </p>
       ) : (
-        <p className="flex items-center gap-1.5 text-sm font-medium text-rose-700">
+        <p className="flex items-center gap-1.5 text-sm font-medium text-danger">
           <ShieldAlert aria-hidden className="size-4" /> Esgotado
         </p>
       )}
