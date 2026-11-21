@@ -38,6 +38,10 @@ const emptyAssistantMessage = (id: string): ChatMessage => ({
   errorCode: null,
 });
 
+/** Feedback/checkout must reference the gateway's message_id; without it the API answers 404. */
+export const canReferenceServerMessage = (message: ChatMessage): boolean =>
+  !USE_REAL_API || Boolean(message.serverMessageId);
+
 const isAbort = (error: unknown): boolean =>
   error instanceof Error && error.name === "AbortError";
 
@@ -251,7 +255,9 @@ export function useChatSession(product: Product | null) {
       reason?: FeedbackReasonCategory
     ) => {
       const message = messages.find((candidate) => candidate.id === messageId);
-      const target = { session_id: sessionId, message_id: message?.serverMessageId ?? messageId };
+      const serverMessageId = message?.serverMessageId ?? (USE_REAL_API ? undefined : messageId);
+      if (!serverMessageId) throw new Error("feedback exige o message_id do servidor");
+      const target = { session_id: sessionId, message_id: serverMessageId };
       if (rating === "DISLIKE" && !reason) throw new Error("DISLIKE exige reason_category");
       const feedback: FeedbackCreate =
         rating === "DISLIKE" && reason
