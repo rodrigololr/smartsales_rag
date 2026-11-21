@@ -12,7 +12,12 @@ import pytest
 from app.config import Settings, get_settings
 from app.ingestion.knowledge import knowledge_docs
 from app.ingestion.run import ingest
-from ingestion_support import DATA_DIR, DATABASE_URL, HashingEmbedder, reset_backend_tables
+from ingestion_support import (  # type: ignore[import-not-found]
+    DATA_DIR,
+    DATABASE_URL,
+    HashingEmbedder,
+    reset_backend_tables,
+)
 
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="TEST_DATABASE_URL not set")
 
@@ -206,11 +211,12 @@ def test_cli_supports_multiple_catalogs_relations_and_knowledge_and_reports_kb_f
         assert ingestion_run.main(argv) == 0
         assert len({row[0] for row in asyncio.run(_knowledge_rows())}) == 6
 
-        class FailingKbEmbedder(HashingEmbedder):
+        class FailingKbEmbedder:
             async def embed(self, texts: Sequence[str]) -> list[list[float]]:
                 if any("BASE DE CONHECIMENTO:" in t for t in texts):
                     raise RuntimeError("kb embedder failure")
-                return await super().embed(texts)
+                result: list[list[float]] = await embedder.embed(texts)
+                return result
 
         asyncio.run(_reset_all())
         monkeypatch.setattr(
