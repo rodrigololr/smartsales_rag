@@ -23,6 +23,7 @@ from app.cache.service import SemanticCacheService
 from app.clients.backend import BackendClient
 from app.config import Settings, get_settings
 from app.ratelimit import (
+    CATALOG_READS_PER_IP,
     CHAT_SESSIONS_PER_IP,
     RATE_LIMIT_WINDOW_SECONDS,
     InMemoryRateLimiter,
@@ -62,13 +63,24 @@ _CATALOG_PATH = "/api/v1/products"
 
 
 def _ip_limit_exempt(request: Request) -> bool:
+    return request.method == "OPTIONS" or request.url.path in _EXEMPT_IP_LIMIT_PATHS
+
+
+def _catalog_read(request: Request) -> bool:
     path = request.url.path
-    if request.method == "OPTIONS" or path in _EXEMPT_IP_LIMIT_PATHS:
-        return True
     if request.method != "GET":
         return False
     sku = path.removeprefix(_CATALOG_PATH + "/")  # GET /products/{sku}, nothing deeper
     return path == _CATALOG_PATH or (sku != path and sku != "" and "/" not in sku)
+
+
+def _ip_bucket(request: Request) -> tuple[RateLimiter, str, int]:
+    state = request.app.state
+    if request.url.path == _CHAT_STREAM_PATH:
+        return state.chat_ip_limiter, "ip-chat", CHAT_SESSIONS_PER_IP
+    if _catalog_read(request):
+        return state.catalog_ip_limiter, "ip-catalog", CATALOG_READS_PER_IP
+    return state.rate_limiter, "ip", 1
 
 
 async def redis_unavailable(request: Request, failure: Exception) -> JSONResponse:
@@ -256,6 +268,9 @@ def create_app(
             app.state.chat_ip_limiter = build_rate_limiter(
                 settings, redis, per_ip_factor=CHAT_SESSIONS_PER_IP
             )
+            app.state.catalog_ip_limiter = build_rate_limiter(
+                settings, redis, per_ip_factor=CATALOG_READS_PER_IP
+            )
             app.state.redis_enabled = redis is not None
             app.state.redis = redis  # INCR catalog:version on mock checkout (M05)
             if isinstance(app.state.store, PostgresSessionStore):
@@ -285,6 +300,9 @@ def create_app(
     app.state.chat_ip_limiter = build_rate_limiter(
         settings, None, per_ip_factor=CHAT_SESSIONS_PER_IP
     )
+    app.state.catalog_ip_limiter = build_rate_limiter(
+        settings, None, per_ip_factor=CATALOG_READS_PER_IP
+    )
 
     @app.middleware("http")
     async def enforce_rate_limit(
@@ -294,15 +312,15 @@ def create_app(
             client_ip = client_ip_from_request(
                 request, trusted_proxy_hops=settings.rate_limit_trusted_proxy_hops
             )
-            chat = request.url.path == _CHAT_STREAM_PATH
-            limiter: RateLimiter = (
-                request.app.state.chat_ip_limiter if chat else request.app.state.rate_limiter
-            )
-            decision = await limiter.check(f"{'ip-chat' if chat else 'ip'}:{client_ip}")
+            limiter, bucket, factor = _ip_bucket(request)
+            decision = await limiter.check(f"{bucket}:{client_ip}")
             if not decision.allowed:
-                factor = CHAT_SESSIONS_PER_IP if chat else 1
                 return rate_limited(decision, settings.rate_limit_per_minute * factor)
-        return await call_next(request)
+        try:
+            return await call_next(request)
+        except Exception as failure:  # noqa: BLE001 - last resort, logged with trace_id
+            # Answered here, inside CORSMiddleware, so the browser can read the envelope.
+            return await unhandled_error(request, failure)
 
     app.add_middleware(
         CORSMiddleware,

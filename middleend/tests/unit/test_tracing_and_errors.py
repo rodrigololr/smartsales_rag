@@ -155,3 +155,17 @@ def test_unhandled_exception_returns_internal_error_without_leaking_details(
     logged = [record for record in caplog.records if record.getMessage() == "unhandled_error"]
     assert logged and logged[0].exc_info is not None
     assert getattr(logged[0], "trace_id", None) == error["trace_id"]
+
+
+def test_unhandled_error_is_readable_by_the_browser() -> None:
+    # The trace id exists for exactly these failures: CORS must not hide the envelope.
+    app = create_app(SETTINGS, FakeBackend([TOKEN, END]), store=_BrokenStore(ttl_seconds=60, history_max_messages=10))
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/api/v1/sessions",
+            json={"current_product_sku": "AF-400-220V"},
+            headers={"Origin": "http://localhost:3000"},
+        )
+    assert response.status_code == 500
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert response.headers["x-request-id"] == _envelope(response)["trace_id"]

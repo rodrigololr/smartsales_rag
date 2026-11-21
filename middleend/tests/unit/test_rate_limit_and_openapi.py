@@ -12,6 +12,7 @@ from app.commerce import CatalogQuery, CheckoutCreate
 from app.config import Settings
 from app.main import build_redis, create_app
 from app.ratelimit import (
+    CATALOG_READS_PER_IP,
     CHAT_SESSIONS_PER_IP,
     InMemoryRateLimiter,
     RedisRateLimiter,
@@ -375,3 +376,14 @@ def test_redis_client_pings_idle_connections_before_reuse() -> None:
         assert redis.connection_pool.connection_kwargs["health_check_interval"] == 30
     finally:
         asyncio.run(redis.aclose())
+
+
+def test_catalog_reads_have_their_own_generous_ip_bucket() -> None:
+    # Exempt from the 30/min bucket (SSR), but a scraper is still capped.
+    settings = Settings(backend_internal_url="http://127.0.0.1:9", rate_limit_per_minute=1)
+    with TestClient(create_app(settings, FakeBackend([TOKEN, END]))) as client:
+        statuses = [
+            client.get("/api/v1/products").status_code for _ in range(CATALOG_READS_PER_IP + 1)
+        ]
+    assert 429 not in statuses[:-1]
+    assert statuses[-1] == 429

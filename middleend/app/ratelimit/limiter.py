@@ -22,6 +22,9 @@ RATE_LIMIT_WINDOW_SECONDS = 60  # fixed: the limit and the 429 message are "per 
 # Chat is limited per session; this coarse per-IP bucket (sessions sharing one NAT,
 # e.g. a classroom) still bounds requests that never reach a valid session.
 CHAT_SESSIONS_PER_IP = 10
+# Catalog GETs: the Next.js SSR renders every visitor from one container IP, so they get
+# their own generous bucket (20x) instead of none, which still caps a scraper.
+CATALOG_READS_PER_IP = 20
 _REDIS_RATE_LIMIT_LUA = """
 local count = redis.call('INCR', KEYS[1])
 local ttl = redis.call('TTL', KEYS[1])
