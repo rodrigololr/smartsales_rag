@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Literal
 
 Voltage = Literal["127V", "220V", "BIVOLT", "N/A"]
-RecommendationType = Literal["PRIMARY", "UPSELL", "CROSS_SELL"]
+RecommendationType = Literal["PRIMARY", "UPSELL", "CROSS_SELL", "OPTION"]
 CompatibilitySource = Literal["CROSS_SELL_RELATION", "COMPLEMENTARY_CATEGORY"]
 VOLTAGES: tuple[Voltage, ...] = ("127V", "220V", "BIVOLT", "N/A")
 MIN_TIER = 1
