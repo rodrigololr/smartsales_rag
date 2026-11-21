@@ -142,8 +142,11 @@ GAME_ALIASES = {r"\bgta ?(6|vi)\b": "GTA 6", r"\bgta ?rp\b|\bgta roleplay\b": "G
                 r"\bgta ?(5|v)\b": "GTA V", r"\broblox\b": "Roblox", r"\bfortnite\b": "Fortnite",
                 r"\b(cs2|counter.?strike)\b": "Counter-Strike 2"}
 BUDGET = r"\b(?:ate|no maximo|maximo de|orcamento(?: de)?|gastar(?: ate)?)\s*(?:r\$\s*)?(\d[\d.]*(?:,\d{1,2})?)\s*(mil|k)?\b|\b(\d+)\s*mil reais\b"
-VOLTAGE = r"\b(127|110)\s*v\b|\btomada (de )?(127|110)\b → 127V ; \b220\s*v\b|\btomada (de )?220\b → 220V"
-LENGTH  = r"(\d+(?:[.,]\d+)?)\s*(cm|centimetros?|m|metros?)\b"   # → cm (×100 for m); in guardrails/output.py as length_measures_cm()
+VOLTAGE = (
+    (r"\b(127|110)\s*v\b|\btomada (de )?(127|110)\b", "127V"),
+    (r"\b220\s*v\b|\btomada (de )?220\b", "220V"),
+)
+LENGTH  = r"(\d+(?:[.,]\d+)?)\s*(cm|centimetros?|m|metros?)\b"   # -> cm (*100 for m); in guardrails/output.py as length_measures_cm()
 SEATS   = r"\b(\d)\s*lugares\b"
 DEICTIC_SET = r"\b(desses|dessas|destes|destas|esses|essas|estes|estas|eles|elas|todos|todas|entre (eles|elas)|cada um|que voce (mandou|mostrou|indicou))\b"
 VOLTAGE_TOPIC = r"\b(127|110|220)\s*v?\b|\bbivolt\b|\b(voltagem|tensao|tomada)\b"
@@ -313,17 +316,17 @@ CREATE TABLE IF NOT EXISTS knowledge_chunks (
 **Signatures:**
 ```python
 def discovery_answer(options, slots, *, game_rows: Mapping[str, GameRow | None], game_fact: KbFactHit | None,
-                     relaxed: CatalogProduct | None, categories_in_stock: Sequence[tuple[str, str]]) -> ConsultantAnswer
+                     relaxed: CatalogProduct | None, categories_in_stock: Sequence[tuple[str, str]]) -> ConsultantAnswer: ...
 def game_fit_answer(targets, game: str, rows: Mapping[str, GameRow | None], platform: Sequence[KbFactHit],
-                    alias: KbFactHit | None, alternative: tuple[CatalogProduct, GameRow] | None, consoles_in_catalog: bool) -> ConsultantAnswer
+                    alias: KbFactHit | None, alternative: tuple[CatalogProduct, GameRow] | None, consoles_in_catalog: bool) -> ConsultantAnswer: ...
 def stream_fit_answer(target: CatalogProduct | None, height: KbMeasure, fps: KbMeasure,
-                      matches: Sequence[CatalogProduct]) -> ConsultantAnswer
+                      matches: Sequence[CatalogProduct]) -> ConsultantAnswer: ...
 def dimension_fit_answer(target: CatalogProduct | None, room_cm: Decimal | None, clearance: KbMeasure,
-                         matches: Sequence[CatalogProduct]) -> ConsultantAnswer
-def set_voltage_answer(products, voltage: Literal["127V", "220V"] | None) -> ConsultantAnswer
-def price_rank_answer(products, referent: CatalogProduct | None, direction: Literal["cheapest", "priciest"], from_peers: bool) -> ConsultantAnswer
-def comparison_answer(products, game_rows: Mapping[str, GameRow | None], game: str | None) -> ConsultantAnswer
-def brand_opinion_answer(products) -> ConsultantAnswer
+                         matches: Sequence[CatalogProduct]) -> ConsultantAnswer: ...
+def set_voltage_answer(products, voltage: Literal["127V", "220V"] | None) -> ConsultantAnswer: ...
+def price_rank_answer(products, referent: CatalogProduct | None, direction: Literal["cheapest", "priciest"], from_peers: bool) -> ConsultantAnswer: ...
+def comparison_answer(products, game_rows: Mapping[str, GameRow | None], game: str | None) -> ConsultantAnswer: ...
+def brand_opinion_answer(products) -> ConsultantAnswer: ...
 ```
 
 **Formatting helpers (DRY):**
