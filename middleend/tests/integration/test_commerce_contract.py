@@ -358,3 +358,38 @@ def test_gateway_starts_before_ingestion_and_creates_commerce_tables_later(
             assert_contract(ready, "/feedback", 201)
 
     asyncio.run(scenario())
+
+
+def test_price_change_and_last_unit_sale_bump_catalog_version(database_url: str) -> None:
+    # RN09: cached answers under the old catalog:version must stop being served.
+    def version() -> int:
+        with Redis.from_url(REDIS_URL) as redis:
+            return int(redis.get("catalog:version") or 0)
+
+    async def scenario() -> None:
+        async with client_for(database_url) as client:
+            turn = await new_turn(client)
+            request = {
+                **turn,
+                "sku": SKU,
+                "quantity": 1,
+                "recommendation_type": "PRIMARY",
+                "displayed_price": 499.90,
+            }
+            start = version()
+            with psycopg.connect(database_url) as connection:
+                connection.execute("UPDATE products SET price = 519.90 WHERE sku = %s", (SKU,))
+            stale = await client.post("checkout/mock", json=request)
+            assert stale.status_code == 409
+            assert version() == start + 1
+            sold = await client.post("checkout/mock", json={**request, "displayed_price": 519.90})
+            assert sold.json()["remaining_stock"] == 0
+            assert version() == start + 2
+            kit = await client.post(
+                "checkout/mock",
+                json={**request, "sku": "KIT", "displayed_price": 50},
+            )
+            assert kit.json()["remaining_stock"] == 1
+            assert version() == start + 2  # stock left and same price: no bump
+
+    asyncio.run(scenario())

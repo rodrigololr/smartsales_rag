@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from app.cache.redis_storage import CATALOG_VERSION_KEY
 from app.commerce import (
     Catalog,
     CatalogNotReady,
@@ -33,7 +34,6 @@ from app.repositories.commerce import PostgresCommerce
 from app.routes.chat import error_response
 
 logger = logging.getLogger(__name__)
-CATALOG_VERSION_KEY = "catalog:version"
 
 
 class ErrorDetail(BaseModel):
