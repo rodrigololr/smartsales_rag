@@ -17,6 +17,8 @@ export interface ApiProduct {
   brand: string;
   specs_json: Record<string, unknown>;
   updated_at: string;
+  /** Optional free text from the catalog, shown in "Sobre este item". */
+  description?: string | null;
 }
 
 /** openapi.yaml `Catalog`. */
@@ -47,7 +49,7 @@ export interface Product {
   specs_json?: Record<string, unknown>;
   /** Extra product photos for the product page gallery (frontend only). */
   gallery?: string[];
-  description?: string;
+  description?: string | null;
   features?: string[];
   rating?: number;
   reviews_count?: number;
