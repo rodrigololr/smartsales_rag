@@ -40,4 +40,31 @@ describe("UT-F04-01: ProductRecommendationCarousel e Mock Checkout", () => {
       expect.stringContaining("mercadolivre.com.br")
     );
   });
+
+  it("renderiza card OPTION com selo padrão 'Opção', tom slate e link 'Ver detalhes' para /produto/{sku}", () => {
+    if (!base) throw new Error("Produto base ausente no mock");
+    const [primary] = buildRecommendations(base);
+    const optionCard = {
+      ...primary,
+      sku: "PC-VX3-BIV",
+      name: "PC Gamer Vortex X3",
+      recommendation_type: "OPTION" as const,
+      badge_label: "",
+    };
+
+    render(
+      <ProductRecommendationCarousel
+        products={[optionCard]}
+        sessionId="session-test"
+        messageId="message-test"
+      />
+    );
+
+    const card = screen.getByTestId("recommendation-card-PC-VX3-BIV");
+    expect(card).toHaveClass("border-slate-200");
+    expect(card).toHaveTextContent("Opção");
+    const detailsLink = screen.getByTestId("view-details-PC-VX3-BIV");
+    expect(detailsLink).toHaveTextContent("Ver detalhes");
+    expect(detailsLink).toHaveAttribute("href", "/produto/PC-VX3-BIV");
+  });
 });

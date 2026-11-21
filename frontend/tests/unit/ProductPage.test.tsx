@@ -129,6 +129,14 @@ describe("specsJsonRows", () => {
       ["DPI máx.", "4.000"],
       ["Validade", "24 meses"],
     ]);
+    expect(
+      specsJsonRows({ memoria_ram_gb: 16, tela_polegadas: 24, taxa_fps: 60, tempo_resposta_ms: 1 })
+    ).toEqual([
+      ["Memoria ram", "16 GB"],
+      ["Tela", "24 ″"],
+      ["Taxa", "60 fps"],
+      ["Tempo resposta", "1 ms"],
+    ]);
     expect(specsJsonRows(undefined)).toEqual([]);
   });
 
