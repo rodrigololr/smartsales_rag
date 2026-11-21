@@ -111,7 +111,7 @@ class BlockedSentences(logging.Handler):
         self.sku, self.count = sku, 0
 
     def emit(self, record: logging.LogRecord) -> None:
-        if record.msg == "gout_blocked_sentence" and getattr(record, "sku", None) == self.sku:
+        if str(record.msg).startswith("gout_blocked_sentence") and getattr(record, "sku", None) == self.sku:
             self.count += 1
 
 
@@ -150,6 +150,8 @@ class ProductionPipeline:
         blocked = BlockedSentences(request.sku)
         logger = logging.getLogger("app.rag.orchestrator")
         logger.addHandler(blocked)
+        previous_level = logger.level
+        logger.setLevel(logging.INFO)  # blocked sentences are logged at INFO
         try:
             async for event in orchestrator.stream(
                 RagRequest(
@@ -173,6 +175,7 @@ class ProductionPipeline:
             turn.errors.append(f"Pipeline failed: {type(error).__name__}")
         finally:
             logger.removeHandler(blocked)
+            logger.setLevel(previous_level)
             turn.blocked_sentences = blocked.count
         turn.products, turn.generation_calls = catalog.products, model.calls
         turn.evidence_contexts = model.contexts

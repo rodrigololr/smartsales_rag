@@ -1,14 +1,20 @@
 """RAG orchestrator: grounded answers about one product, or a safe fallback (R01/R02)."""
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator, Sequence
 from uuid import uuid4
 
+import pytest
 from app.clients.openai_client import LLMUnavailableError
 from app.config import Settings
 from app.generation.prompt import SYSTEM_PROMPT, Message, build_messages
 from app.models.schemas import CatalogProduct, ChatTurn, RagRequest, RetrievedChunk
-from app.rag.orchestrator import MISSING_EVIDENCE_NOTICE, RAGOrchestrator
+from app.rag.orchestrator import (
+    BLOCKED_SENTENCE_LOG_MAX_CHARS,
+    MISSING_EVIDENCE_NOTICE,
+    RAGOrchestrator,
+)
 
 PRODUCT = CatalogProduct(
     sku="AF-400-220V",
@@ -173,6 +179,35 @@ def test_prompt_missing_information_sentence_is_published_as_the_notice() -> Non
 
 def test_prompt_rule_quotes_exactly_the_notice_the_gate_recognizes() -> None:
     assert MISSING_EVIDENCE_NOTICE.strip() in SYSTEM_PROMPT
+
+
+def test_prompt_asks_for_no_preamble_and_dash_bullets() -> None:
+    # TTFT is measured at the first *verified* sentence: greetings and "1." markers are
+    # dropped by G-OUT, so the prompt must lead with the cited fact in "-" bullets.
+    assert "comece diretamente pelo fato" in SYSTEM_PROMPT
+    assert 'tópicos iniciados por "- "' in SYSTEM_PROMPT
+    assert "nunca numerados" in SYSTEM_PROMPT
+    assert "cordial" not in SYSTEM_PROMPT
+
+
+def test_blocked_sentences_are_logged_with_their_text_and_sku(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    model = ChatModel(["O cesto suporta até 1,2 kg. ", "Ele também funciona em 127V. "])
+    with caplog.at_level(logging.INFO, logger="app.rag.orchestrator"):
+        run(Catalog(PRODUCT, [chunk()]), model)
+    [record] = [r for r in caplog.records if r.msg.startswith("gout_blocked_sentence")]
+    assert record.levelno == logging.INFO
+    assert record.sku == PRODUCT.sku  # type: ignore[attr-defined]
+    assert record.sentence == "Ele também funciona em 127V."  # type: ignore[attr-defined]
+
+
+def test_blocked_sentence_log_is_truncated(caplog: pytest.LogCaptureFixture) -> None:
+    model = ChatModel(["O cesto suporta até 1,2 kg. ", "Funciona em 127V " + "x" * 1000 + "."])
+    with caplog.at_level(logging.INFO, logger="app.rag.orchestrator"):
+        run(Catalog(PRODUCT, [chunk()]), model)
+    [record] = [r for r in caplog.records if r.msg.startswith("gout_blocked_sentence")]
+    assert len(record.sentence) == BLOCKED_SENTENCE_LOG_MAX_CHARS  # type: ignore[attr-defined]
 
 
 def test_answer_with_no_approved_sentence_becomes_fallback() -> None:

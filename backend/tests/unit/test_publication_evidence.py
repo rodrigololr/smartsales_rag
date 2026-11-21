@@ -96,6 +96,23 @@ def test_consultative_facts_never_borrow_values_or_manuals_from_another_sku() ->
     assert verifier.cited_chunk_ids == set()
 
 
+def test_dash_bullets_keep_facts_and_sku_anchors_publishable() -> None:
+    from app.guardrails.publication import ConsultativeVerifier
+    from app.models.schemas import ProductRecommendation
+    from test_recommendation_service import FAMILY
+
+    card = ProductRecommendation(
+        sku=FAMILY.sku, name=FAMILY.name, price=FAMILY.price,
+        stock_quantity=5, voltage=FAMILY.voltage,
+        capacity_liters=FAMILY.capacity_liters, power_watts=FAMILY.power_watts,
+        recommendation_type="UPSELL",
+    )
+    verifier = ConsultativeVerifier(PRODUCT, [chunk()], [card])
+    assert verifier.approve("- A potência é 1500 W.") == "- A potência é 1500 W."
+    assert verifier.approve(f"- SKU {FAMILY.sku}: Voltagem: 220V.") == f"- SKU {FAMILY.sku}: Voltagem: 220V."
+    assert verifier.approve(f"- SKU {FAMILY.sku}: Possui capacidade de 4 L.") is None
+
+
 @pytest.mark.parametrize("answer", [
     "A capacidade é de 4 litros.",
     "A potência é de 1500 W.",

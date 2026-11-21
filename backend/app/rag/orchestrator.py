@@ -41,6 +41,7 @@ MISSING_EVIDENCE_NOTICE = (
 )
 _NOTICE_WORDS = normalized_words(MISSING_EVIDENCE_NOTICE)
 EXCERPT_MAX_CHARS = 400
+BLOCKED_SENTENCE_LOG_MAX_CHARS = 200  # model output only; enough to diagnose a G-OUT drop
 ANSWER_INTENT = "TECHNICAL_QA"
 
 
@@ -279,7 +280,12 @@ class _PublicationGate:
             return []
         approved = self._verifier.approve(sentence)
         if approved is None:
-            logger.warning("gout_blocked_sentence", extra={"sku": self._sku})
+            blocked_text = sentence.strip()[:BLOCKED_SENTENCE_LOG_MAX_CHARS]
+            # Values in the message too: the default basicConfig format drops `extra`.
+            logger.info(
+                "gout_blocked_sentence sku=%s sentence=%r", self._sku, blocked_text,
+                extra={"sku": self._sku, "sentence": blocked_text},
+            )
             # Only a dropped spec (number + unit, price, bivolt) is "missing from the
             # manual"; a dropped courtesy or paraphrase is discarded silently.
             if technical_claims(CITATION_MARK.sub("", sentence)):
