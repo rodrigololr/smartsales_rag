@@ -5,6 +5,7 @@ import { inter } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
 import { themeInitScript } from "@/lib/theme";
 import { ThemeSync } from "@/components/layout/ThemeToggle";
+import { ConsultantProvider } from "@/components/chat/ConsultantProvider";
 
 export const metadata: Metadata = {
   title: "SmartSales RAG — Consultor Especialista de Vendas",
@@ -30,7 +31,7 @@ export default function RootLayout({
         >
           Pular para o conteúdo
         </a>
-        {children}
+        <ConsultantProvider>{children}</ConsultantProvider>
       </body>
     </html>
   );

@@ -44,7 +44,7 @@ Implementar a camada Frontend do Consultor Unificado:
   - Commit: `feat(P4): support OPTION recommendation card, Ver detalhes link and new SPEC_UNITS`
 - [x] **Task 3 (Red)**: Adicionar testes unitarios para `createSession(null)`, omissao de `context_filters` no modo catalogo, token fixo no modo mock sem produto e `useChatSession` reutilizando sessao entre produtos.
   - Commit: `test(P4): add unit tests for catalog-mode session, streamChat and mock-api`
-- [ ] **Task 4 (Green)**: Atualizar `chat-api.ts`, `mock-api.ts`, `use-chat-session.ts`, criar `ConsultantProvider.tsx` e montar em `app/layout.tsx`.
+- [x] **Task 4 (Green)**: Atualizar `chat-api.ts`, `mock-api.ts`, `use-chat-session.ts`, criar `ConsultantProvider.tsx` e montar em `app/layout.tsx`.
   - Commit: `feat(P4): add ConsultantProvider and update useChatSession for catalog and product modes`
 - [ ] **Task 5 (Red)**: Adicionar testes unitarios para `ProductAssistant` em modo catalogo, `CATALOG_SUGGESTIONS`, `suggestionsFor` para novas categorias, botao flutuante na `CatalogView` e continuidade da conversa para `ProductPageView`.
   - Commit: `test(P4): add unit tests for catalog assistant drawer, suggestions and home-to-product handoff`
