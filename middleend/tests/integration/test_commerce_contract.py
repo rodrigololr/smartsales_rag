@@ -200,6 +200,13 @@ def test_product_detail_includes_current_price_even_when_out_of_stock(database_u
             product = assert_contract(await client.get("products/EMPTY"), "/products/{sku}", 200)
             assert product["stock_quantity"] == 0
             assert product["price"] == 300
+            assert product["description"] is None  # optional: older seeds have none
+            with psycopg.connect(database_url) as connection:
+                connection.execute(
+                    "UPDATE products SET description = 'Fritadeira sem óleo.' WHERE sku = 'EMPTY'"
+                )
+            described = assert_contract(await client.get("products/EMPTY"), "/products/{sku}", 200)
+            assert described["description"] == "Fritadeira sem óleo."
             for sku in ("INACTIVE", "UNKNOWN"):
                 assert_contract(await client.get(f"products/{sku}"), "/products/{sku}", 404)
 

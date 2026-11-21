@@ -32,6 +32,28 @@ flowchart LR
     style RUNTIME fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
 ```
 
+### 1.1. Busca escopada por SKU
+
+A busca de *chunks* do turno é uma varredura **exata** dos *chunks* do SKU consultado
+(CTE `MATERIALIZED` filtrada por `sku`, ordenada por distância de cosseno). Ela não usa o
+índice HNSW: quando o planejador escolhe o HNSW, ele obtém só os ~`ef_search` (40)
+vizinhos da tabela inteira e aplica o filtro de `sku` depois, e um produto fora desse
+grupo voltaria com `0 chunks` (*fallback* falso). Reproduzido com o seed: 10 de 32 SKUs
+sem resultado com o plano HNSW. Cada produto tem poucos *chunks*, então o custo da
+varredura exata é baixo; o índice HNSW segue disponível para buscas sem filtro.
+
+### 1.2. Limiar de similaridade por modelo de *embedding* (`RN02`)
+
+O padrão do código continua `SIMILARITY_THRESHOLD = 0.72`, valor das specs para
+`text-embedding-3-small`. Para `gemini-embedding-001` (1536 dimensões), o limiar
+aprovado é **`0.60`**: desvio de `RN02` registrado pelo GP em 07/11 (commit `525c1c8`),
+calibrado nos manuais da demo (respostas corretas entre 0,64 e 0,72; perguntas fora do
+tema perto de 0,47) e configurado em `.env.example` e `backend/.env.example`. O limiar só
+vale para o modelo com que foi calibrado: ao trocar `EMBEDDING_MODEL`, recalibrar com
+`python -m app.retrieval.inspect`. Na subida, o backend registra numa única linha o
+limiar efetivo e os modelos em uso
+(`rag_settings similarity_threshold=... embedding_model=... llm_model=...`).
+
 ---
 
 ## 2. Especificação do Pipeline de Ingestão e Chunking (`B01`, `B03`)
@@ -80,10 +102,12 @@ REGRAS OBRIGATÓRIAS E INEGOCIÁVEIS:
 4. CONSULTORIA DE CAPACIDADE E VOLTAGEM:
    - Se o cliente informar uma necessidade superior à capacidade do produto consultado (ex.: família de 5+ pessoas para cesto de 4L), explique a limitação técnica e apresente a opção de UPSELL disponível em <RECOMENDACOES_SQL>.
    - Sempre destaque a voltagem exata do produto recomendado.
-5. TOM E FORMATO: Seja objetivo, cordial, técnico e estruturado em tópicos curtos.
+5. TOM E FORMATO: Seja objetivo e técnico. Sem saudação, introdução ou fecho: comece diretamente pelo fato citado. Para listas, use tópicos iniciados por "- ", nunca numerados.
 ```
 
-**Parâmetros de geração**: `LLM_MODEL=gpt-4o-mini` (*snapshot* fixado — `R14`), `temperature = 0.2`, `max_tokens = 600`, `stream = True`; *timeout* de `3 s` até o 1º token com **1** nova tentativa (`RNF07`).
+O TTFT é medido na primeira sentença **aprovada** pelo G-OUT: saudações e marcadores numerados ("1. ") são descartados pelo verificador, por isso o *prompt* pede resposta começando pelo fato citado e tópicos com "- " (o hífen é preservado, inclusive antes de `SKU <código>:`). Cada sentença bloqueada é registrada em nível `INFO` (`gout_blocked_sentence`, com `sku` e até 200 caracteres do texto gerado) para diagnóstico.
+
+**Parâmetros de geração**: `LLM_MODEL=gpt-4o-mini` (*snapshot* fixado — `R14`), `temperature = 0.2`, `max_tokens = 600`, `stream = True`; *timeout* de `3 s` até o 1º token com **1** nova tentativa (`RNF07`). Essa é a **única** política de *retry* da chamada ao LLM: o cliente do SDK roda com `max_retries=0`, para que *retries* internos do SDK não se somem ao `RNF07`. O *embedding* da pergunta tem *timeout* próprio e curto (`EMBEDDING_TIMEOUT_SECONDS`, padrão `3 s`; a ingestão mantém o *timeout* do cliente). Qualquer resposta HTTP de erro do provedor (`400`, `401`, `404`, `429`, `5xx`) ou falha de transporte vira `LLMUnavailableError` → evento `error` `LLM_UNAVAILABLE` seguido dos *cards* determinísticos, sem quebrar o stream NDJSON.
 
 ---
 
@@ -183,7 +207,11 @@ fontes. Não inventar um content_hash para um arquivo que não pôde ser lido.
 
 Na publicação, preço e valores elétricos/capacidade são conferidos contra o SQL
 do SKU consultado. Sentenças SQL usam estruturas simples que vinculam atributo
-e unidade; afirmações não verificáveis caem no fallback. Para outros fatos,
+e unidade (aceitando as formas usuais em português: "A potência é de 1500 W",
+"A capacidade é de 4 litros", "O preço atual é de R$ 499,90", "Este produto é 220V");
+o valor continua tendo de ser exatamente o do SQL daquele SKU. Números com ponto de
+milhar ("1.500 W") valem 1500; vírgula é separador decimal ("1,5 kW"). Afirmações não
+verificáveis caem no fallback. Para outros fatos,
 exigir extrato literal da evidência, preservando negações e restrições. Citações
 precisam sustentar a sentença na página indicada; se um extrato não vier com
 citação, vinculá-lo deterministicamente ao chunk de suporte. Emitir apenas seus
@@ -191,7 +219,10 @@ IDs no evento citations, sem acrescentar páginas não utilizadas. Chunks de out
 SKU não entram no prompt. O aviso "Essa especificação específica não consta no manual" só
 é emitido quando a sentença bloqueada contém uma afirmação técnica (número com unidade,
 preço ou bivolt); cortesias e paráfrases sem dado técnico são descartadas em silêncio,
-sem sugerir ao cliente que falta uma especificação. O protocolo SSE permanece igual; nenhuma correção de
+sem sugerir ao cliente que falta uma especificação. Se o próprio modelo escrever a frase da regra 3 do
+*prompt* ("Essa especificação específica não consta no manual técnico oficial deste
+modelo."), ela é tratada como esse aviso (publicado uma única vez, junto de texto
+aprovado), e não como afirmação rejeitada. O protocolo SSE permanece igual; nenhuma correção de
 fato incorreto depende de já tê-lo exposto ao usuário.
 
 Se não houver nenhuma sentença aprovada e a consulta não puder ser respondida com evidência, emitir error LOW_SIMILARITY_FALLBACK, recomendações determinísticas e end; o Gateway conclui com done(fallback). Nunca transmitir o rascunho rejeitado.
@@ -207,6 +238,12 @@ seus próprios atributos SQL. Os chunks do SKU consultado não justificam afirma
 sobre outra opção. Sem manual daquela opção, o texto se limita aos atributos SQL;
 quantidade de pessoas/porções não é inferida a partir da capacidade em litros.
 
+Para encurtar o caminho até o primeiro token, as leituras independentes rodam em
+paralelo: a consulta do produto junto com o *embedding* da pergunta (pulado se o G-IN
+bloquear), e a busca de *chunks* junto com a seleção de cards para o *prompt*. Num turno
+de *fallback* essa seleção é descartada e os substitutos são lidos (uma consulta SQL a
+mais nesse caminho). A releitura após a geração é mantida de propósito (`R09`): os cards
+emitidos refletem o SQL do fim do turno, não o snapshot do *prompt*.
 A seleção adicional antes da geração afeta o caminho até o primeiro token;
 TTFT, precisão/relevância e recusas excessivas exigem medição B05/F05. A issue #13
 usa uma fórmula ilustrativa antiga: os pesos normativos desta baseline são os
