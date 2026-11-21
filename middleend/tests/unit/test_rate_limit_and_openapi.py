@@ -6,7 +6,9 @@ import os
 import uuid
 from pathlib import Path
 
+import httpx
 import pytest
+from app.commerce import CatalogQuery, CheckoutCreate
 from app.config import Settings
 from app.main import create_app
 from app.ratelimit import (
@@ -16,6 +18,7 @@ from app.ratelimit import (
     client_ip_from_request,
 )
 from fastapi.testclient import TestClient
+from pydantic import BaseModel, ValidationError
 from redis.asyncio import Redis
 from redis.exceptions import ConnectionError as RedisConnectionError
 from starlette.requests import Request
@@ -306,3 +309,58 @@ def test_catalog_reads_skip_the_ip_bucket_but_writes_stay_limited() -> None:
         assert writes[-1] == 429
         # Only the list and the single-product route are exempt, not deeper paths.
         assert client.get("/api/v1/products/AF-400-220V/extra").status_code == 429
+
+
+def _stream_with_filters(client: TestClient, filters: str) -> httpx.Response:
+    body = (
+        f'{{"session_id": "{uuid.uuid4()}", "client_request_id": "{uuid.uuid4()}", '
+        f'"message": "Qual a voltagem?", "context_filters": {filters}}}'
+    )
+    return client.post(
+        "/api/v1/chat/stream", content=body, headers={"Content-Type": "application/json"}
+    )
+
+
+@pytest.mark.parametrize(
+    ("filters", "field"),
+    [
+        ('{"capacity_min": NaN}', "capacity_min"),
+        ('{"capacity_min": Infinity}', "capacity_min"),
+        ('{"capacity_min": -1}', "capacity_min"),
+        (json.dumps({"category": "x" * 65}), "category"),
+    ],
+)
+def test_chat_filters_reject_non_finite_negative_or_oversized_values(
+    filters: str, field: str
+) -> None:
+    settings = Settings(backend_internal_url="http://127.0.0.1:9")
+    with TestClient(create_app(settings, FakeBackend([TOKEN, END]))) as client:
+        response = _stream_with_filters(client, filters)
+    assert response.status_code == 422
+    assert response.json()["error"]["details"]["errors"][0]["loc"][-1] == field
+
+
+@pytest.mark.parametrize(
+    ("model", "payload", "field"),
+    [
+        (CatalogQuery, {"category": "x" * 65}, "category"),
+        (
+            CheckoutCreate,
+            {
+                "session_id": str(uuid.uuid4()),
+                "message_id": str(uuid.uuid4()),
+                "sku": "S" * 65,
+                "recommendation_type": "PRIMARY",
+                "quantity": 1,
+                "displayed_price": 10.0,
+            },
+            "sku",
+        ),
+    ],
+)
+def test_commerce_request_strings_are_bounded(
+    model: type[BaseModel], payload: dict[str, object], field: str
+) -> None:
+    with pytest.raises(ValidationError) as invalid:
+        model.model_validate(payload)
+    assert invalid.value.errors()[0]["loc"][-1] == field

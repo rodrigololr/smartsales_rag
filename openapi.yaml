@@ -114,7 +114,8 @@
             "name": "category",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 64
             }
           },
           {
@@ -988,13 +989,16 @@
             ]
           },
           "category": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64
           },
           "current_product_sku": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64
           },
           "capacity_min": {
-            "type": "number"
+            "type": "number",
+            "minimum": 0
           },
           "budget_max": {
             "type": "number",
@@ -1339,7 +1343,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "maxLength": 64
           }
         },
         "required": []
@@ -1475,7 +1480,8 @@
             "format": "uuid"
           },
           "sku": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64
           },
           "recommendation_type": {
             "type": "string",
