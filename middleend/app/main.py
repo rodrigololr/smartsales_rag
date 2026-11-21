@@ -113,6 +113,7 @@ def build_commerce(settings: Settings) -> PostgresCommerce | None:
     return PostgresCommerce(
         settings.database_url,
         decrement_stock=settings.checkout_decrement_stock,
+        session_ttl_seconds=settings.session_ttl_seconds,
         connect_timeout_seconds=settings.database_connect_timeout_seconds,
         query_timeout_ms=settings.session_db_query_timeout_ms,
     )

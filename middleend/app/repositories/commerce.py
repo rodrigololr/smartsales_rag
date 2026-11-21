@@ -23,6 +23,7 @@ from app.commerce import (
     SessionEnded,
     checkout_conflict,
 )
+from app.sessions.postgres_store import MAX_RETENTION_DAYS
 
 SCHEMA_FILE = Path(__file__).with_suffix(".sql")
 PRODUCT_COLUMNS = sql.SQL("""
@@ -46,11 +47,13 @@ class PostgresCommerce:
         database_url: str,
         *,
         decrement_stock: bool,
+        session_ttl_seconds: int,
         connect_timeout_seconds: int,
         query_timeout_ms: int,
     ) -> None:
         self._database_url = database_url
         self._decrement_stock = decrement_stock
+        self._session_ttl_seconds = session_ttl_seconds
         self._connect_timeout_seconds = connect_timeout_seconds
         self._query_timeout_ms = query_timeout_ms
         self._schema_ready = False
@@ -121,7 +124,7 @@ class PostgresCommerce:
     async def record_feedback(self, request: FeedbackCreate) -> FeedbackRecorded:
         await self._require_schema()
         async with await self._connect() as connection:
-            await _require_message(connection, request)
+            await _require_message(connection, request, ttl_seconds=self._session_ttl_seconds)
             cursor = await connection.execute(
                 """
                 INSERT INTO feedback_logs (session_id, message_id, rating, reason_category, comment)
@@ -145,7 +148,7 @@ class PostgresCommerce:
     async def checkout(self, request: CheckoutCreate) -> Checkout | CheckoutConflict:
         await self._require_schema()
         async with await self._connect() as connection:
-            await _require_message(connection, request)
+            await _require_message(connection, request, ttl_seconds=self._session_ttl_seconds)
             cursor = await connection.execute(
                 sql.SQL(
                     "SELECT id, {} FROM products WHERE sku = %s AND is_active FOR UPDATE"
@@ -197,19 +200,25 @@ class PostgresCommerce:
 
 
 async def _require_message(
-    connection: AsyncConnection[DictRow], reference: MessageReference
+    connection: AsyncConnection[DictRow], reference: MessageReference, *, ttl_seconds: int
 ) -> None:
+    # Same lifetime rules as PostgresSessionStore._active, without renewing the TTL.
+    # Hold the session row against DELETE/state updates until feedback/checkout commits.
     cursor = await connection.execute(
         """
-        SELECT s.state FROM chat_messages m JOIN chat_sessions s ON s.id = m.session_id
-        WHERE m.id = %s AND m.session_id = %s AND m.role = 'assistant' FOR KEY SHARE OF m
+        SELECT s.state='ACTIVE'
+            AND s.last_active_at > clock_timestamp()-make_interval(secs => %s)
+            AND s.created_at > clock_timestamp()-make_interval(days => %s) AS active
+        FROM chat_messages m JOIN chat_sessions s ON s.id = m.session_id
+        WHERE m.id = %s AND m.session_id = %s AND m.role = 'assistant'
+        FOR SHARE OF s FOR KEY SHARE OF m
         """,
-        (reference.message_id, reference.session_id),
+        (ttl_seconds, MAX_RETENTION_DAYS, reference.message_id, reference.session_id),
     )
     message = await cursor.fetchone()
     if message is None:
         raise MessageNotFound
-    if message["state"] != "ACTIVE":
+    if not message["active"]:
         raise SessionEnded
 
 
