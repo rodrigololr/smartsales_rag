@@ -35,7 +35,7 @@ export function CitationList({ citations }: { citations: ManualCitation[] }) {
               aria-controls={panelId}
               onClick={() => toggle(citation.chunk_id)}
               data-testid={`citation-badge-${citation.chunk_id}`}
-              className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[11px] font-medium text-primary outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset"
+              className="flex w-full items-center gap-1.5 min-h-9 px-2.5 py-1.5 text-left text-xs font-medium text-primary outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset"
             >
               <FileText className="size-3.5 shrink-0" aria-hidden />
               <span className="min-w-0 flex-1 truncate">
@@ -67,7 +67,7 @@ export function CitationList({ citations }: { citations: ManualCitation[] }) {
               <blockquote className="border-l-2 border-primary pl-2.5 text-xs leading-relaxed text-foreground">
                 “{citation.excerpt}”
               </blockquote>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground">
                 Trecho literal do manual, página {citation.page_number} (similaridade{" "}
                 {(citation.similarity_score * 100).toFixed(0)}%).
               </p>

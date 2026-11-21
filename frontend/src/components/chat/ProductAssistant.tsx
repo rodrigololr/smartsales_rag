@@ -11,18 +11,21 @@ import { AssistantMessage } from "@/components/chat/AssistantMessage";
 import { cn } from "@/lib/utils";
 
 export function suggestionsFor(product: Product): string[] {
-  const voltage = `Qual é a voltagem oficial deste modelo (${product.voltage})?`;
+  const first =
+    product.voltage === "N/A"
+      ? "Quais são as principais especificações deste modelo?"
+      : `Qual é a voltagem oficial deste modelo (${product.voltage})?`;
   if (product.subcategory === "Cafeteiras") {
-    return [voltage, "Qual é a pressão da bomba?", "Como faço a descalcificação?"];
+    return [first, "Qual é a pressão da bomba?", "Como faço a descalcificação?"];
   }
-  if (product.capacity_liters) {
+  if (product.subcategory === "Fritadeiras Elétricas" && product.capacity_liters) {
     return [
-      voltage,
+      first,
       `A capacidade de ${product.capacity_liters}L atende quantas pessoas?`,
       "Quais materiais de forma e assadeira posso utilizar?",
     ];
   }
-  return [voltage, "Como devo fazer a limpeza?", "Quais são os cuidados de uso?"];
+  return [first, "Como devo fazer a limpeza?", "Quais são os cuidados de uso?"];
 }
 
 export interface ProductAssistantProps {
@@ -43,7 +46,8 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
     const element = scrollRef.current;
     if (!element) return;
     if (typeof element.scrollTo === "function") {
-      element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+      const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      element.scrollTo({ top: element.scrollHeight, behavior: reduceMotion ? "auto" : "smooth" });
     } else {
       element.scrollTop = element.scrollHeight;
     }
@@ -69,7 +73,7 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <h2 className="text-sm font-semibold text-foreground">Consultor IA</h2>
-              <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider">
+              <Badge variant="secondary" className="text-[11px] font-bold uppercase tracking-wider">
                 RAG
               </Badge>
             </div>
@@ -83,7 +87,7 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon-lg"
             onClick={() => {
               reset();
               setPrompt("");
@@ -98,7 +102,7 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
             <Button
               type="button"
               variant="ghost"
-              size="icon-sm"
+              size="icon-lg"
               data-testid="close-drawer-btn"
               onClick={onClose}
               aria-label="Fechar consultor"
@@ -117,12 +121,15 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
             Manual e ficha técnica de <strong>{product.sku}</strong>
           </span>
         </div>
-        <Badge variant="secondary" className="font-bold text-primary">
-          {product.voltage}
-        </Badge>
+        {product.voltage !== "N/A" ? (
+          <Badge variant="secondary" className="font-bold text-primary">
+            <span className="sr-only">Voltagem </span>
+            {product.voltage}
+          </Badge>
+        ) : null}
       </div>
 
-      <div ref={scrollRef} aria-live="polite" className="flex-1 space-y-4 overflow-y-auto p-4">
+      <div ref={scrollRef} aria-live="polite" className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
         {messages.length === 0 ? (
           <>
             <div className="flex items-start gap-2.5 rounded-xl bg-muted p-3.5 text-xs leading-relaxed text-muted-foreground">
@@ -206,8 +213,8 @@ export function ProductAssistant({ product, chat, onClose, className }: ProductA
             <Send className="size-4" />
           </Button>
         </div>
-        <p className="mt-2 flex items-center justify-center gap-1 text-center text-[10px] text-muted-foreground">
-          <AlertCircle className="size-3" /> Respostas ancoradas no manual oficial do fabricante.
+        <p className="mt-2 flex items-center justify-center gap-1 text-center text-[11px] text-muted-foreground">
+          <AlertCircle aria-hidden className="size-3" /> Respostas ancoradas no manual oficial do fabricante.
         </p>
       </form>
     </div>

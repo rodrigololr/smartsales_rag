@@ -18,7 +18,7 @@ describe("UT-F05-01: painel do operador", () => {
     expect(
       await screen.findByTestId("admin-dashboard", undefined, { timeout: 3000 })
     ).toBeInTheDocument();
-    expect(screen.getByTestId("metric-ttft-p95")).toHaveTextContent("1460 ms");
+    expect(screen.getByTestId("metric-ttft-p95")).toHaveTextContent("1.460 ms");
     expect(screen.getByText("A forma de alumínio pode ir na airfryer?")).toBeInTheDocument();
     expect(screen.getByText("Checkouts confirmados")).toBeInTheDocument();
   });

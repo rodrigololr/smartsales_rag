@@ -92,23 +92,28 @@ function MetricCard({
   label,
   value,
   target,
+  hint,
   ok,
   progress,
   testId,
+  className,
 }: {
   label: string;
   value: string;
   target?: string;
+  /** Context line for counters that have no target. */
+  hint?: string;
   ok?: boolean;
   progress?: number;
   testId?: string;
+  className?: string;
 }) {
   return (
-    <Card className="gap-2 py-3" data-testid={testId}>
+    <Card className={cn("gap-2 py-3", className)} data-testid={testId}>
       <CardContent className="space-y-1.5 px-3">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <div className="flex items-end justify-between gap-2">
-          <span className="text-xl font-bold text-foreground">{value}</span>
+        <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-1">
+          <span className="text-xl font-bold tabular-nums text-foreground">{value}</span>
           {typeof ok === "boolean" ? (
             <Badge
               variant="outline"
@@ -127,8 +132,9 @@ function MetricCard({
           <Progress value={Math.min(progress, 100)} aria-label={label} />
         ) : null}
         {target ? (
-          <p className="text-[11px] text-muted-foreground">Meta: {target}</p>
+          <p className="text-xs text-muted-foreground">Meta: {target}</p>
         ) : null}
+        {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
       </CardContent>
     </Card>
   );
@@ -211,13 +217,15 @@ export function AdminMetricsDashboard() {
 
   if (!token) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-10">
+      <main id="conteudo" className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-10">
         <Card className="w-full max-w-sm">
           <CardHeader className="items-center justify-items-center text-center">
             <div className="mb-1 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <ShieldCheck className="size-6" />
+              <ShieldCheck aria-hidden className="size-6" />
             </div>
-            <CardTitle>Painel do Operador</CardTitle>
+            <CardTitle role="heading" aria-level={1} className="text-lg">
+              Painel do Operador
+            </CardTitle>
             <CardDescription>
               Informe o token administrativo para acessar qualidade e conversão do RAG.
             </CardDescription>
@@ -235,7 +243,7 @@ export function AdminMetricsDashboard() {
                 autoComplete="off"
               />
               {authError ? (
-                <p role="alert" className="text-xs text-rose-600" data-testid="admin-error">
+                <p role="alert" className="text-xs text-rose-700" data-testid="admin-error">
                   {authError}
                 </p>
               ) : null}
@@ -271,8 +279,8 @@ export function AdminMetricsDashboard() {
   const header = (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Métricas do Consultor IA</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Métricas do Consultor IA</h1>
+        <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
           {metrics
             ? `Janela de ${formatDateTime(metrics.window.from)} até ${formatDateTime(metrics.window.to)}`
             : "Carregando a janela selecionada"}
@@ -332,11 +340,11 @@ export function AdminMetricsDashboard() {
 
   if (status === "error") {
     return (
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <main id="conteudo" className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {header}
         <Card data-testid="admin-load-error" role="alert">
           <CardHeader>
-            <CardTitle>Não foi possível carregar as métricas</CardTitle>
+            <CardTitle role="heading" aria-level={2}>Não foi possível carregar as métricas</CardTitle>
             <CardDescription>{loadError}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -352,14 +360,14 @@ export function AdminMetricsDashboard() {
 
   if (!metrics) {
     return (
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8" aria-busy="true">
+      <main id="conteudo" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8" aria-busy="true">
         {header}
         <p className="sr-only" role="status">
           <Loader2 /> Carregando métricas
         </p>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <Skeleton key={index} className="h-24 w-full" />
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
+          {Array.from({ length: 9 }).map((_, index) => (
+            <Skeleton key={index} className={cn("h-24 w-full", index === 0 && "col-span-2 lg:col-span-1")} />
           ))}
         </div>
       </main>
@@ -368,11 +376,11 @@ export function AdminMetricsDashboard() {
 
   if (metrics.turns === 0) {
     return (
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8" data-testid="admin-dashboard">
+      <main id="conteudo" className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8" data-testid="admin-dashboard">
         {header}
         <Card data-testid="admin-empty">
           <CardHeader>
-            <CardTitle>Nenhum turno registrado nesta janela</CardTitle>
+            <CardTitle role="heading" aria-level={2}>Nenhum turno registrado nesta janela</CardTitle>
             <CardDescription>
               Os indicadores aparecem depois das primeiras perguntas ao consultor. Escolha uma
               janela maior ou volte mais tarde.
@@ -386,14 +394,15 @@ export function AdminMetricsDashboard() {
   const topMax = Math.max(...metrics.top_questions.map((item) => item.count), 1);
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8" data-testid="admin-dashboard">
+    <main id="conteudo" className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8" data-testid="admin-dashboard">
       {header}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Indicadores do período" className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
         <MetricCard
           label="Turnos no período"
           value={metrics.turns.toLocaleString("pt-BR")}
           testId="metric-turns"
+          className="col-span-2 lg:col-span-1"
         />
         <MetricCard
           label="TTFT p50"
@@ -450,14 +459,14 @@ export function AdminMetricsDashboard() {
         <MetricCard
           label="Checkouts confirmados"
           value={metrics.confirmed_checkouts.toLocaleString("pt-BR")}
-          target="conversões rastreadas"
+          hint="Conversões rastreadas pelo checkout simulado"
           testId="metric-confirmed-checkouts"
         />
       </section>
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Dúvidas mais frequentes</CardTitle>
+          <CardTitle role="heading" aria-level={2}>Dúvidas mais frequentes</CardTitle>
           <CardDescription>
             Perguntas que mais consumiram turnos na janela monitorada.
           </CardDescription>
@@ -470,7 +479,7 @@ export function AdminMetricsDashboard() {
             {metrics.top_questions.map((item, index) => (
               <li key={item.question} className="space-y-1">
                 <div className="flex items-start justify-between gap-3 text-sm">
-                  <span className="flex gap-2 text-foreground">
+                  <span className="flex min-w-0 gap-2 text-foreground">
                     <span className="font-mono text-xs text-muted-foreground">
                       {String(index + 1).padStart(2, "0")}
                     </span>
@@ -480,7 +489,7 @@ export function AdminMetricsDashboard() {
                     {item.count}
                   </span>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-primary"
                     style={{ width: `${(item.count / topMax) * 100}%` }}
