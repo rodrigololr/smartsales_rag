@@ -32,6 +32,18 @@ flowchart LR
     style RUNTIME fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
 ```
 
+### 1.1. Limiar de similaridade por modelo de *embedding* (`RN02`)
+
+O padrão do código continua `SIMILARITY_THRESHOLD = 0.72`, valor das specs para
+`text-embedding-3-small`. Para `gemini-embedding-001` (1536 dimensões), o limiar
+aprovado é **`0.60`**: desvio de `RN02` registrado pelo GP em 07/11 (commit `525c1c8`),
+calibrado nos manuais da demo (respostas corretas entre 0,64 e 0,72; perguntas fora do
+tema perto de 0,47) e configurado em `.env.example` e `backend/.env.example`. O limiar só
+vale para o modelo com que foi calibrado: ao trocar `EMBEDDING_MODEL`, recalibrar com
+`python -m app.retrieval.inspect`. Na subida, o backend registra numa única linha o
+limiar efetivo e os modelos em uso
+(`rag_settings similarity_threshold=... embedding_model=... llm_model=...`).
+
 ---
 
 ## 2. Especificação do Pipeline de Ingestão e Chunking (`B01`, `B03`)

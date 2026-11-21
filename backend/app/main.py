@@ -6,6 +6,7 @@ POST /internal/rag/stream answers with NDJSON: one internal M02 event per line.
 import json
 import logging
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from functools import lru_cache
 
 import tiktoken
@@ -22,7 +23,21 @@ from app.recommendation.service import RecommendationService
 TOKEN_COUNT_ENCODING = "o200k_base"  # gpt-4o family tokenizer
 
 logging.basicConfig(level=logging.INFO)
-app = FastAPI(title="SmartSales RAG Backend (interno)")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # The threshold is calibrated per embedding model (RN02): make the pairing visible.
+    settings = get_settings()
+    logger.info(
+        "rag_settings similarity_threshold=%s embedding_model=%s llm_model=%s",
+        settings.similarity_threshold, settings.embedding_model, settings.llm_model,
+    )
+    yield
+
+
+app = FastAPI(title="SmartSales RAG Backend (interno)", lifespan=lifespan)
 
 
 @lru_cache

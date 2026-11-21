@@ -1,9 +1,11 @@
 """Internal worker HTTP surface: NDJSON stream of the orchestrator events."""
 
 import json
+import logging
 from collections.abc import AsyncIterator, Iterator
 
 import pytest
+from app.config import get_settings
 from app.main import app, get_orchestrator
 from app.models.schemas import RagRequest
 from fastapi.testclient import TestClient
@@ -61,3 +63,16 @@ def test_internal_request_keeps_resolved_purchase_filters(fake: FakeOrchestrator
     assert received.preferred_voltage == '127V'
     assert received.category == 'Eletroportáteis'
     assert received.capacity_min == Decimal('5') and received.budget_max == Decimal('650')
+
+
+def test_startup_logs_effective_threshold_and_models_in_one_line(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    settings = get_settings()
+    with caplog.at_level(logging.INFO, logger="app.main"), TestClient(app):
+        pass
+    [record] = [r for r in caplog.records if str(r.msg).startswith("rag_settings")]
+    line = record.getMessage()
+    assert f"similarity_threshold={settings.similarity_threshold}" in line
+    assert f"embedding_model={settings.embedding_model}" in line
+    assert f"llm_model={settings.llm_model}" in line
