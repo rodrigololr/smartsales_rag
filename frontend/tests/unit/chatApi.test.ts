@@ -58,6 +58,33 @@ describe("chat-api", () => {
     expect(JSON.parse(String(init.body))).toEqual({ current_product_sku: "AF-400-220V" });
   });
 
+  it("creates a catalog session with an empty body when SKU is null", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ session_id: input.sessionId, restored: false, history: [], expires_in_seconds: 1800 }, { status: 201 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(createSession(null)).resolves.toBe(input.sessionId);
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({});
+  });
+
+  it("omits context_filters when currentProductSku is null (catalog mode)", async () => {
+    const fetchMock = vi.fn(async () =>
+      sseResponse([`event: done\ndata: ${JSON.stringify(done)}\n\n`])
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await collect(streamChat({ ...input, currentProductSku: null }));
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      session_id: input.sessionId,
+      client_request_id: input.clientRequestId,
+      message: input.message,
+    });
+  });
+
   it("posts the ChatStreamRequest contract and decodes UTF-8 split across chunks", async () => {
     const accented = encoder.encode('event: token\ndata: {"delta":"voltagem é"}\n\n');
     const splitAt = accented.indexOf(0xc3) + 1; // middle of the two-byte "é"

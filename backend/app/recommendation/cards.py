@@ -8,10 +8,12 @@ from app.recommendation.models import RecommendationType
 PRIMARY_BADGE = "Produto Consultado"
 UPSELL_BADGE = "Upgrade Recomendado"
 CROSS_SELL_BADGE = "Compre Junto Compatível"
+OPTION_BADGE = "Opção"
 _BADGES: dict[RecommendationType, str] = {
     "PRIMARY": PRIMARY_BADGE,
     "UPSELL": UPSELL_BADGE,
     "CROSS_SELL": CROSS_SELL_BADGE,
+    "OPTION": OPTION_BADGE,
 }
 _CENT = Decimal("0.01")
 _PERCENT = Decimal("100")
@@ -21,8 +23,11 @@ _BRAZILIAN_SEPARATORS = str.maketrans(",.", ".,")  # 1,300.00 -> 1.300,00
 ProductCard = dict[str, object]
 
 
-def _brl(amount: Decimal) -> str:
+def brl(amount: Decimal) -> str:
     return f"R$ {amount.quantize(_CENT):,.2f}".translate(_BRAZILIAN_SEPARATORS)
+
+
+_brl = brl
 
 
 def _liters(capacity: Decimal) -> str:

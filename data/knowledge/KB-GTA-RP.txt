@@ -1,0 +1,24 @@
+GTA RP no PC
+Fonte de referência: https://fivem.net/; consultado em 21/11/2026 (curadoria SmartSales).
+## GTA RP (roleplay) e FiveM
+GTA RP é jogado no GTA V para PC por meio de servidores de roleplay.
+GTA RP é o jogo de interpretação de personagens (roleplay) em servidores multiplayer personalizados de GTA V no PC.
+Esses servidores rodam principalmente no FiveM, um framework de modificação multiplayer para GTA V da Cfx.re.
+O site oficial do FiveM cita roleplay, drift, corrida e deathmatch como tipos de servidor possíveis.
+A Cfx.re (FiveM e RedM) passou a fazer parte da Rockstar Games em 11/08/2023.
+RedM é a modificação equivalente para Red Dead Redemption 2.
+O FiveM roda no PC com Windows 10 ou 11, conforme os requisitos da Cfx.re; não há FiveM para consoles.
+## Requisitos do FiveM
+O FiveM exige uma cópia legítima e totalmente atualizada de GTA V para PC.
+O FiveM não funciona com cópias piratas de GTA V.
+"FiveM" (Legacy) exige GTA V Legacy; "FiveM for GTAV Enhanced" exige GTA V Enhanced.
+Os requisitos de hardware do FiveM acompanham os de GTA V, com espaço extra em disco.
+FiveM Legacy: 125 GB + 4 GB (mínimo) ou 125 GB + 8 GB (recomendado).
+FiveM for GTAV Enhanced: 105 GB + 4 GB (mínimo) ou 105 GB + 8 GB (recomendado), com 16 GB de RAM em dual-channel no recomendado.
+## Fontes
+https://fivem.net/ (verificado em 21/11/2026)
+https://docs.fivem.net/docs/client-manual/installing-fivem/ (verificado em 21/11/2026)
+https://docs.fivem.net/docs/client-manual/where-to-buy-gtav/ (verificado em 21/11/2026)
+https://redm.net/ (verificado em 21/11/2026)
+https://forum.cfx.re/t/cfx-re-officially-joins-rockstar-games/5158920 (anúncio de 11/08/2023; verificado em 21/11/2026)
+https://support.rockstargames.com/articles/lMQXeP2Z1mN3g9oZiBZFR/grand-theft-auto-v-pc-system-requirements (verificado em 21/11/2026)

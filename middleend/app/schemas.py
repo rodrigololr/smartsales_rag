@@ -48,7 +48,9 @@ class Filters(BaseModel):
 
     preferred_voltage: Literal["127V", "220V"] | None = None
     category: str | None = Field(default=None, max_length=CATEGORY_MAX_LENGTH)
-    current_product_sku: str | None = Field(default=None, max_length=SKU_MAX_LENGTH)
+    current_product_sku: str | None = Field(
+        default=None, max_length=SKU_MAX_LENGTH, description="omitido = modo catálogo"
+    )
     capacity_min: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     budget_max: Decimal | None = Field(default=None, gt=0, decimal_places=2)
 

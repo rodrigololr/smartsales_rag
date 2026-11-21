@@ -1,5 +1,5 @@
 export type VoltageType = "127V" | "220V" | "BIVOLT" | "N/A";
-export type RecommendationType = "PRIMARY" | "UPSELL" | "CROSS_SELL";
+export type RecommendationType = "PRIMARY" | "UPSELL" | "CROSS_SELL" | "OPTION";
 export type MarketplaceType = "AMAZON" | "MERCADO_LIVRE" | "SHOPEE" | "LOJA_OFICIAL";
 export type FeedbackRating = "LIKE" | "DISLIKE";
 

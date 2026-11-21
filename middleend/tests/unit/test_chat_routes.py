@@ -65,12 +65,12 @@ class FakeStream:
 class FakeBackend:
     def __init__(self, events: list[Mapping[str, object]]) -> None:
         self.events = events
-        self.calls: list[tuple[str, str, list[HistoryItem]]] = []
+        self.calls: list[tuple[str | None, str, list[HistoryItem]]] = []
         self.voltages: list[str | None] = []
 
     def open_stream(
         self,
-        sku: str,
+        sku: str | None,
         question: str,
         history: list[HistoryItem],
         *,
@@ -187,7 +187,9 @@ def test_low_similarity_fallback_ends_with_done_fallback(backend: FakeBackend, c
     assert events[-1][1]["finish_reason"] == "fallback"
 
 
-def test_unknown_session_and_missing_product_are_contract_errors(client: TestClient) -> None:
+def test_unknown_session_is_404_and_chat_without_sku_runs_in_catalog_mode(
+    client: TestClient, backend: FakeBackend
+) -> None:
     response = ask(client, str(uuid.uuid4()), str(uuid.uuid4()))
     assert response.status_code == 404
     assert set(response.json()["error"]) == {"code", "message", "trace_id", "details"}
@@ -195,10 +197,12 @@ def test_unknown_session_and_missing_product_are_contract_errors(client: TestCli
     bare = client.post("/api/v1/sessions", json={}).json()["session_id"]
     response = client.post(
         "/api/v1/chat/stream",
-        json={"session_id": bare, "client_request_id": str(uuid.uuid4()), "message": "Oi"},
+        json={"session_id": bare, "client_request_id": str(uuid.uuid4()), "message": "Quero um PC"},
     )
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "PRODUCT_CONTEXT_REQUIRED"
+    assert response.status_code == 200
+    events = sse_events(response.text)
+    assert [name for name, _ in events] == ["metadata", "token", "citations", "done"]
+    assert backend.calls[-1][:2] == (None, "Quero um PC")
 
 
 def test_request_body_follows_chat_stream_request(client: TestClient) -> None:
@@ -463,3 +467,62 @@ def test_gateway_forwards_the_voltage_preference_to_the_worker(voltage: str) -> 
     assert seen[0]["budget_max"] == 600
     assert seen[0]["capacity_min"] == 5
     assert seen[0]["category"] == "Eletroportáteis"
+
+
+def test_backend_client_forwards_null_sku_and_recommended_skus_in_history() -> None:
+    seen: list[dict[str, object]] = []
+    option_card = {
+        "sku": "PC-VX3-BIV",
+        "name": "PC Gamer Vortex X3",
+        "price": 3499.0,
+        "stock_quantity": 7,
+        "voltage": "BIVOLT",
+        "image_url": "/images/pc-vx3-biv.svg",
+        "marketplace": "LOJA_OFICIAL",
+        "checkout_url": "https://example.com/pc-vx3",
+        "recommendation_type": "OPTION",
+        "badge_label": "Opção",
+        "justification": "RTX 3050 6 GB, 16 GB de RAM.",
+    }
+    recommendations = {"event": "recommendations", "data": {"products": [option_card]}}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        events = (TOKEN, recommendations, END) if len(seen) == 1 else (TOKEN, END)
+        return httpx.Response(200, text="\n".join(json.dumps(e) for e in events))
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    with TestClient(create_app(Settings(), BackendClient(http, "http://worker"))) as gateway:
+        session = gateway.post("/api/v1/sessions", json={}).json()["session_id"]
+        first = gateway.post(
+            "/api/v1/chat/stream",
+            json={
+                "session_id": session,
+                "client_request_id": str(uuid.uuid4()),
+                "message": "Quero um computador novo",
+            },
+        )
+        assert sse_events(first.text)[-1][1]["finish_reason"] == "stop"
+        second = gateway.post(
+            "/api/v1/chat/stream",
+            json={
+                "session_id": session,
+                "client_request_id": str(uuid.uuid4()),
+                "message": "Desses qual o melhor?",
+            },
+        )
+        assert sse_events(second.text)[-1][1]["finish_reason"] == "stop"
+
+    assert seen[0] == {"sku": None, "question": "Quero um computador novo", "history": []}
+    assert seen[1] == {
+        "sku": None,
+        "question": "Desses qual o melhor?",
+        "history": [
+            {"role": "user", "content": "Quero um computador novo"},
+            {
+                "role": "assistant",
+                "content": "Opera em 220V. ",
+                "recommended_skus": ["PC-VX3-BIV"],
+            },
+        ],
+    }

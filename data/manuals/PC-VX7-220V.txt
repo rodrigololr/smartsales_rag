@@ -1,0 +1,28 @@
+PC Gamer Vortex X7
+Modelo PC-VX7-220V
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o computador e guarde-o para consultas futuras.
+## Instruções de segurança
+Instale o equipamento em bancada firme capaz de suportar o peso do gabinete completo.
+Mantenha a entrada frontal e a grade superior totalmente livres de objetos.
+Verifique a rede elétrica local antes de energizar a fonte.## Especificações técnicas
+Processador AMD Ryzen 7 7800X3D com tecnologia 3D V-Cache.
+Placa de vídeo dedicada NVIDIA GeForce RTX 4070 Super.
+Memória instalada de 32 GB DDR5 em dual-channel.
+Armazenamento em SSD NVMe M.2 de 2000 GB.
+Saídas HDMI 2.1 e DisplayPort 1.4a prontas para monitores Quad HD e 4K de alta taxa de atualização.## Especificações elétricas
+Fonte de 850 W para uso exclusivo em 220V.
+Este modelo opera exclusivamente em 220V / 60 Hz, com potência nominal de 850 W.
+Ligar o aparelho em tensão diferente da indicada danifica o produto e anula a garantia.## Desempenho em jogos
+| Jogo | Resolução | Predefinição | Desempenho médio |
+| Roblox | 1080p | Alto | 240 fps |
+| GTA V | 1080p | Muito alto | 150 fps |
+| Fortnite | 1080p | Muito alto | 175 fps |
+| Counter-Strike 2 | 1080p | Muito alto | 260 fps |
+Valores medidos pelo fabricante em ambiente de teste.## Dimensões e gabinete
+Gabinete full-airflow com chassi em aço, lateral em vidro temperado e quatro ventoinhas instaladas.
+Largura de 24 cm, altura de 49 cm e profundidade de 47 cm.
+Limpe os filtros magnéticos a cada 30 dias com o equipamento desligado da tomada.## Garantia
+Garantia de 24 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre ligação em tensão incorreta, danos por transporte inadequado ou overclock fora de fábrica.

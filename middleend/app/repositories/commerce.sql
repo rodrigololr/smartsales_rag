@@ -20,12 +20,17 @@ CREATE TABLE IF NOT EXISTS checkout_events (
     product_id UUID NOT NULL REFERENCES products(id),
     sku VARCHAR(64) NOT NULL,
     recommendation_type VARCHAR(20) NOT NULL CHECK (
-        recommendation_type IN ('PRIMARY', 'UPSELL', 'CROSS_SELL')
+        recommendation_type IN ('PRIMARY', 'UPSELL', 'CROSS_SELL', 'OPTION')
     ),
     quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
     unit_price_at_click NUMERIC(10, 2) NOT NULL,
     status VARCHAR(30) NOT NULL CHECK (status IN ('CONFIRMED', 'OUT_OF_STOCK', 'PRICE_CHANGED')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE checkout_events DROP CONSTRAINT IF EXISTS checkout_events_recommendation_type_check;
+ALTER TABLE checkout_events ADD CONSTRAINT checkout_events_recommendation_type_check CHECK (
+    recommendation_type IN ('PRIMARY', 'UPSELL', 'CROSS_SELL', 'OPTION')
 );
 
 CREATE INDEX IF NOT EXISTS idx_checkout_events_created ON checkout_events (created_at);

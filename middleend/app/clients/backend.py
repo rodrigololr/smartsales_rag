@@ -108,6 +108,13 @@ class NdjsonBackendStream:
             await context.__aexit__(None, None, None)
 
 
+def _history_turn(item: HistoryItem) -> dict[str, object]:
+    turn: dict[str, object] = {"role": item.role, "content": item.content}
+    if item.recommended_skus:
+        turn["recommended_skus"] = list(item.recommended_skus)
+    return turn
+
+
 class BackendClient:
     def __init__(
         self,
@@ -122,7 +129,7 @@ class BackendClient:
 
     def open_stream(
         self,
-        sku: str,
+        sku: str | None,
         question: str,
         history: Sequence[HistoryItem],
         *,
@@ -131,7 +138,7 @@ class BackendClient:
         payload: dict[str, object] = {
             "sku": sku,
             "question": question,
-            "history": [{"role": item.role, "content": item.content} for item in history],
+            "history": [_history_turn(item) for item in history],
         }
         if filters is not None:
             payload.update(

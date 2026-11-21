@@ -397,3 +397,60 @@ def test_abandoned_request_is_terminal_and_never_regenerated(kind: str) -> None:
         assert retry.completed is not None and retry.completed.finish_reason == "error"
         assert (await store.get(session_id)).history == ()
     run(kind, scenario)
+
+
+@pytest.mark.parametrize("kind", STORES)
+def test_completed_turn_persists_recommended_skus_in_history(kind: str) -> None:
+    card = {
+        "sku": "PC-VX3-BIV",
+        "name": "PC Gamer Vortex X3",
+        "price": 3499.0,
+        "stock_quantity": 7,
+        "voltage": "BIVOLT",
+        "image_url": "/images/pc-vx3-biv.svg",
+        "marketplace": "LOJA_OFICIAL",
+        "checkout_url": "https://example.com/pc-vx3",
+        "recommendation_type": "OPTION",
+        "badge_label": "Opção",
+        "justification": "RTX 3050 6 GB, 16 GB de RAM.",
+    }
+
+    async def scenario(store: SessionStore) -> None:
+        session_id = (await store.create(None)).session_id
+        turn = await store.begin_turn(session_id, "req-1", "hash-1")
+        with_cards = CompletedTurn(
+            session_id=session_id,
+            message_id=turn.message_id,
+            content="Encontrei 1 opção.",
+            citations=(),
+            products=(card,),  # type: ignore[arg-type]
+            finish_reason="stop",
+            tokens_used=5,
+            intent="PURCHASE_INTENT",
+            cache_hit=False,
+            ttft_ms=10,
+            total_latency_ms=20,
+        )
+        await store.complete(session_id, "req-1", turn.lock_token, "Quero um PC", with_cards)
+        await store.release(session_id, "req-1", turn.lock_token)
+
+        snapshot = await store.get(session_id)
+        assert snapshot is not None
+        assert [item.recommended_skus for item in snapshot.history] == [(), ("PC-VX3-BIV",)]
+
+    run(kind, scenario)
+
+
+def test_legacy_redis_history_entry_without_skus_still_reads() -> None:
+    from app.sessions.redis_store import _snapshot
+
+    legacy_user = '{"id": "m-user", "role": "user", "content": "Oi"}'
+    legacy_assistant = '{"id": "m-ast", "role": "assistant", "content": "Olá"}'
+    snapshot = _snapshot(
+        "s-1",
+        {"sku": "", "state": "IDLE", "history": [legacy_assistant, legacy_user]},
+    )
+    assert [(item.role, item.content, item.recommended_skus) for item in snapshot.history] == [
+        ("user", "Oi", ()),
+        ("assistant", "Olá", ()),
+    ]

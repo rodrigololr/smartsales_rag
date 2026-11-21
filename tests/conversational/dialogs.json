@@ -1,0 +1,352 @@
+[
+  {
+    "id": "PO-01",
+    "description": "Fluxo consultivo multi-turno de 7 turnos do PO (catálogo de computadores, GTA 6, PCs, comparação, marcas, 127V e preço)",
+    "turns": [
+      {
+        "sku": null,
+        "question": "quero um computador novo",
+        "expected_route": "DISCOVERY",
+        "expected_intent": "PURCHASE_INTENT",
+        "llm_turn": false,
+        "must_contain": [
+          "Encontrei 4 opções em estoque em PCs Gamer e Notebooks Gamer, do menor para o maior preço:",
+          "SKU PC-VX3-BIV",
+          "SKU NB-NX15-BIV",
+          "SKU PC-VX5-BIV",
+          "SKU NB-NX16-BIV",
+          "Para refinar, me diga o uso principal e o orçamento máximo."
+        ],
+        "must_not_contain": [
+          "NB-NX17-BIV"
+        ],
+        "expected_card_role": "OPTION",
+        "expected_card_skus": [
+          "PC-VX3-BIV",
+          "NB-NX15-BIV",
+          "PC-VX5-BIV",
+          "NB-NX16-BIV"
+        ]
+      },
+      {
+        "sku": null,
+        "question": "pra jogar gta 6",
+        "expected_route": "GAME_FIT",
+        "expected_intent": "TECHNICAL_QA",
+        "llm_turn": false,
+        "must_contain": [
+          "GTA 6 foi lançado em 19/11/2026 para PlayStation 5 e Xbox Series X|S.",
+          "Não há versão de GTA 6 para PC anunciada até a data de atualização desta base.",
+          "Por isso, nenhum computador do catálogo roda GTA 6 hoje.",
+          "O catálogo ativo não tem consoles.",
+          "[Fonte: GTA 6 plataformas e versão para PC, p. 1]"
+        ],
+        "must_not_contain": [
+          "2027",
+          "2028"
+        ],
+        "expected_card_skus": []
+      },
+      {
+        "sku": null,
+        "question": "mas quero um PC",
+        "expected_route": "DISCOVERY",
+        "expected_intent": "PURCHASE_INTENT",
+        "llm_turn": false,
+        "must_contain": [
+          "Encontrei 4 opções em estoque em PCs Gamer, do menor para o maior preço:",
+          "SKU PC-VX3-BIV",
+          "SKU PC-VX5-BIV",
+          "SKU PC-VX5P-220V",
+          "SKU PC-VX7-220V",
+          "Lembrando: Não há versão de GTA 6 para PC anunciada até a data de atualização desta base."
+        ],
+        "must_not_contain": [
+          "NB-NX15-BIV",
+          "NB-NX17-BIV"
+        ],
+        "expected_card_role": "OPTION",
+        "expected_card_skus": [
+          "PC-VX3-BIV",
+          "PC-VX5-BIV",
+          "PC-VX5P-220V",
+          "PC-VX7-220V"
+        ]
+      },
+      {
+        "sku": null,
+        "question": "desses que você mandou qual o melhor?",
+        "expected_route": "COMPARE",
+        "expected_intent": "PRODUCT_COMPARISON",
+        "llm_turn": false,
+        "must_contain": [
+          "Não há um melhor absoluto; comparo pelos dados do catálogo:",
+          "Menor preço: SKU PC-VX3-BIV.",
+          "Maior garantia: SKU PC-VX5P-220V e SKU PC-VX7-220V, 24 meses.",
+          "Melhor avaliação média: SKU PC-VX7-220V, 4,8 de 5."
+        ],
+        "must_not_contain": [
+          "o melhor é o"
+        ],
+        "expected_card_role": "OPTION",
+        "expected_card_skus": [
+          "PC-VX3-BIV",
+          "PC-VX5-BIV",
+          "PC-VX5P-220V",
+          "PC-VX7-220V"
+        ]
+      },
+      {
+        "sku": null,
+        "question": "mas qual é a marca mais confiável",
+        "expected_route": "OPINION_BRAND",
+        "expected_intent": "PRODUCT_COMPARISON",
+        "llm_turn": false,
+        "must_contain": [
+          "Não tenho dados de confiabilidade ou de defeitos por marca, então não faço ranking de marcas.",
+          "Os critérios objetivos do catálogo para os produtos mostrados são garantia e avaliações:",
+          "SKU PC-VX3-BIV, marca Vortex: garantia de 12 meses, avaliação 4,4 de 5 em 180 avaliações.",
+          "SKU PC-VX7-220V, marca Vortex: garantia de 24 meses, avaliação 4,8 de 5 em 41 avaliações."
+        ],
+        "must_not_contain": [
+          "marca mais confiável é"
+        ],
+        "expected_card_skus": []
+      },
+      {
+        "sku": null,
+        "question": "eu posso ligar todos esses pc em 127v?",
+        "expected_route": "SET_VOLTAGE",
+        "expected_intent": "PRODUCT_COMPARISON",
+        "llm_turn": false,
+        "must_contain": [
+          "Não: 2 dos 4 produtos mostrados funcionam em 127V.",
+          "- SKU PC-VX3-BIV: bivolt, funciona em 127V.",
+          "- SKU PC-VX5-BIV: bivolt, funciona em 127V.",
+          "- SKU PC-VX5P-220V: 220V, não deve ser ligado em 127V.",
+          "- SKU PC-VX7-220V: 220V, não deve ser ligado em 127V."
+        ],
+        "must_not_contain": [
+          "Sim:"
+        ],
+        "expected_card_role": "OPTION",
+        "expected_card_skus": [
+          "PC-VX3-BIV",
+          "PC-VX5-BIV"
+        ]
+      },
+      {
+        "sku": null,
+        "question": "esse é mais barato?",
+        "expected_route": "PRICE_RANK",
+        "expected_intent": "PRODUCT_COMPARISON",
+        "llm_turn": false,
+        "must_contain": [
+          "O mais barato dos 2 comparados é SKU PC-VX3-BIV, por R$ 3.499,00; o mais caro é SKU PC-VX5-BIV, por R$ 4.499,00."
+        ],
+        "must_not_contain": [],
+        "expected_card_role": "OPTION",
+        "expected_card_skus": [
+          "PC-VX3-BIV"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "PO-02",
+    "description": "Adequação de webcam para transmissão na Twitch (WC-1080-01 30 fps vs recomendação 1080p60)",
+    "turns": [
+      {
+        "sku": "WC-1080-01",
+        "question": "consigo fazer live na Twitch com a melhor qualidade?",
+        "expected_route": "STREAM_FIT",
+        "expected_intent": "TECHNICAL_QA",
+        "llm_turn": false,
+        "must_contain": [
+          "A Twitch recomenda transmitir em até 1080p a 60 fps [Fonte: Twitch qualidade de transmissão, p. 1].",
+          "SKU WC-1080-01: resolução 1920 x 1080 a 30 fps, segundo a ficha técnica.",
+          "Esta câmera não atende à qualidade máxima recomendada pela Twitch: fica em 30 fps, abaixo de 60 fps.",
+          "Este outro atende: SKU WC-1080-60: resolução 1920 x 1080 a 60 fps, R$ 249,90.",
+          "Informação geral:"
+        ],
+        "must_not_contain": [
+          "Esta câmera atende"
+        ],
+        "expected_card_role": "OPTION",
+        "expected_card_skus": [
+          "WC-1080-60"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "PO-03",
+    "description": "Adequação dimensional de sofá (SF-3L-210R em sala de 2 metros com folga lateral de 10 cm)",
+    "turns": [
+      {
+        "sku": "SF-3L-210R",
+        "question": "esse sofá cabe na minha sala? tenho 2 metros",
+        "expected_route": "DIMENSION_FIT",
+        "expected_intent": "TECHNICAL_QA",
+        "llm_turn": false,
+        "must_contain": [
+          "SKU SF-3L-210R: largura de 210 cm, profundidade de 95 cm.",
+          "A orientação é deixar pelo menos 10 cm livres de cada lado do sofá [Fonte: Sofá espaço necessário no ambiente, p. 1], então ele precisa de 230 cm.",
+          "Não cabe nos 200 cm informados.",
+          "Este outro cabe com folga: SKU SF-3L-180: largura de 180 cm, 3 lugares, R$ 1.699,00.",
+          "Informação geral:"
+        ],
+        "must_not_contain": [
+          "Cabe nos 200 cm"
+        ],
+        "expected_card_role": "OPTION",
+        "expected_card_skus": [
+          "SF-3L-180"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "PO-04",
+    "description": "Desempenho em jogos na página do PC-VX3-BIV (Roblox direto na tabela e GTA RP via alias para GTA V)",
+    "turns": [
+      {
+        "sku": "PC-VX3-BIV",
+        "question": "consigo jogar Roblox nesse computador?",
+        "expected_route": "GAME_FIT",
+        "expected_intent": "TECHNICAL_QA",
+        "llm_turn": false,
+        "must_contain": [
+          "SKU PC-VX3-BIV: sim, o manual informa 160 fps em Roblox a 1080p, predefinição Alto [Fonte: Manual PC Gamer Vortex X3, p. 4].",
+          "Informação geral:"
+        ],
+        "must_not_contain": [
+          "não informa"
+        ],
+        "expected_card_skus": []
+      },
+      {
+        "sku": "PC-VX3-BIV",
+        "question": "e GTA RP?",
+        "expected_route": "GAME_FIT",
+        "expected_intent": "TECHNICAL_QA",
+        "llm_turn": false,
+        "must_contain": [
+          "GTA RP é jogado no GTA V para PC por meio de servidores de roleplay. [Fonte: GTA RP no PC, p. 1].",
+          "SKU PC-VX3-BIV: sim, o manual informa 75 fps em GTA V a 1080p, predefinição Muito alto [Fonte: Manual PC Gamer Vortex X3, p. 4].",
+          "Informação geral:"
+        ],
+        "must_not_contain": [
+          "não informa"
+        ],
+        "expected_card_skus": []
+      }
+    ]
+  },
+  {
+    "id": "PO-05",
+    "description": "Pergunta direta no modo catálogo sobre disponibilidade de GTA 6 para PC",
+    "turns": [
+      {
+        "sku": null,
+        "question": "GTA 6 roda no PC?",
+        "expected_route": "GAME_FIT",
+        "expected_intent": "TECHNICAL_QA",
+        "llm_turn": false,
+        "must_contain": [
+          "GTA 6 foi lançado em 19/11/2026 para PlayStation 5 e Xbox Series X|S.",
+          "Não há versão de GTA 6 para PC anunciada até a data de atualização desta base.",
+          "Por isso, nenhum computador do catálogo roda GTA 6 hoje."
+        ],
+        "must_not_contain": [
+          "sim, o manual informa"
+        ],
+        "expected_card_skus": []
+      }
+    ]
+  },
+  {
+    "id": "PO-06",
+    "description": "Pergunta de base de conhecimento curada (KB_QA) sobre requisitos do Roblox",
+    "turns": [
+      {
+        "sku": null,
+        "question": "quais os requisitos do Roblox?",
+        "expected_route": "KB_QA",
+        "expected_intent": "TECHNICAL_QA",
+        "llm_turn": true,
+        "fake_llm_response": "Windows: o Roblox instala em versões 64 bits do Windows 10 ou Windows 11 [Fonte: Requisitos do Roblox para PC, p. 1].\nMemória: a Roblox recomenda pelo menos 1 GB de RAM no Windows 10 ou 11 [Fonte: Requisitos do Roblox para PC, p. 1].\n",
+        "must_contain": [
+          "Windows 10",
+          "[Fonte: Requisitos do Roblox para PC, p. 1]"
+        ],
+        "must_not_contain": [],
+        "expected_card_skus": []
+      }
+    ]
+  },
+  {
+    "id": "PO-07",
+    "description": "Pergunta fora de domínio no modo catálogo aciona fallback seguro R02",
+    "turns": [
+      {
+        "sku": null,
+        "question": "me conta uma piada",
+        "expected_route": "KB_QA",
+        "expected_intent": "LOW_SIMILARITY",
+        "llm_turn": true,
+        "expect_error": "LOW_SIMILARITY_FALLBACK",
+        "must_contain": [
+          "não consta na base de conhecimento"
+        ],
+        "must_not_contain": [],
+        "expected_card_skus": []
+      }
+    ]
+  },
+  {
+    "id": "PO-08",
+    "description": "Regressão de categoria legada (Airfryer AF-400-220V delega para RAGOrchestrator)",
+    "turns": [
+      {
+        "sku": "AF-400-220V",
+        "question": "Qual a capacidade em litros desta airfryer? Quero um modelo maior para uma família de 5 pessoas.",
+        "expected_route": "TECHNICAL",
+        "expected_intent": "TECHNICAL_QA",
+        "llm_turn": true,
+        "must_contain": [
+          "4"
+        ],
+        "must_not_contain": [],
+        "expected_card_skus": [
+          "AF-400-220V",
+          "AF-550-220V",
+          "KIT-SIL-01"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "PO-09",
+    "description": "Comparação de preço na página de um PC (referent = current vs peers da subcategoria)",
+    "turns": [
+      {
+        "sku": "PC-VX5-BIV",
+        "question": "esse é mais barato?",
+        "expected_route": "PRICE_RANK",
+        "expected_intent": "PRODUCT_COMPARISON",
+        "llm_turn": false,
+        "must_contain": [
+          "Comparando com PCs Gamer em estoque: Não. Este produto aqui é mais barato: SKU PC-VX3-BIV, por R$ 3.499,00, contra R$ 4.499,00 do SKU PC-VX5-BIV."
+        ],
+        "must_not_contain": [
+          "Sim:"
+        ],
+        "expected_card_role": "OPTION",
+        "expected_card_skus": [
+          "PC-VX3-BIV"
+        ]
+      }
+    ]
+  }
+]

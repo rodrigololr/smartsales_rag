@@ -2,9 +2,14 @@
 figure it states (voltage, power, capacity, pressure...) appears in the evidence."""
 
 import re
+import unicodedata
 from decimal import Decimal, InvalidOperation
 
 Claim = tuple[str, str]
+_LENGTH_MEASURE = re.compile(
+    r"(?<![a-z0-9_-])(\d+(?:[.,]\d+)?)\s*(cm|centimetros?|m|metros?)\b",
+    re.IGNORECASE,
+)
 
 _UNITS = {
     "v": "V", "volt": "V", "volts": "V",
@@ -74,6 +79,22 @@ def measured_values(text: str) -> list[tuple[str, str, str]]:
 
 def unsupported_claims(sentence: str, evidence: set[Claim]) -> set[Claim]:
     return technical_claims(sentence) - evidence
+
+
+def length_measures_cm(text: str) -> list[Decimal]:
+    """Extract room/furniture lengths normalized to centimeters (×100 for meters)."""
+    decomposed = unicodedata.normalize("NFD", text.lower())
+    folded_text = "".join(char for char in decomposed if not unicodedata.combining(char))
+    measures: list[Decimal] = []
+    for raw_val, raw_unit in _LENGTH_MEASURE.findall(folded_text):
+        try:
+            value = Decimal(raw_val.replace(",", "."))
+        except InvalidOperation:
+            continue
+        if raw_unit.lower().startswith("m"):
+            value *= Decimal("100")
+        measures.append(Decimal(format(value.normalize(), "f")))
+    return measures
 
 
 class SentenceBuffer:
