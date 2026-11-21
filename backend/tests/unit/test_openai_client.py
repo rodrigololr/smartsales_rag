@@ -207,3 +207,77 @@ def test_provider_status_errors_become_llm_unavailable(status: int) -> None:
     )
     with pytest.raises(LLMUnavailableError):
         asyncio.run(embedder.embed(["x"]))
+
+
+class PerModelCompletions:
+    """Fails or stalls per model name, recording the order of models tried."""
+
+    def __init__(self, behaviour: dict[str, Exception | str]) -> None:
+        self.behaviour = behaviour
+        self.models: list[str] = []
+
+    async def create(self, **kwargs: Any) -> AsyncIterator[SimpleNamespace]:
+        model = kwargs["model"]
+        self.models.append(model)
+        outcome = self.behaviour.get(model, "ok")
+        if isinstance(outcome, Exception):
+            raise outcome
+
+        async def chunks() -> AsyncIterator[SimpleNamespace]:
+            if outcome == "stall":
+                await asyncio.sleep(1)
+            yield SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content=model))])
+
+        return chunks()
+
+
+def _fallback_model(completions: PerModelCompletions) -> OpenAIChatModel:
+    return OpenAIChatModel(
+        fake_client(chat=SimpleNamespace(completions=completions)),
+        model="primary",
+        fallback_model="fallback",
+        temperature=0.2,
+        max_tokens=10,
+        first_token_timeout=0.05,
+        first_token_attempts=2,
+    )
+
+
+def _collect(model: OpenAIChatModel) -> list[str]:
+    async def run() -> list[str]:
+        return [delta async for delta in model.stream([])]
+
+    return asyncio.run(run())
+
+
+@pytest.mark.parametrize("status", [429, 503])
+def test_quota_or_outage_on_the_primary_model_answers_with_the_fallback(status: int) -> None:
+    # Separate per-model quotas (e.g. Gemini free tier RPM): a 429 on one model is not final.
+    completions = PerModelCompletions({"primary": _status_error(status)})
+    assert _collect(_fallback_model(completions)) == ["fallback"]
+    assert completions.models == ["primary", "fallback"]
+
+
+def test_slow_first_token_on_the_primary_model_moves_to_the_fallback() -> None:
+    completions = PerModelCompletions({"primary": "stall"})
+    assert _collect(_fallback_model(completions)) == ["fallback"]
+    assert completions.models == ["primary", "fallback"]
+
+
+def test_bad_key_does_not_waste_a_call_on_the_fallback() -> None:
+    completions = PerModelCompletions({"primary": _status_error(401)})
+    with pytest.raises(LLMUnavailableError):
+        _collect(_fallback_model(completions))
+    assert completions.models == ["primary"]
+
+
+def test_both_models_rate_limited_is_llm_unavailable() -> None:
+    completions = PerModelCompletions({"primary": _status_error(429), "fallback": _status_error(429)})
+    with pytest.raises(LLMUnavailableError):
+        _collect(_fallback_model(completions))
+    assert completions.models == ["primary", "fallback"]
+
+
+def test_fallback_model_setting_is_optional() -> None:
+    assert Settings().llm_fallback_model == ""
+    assert Settings(llm_fallback_model="gemini-3.1-flash-lite").llm_fallback_model == "gemini-3.1-flash-lite"

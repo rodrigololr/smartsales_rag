@@ -14,6 +14,15 @@ from app.generation.prompt import Message
 # Transport failures (timeouts included) and every HTTP error status: a bad key (401),
 # unknown model (404) or quota (429) must end the turn as LLM_UNAVAILABLE, not break it.
 _PROVIDER_ERRORS = (openai.APIConnectionError, openai.APIStatusError)
+# Worth another attempt (on the fallback model, whose quota is separate): quota, provider
+# outage, network. A bad key (401), bad request (400) or unknown model (404) is not.
+_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+
+def _retryable(error: Exception) -> bool:
+    if isinstance(error, openai.APIConnectionError):  # includes APITimeoutError
+        return True
+    return isinstance(error, openai.APIStatusError) and error.status_code in _RETRYABLE_STATUS
 
 
 def make_client(settings: Settings) -> AsyncOpenAI:
@@ -75,9 +84,11 @@ class OpenAIChatModel:
         max_tokens: int,
         first_token_timeout: float | None = None,
         first_token_attempts: int = 1,
+        fallback_model: str | None = None,
     ) -> None:
         self._client = client
         self._model = model
+        self._fallback_model = fallback_model or model
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._first_token_timeout = first_token_timeout
@@ -94,23 +105,33 @@ class OpenAIChatModel:
             raise LLMUnavailableError from error
 
     async def _open_with_first_token(self, messages: Sequence[Message]) -> AsyncIterator[str]:
+        """The first attempt uses the primary model; retries go to the fallback model."""
         for attempt in range(1, self._first_token_attempts + 1):
-            deltas = self._content(messages)
+            model = self._model if attempt == 1 else self._fallback_model
+            deltas = self._content(messages, model)
+            last = attempt == self._first_token_attempts
             try:
                 first = await asyncio.wait_for(anext(deltas), self._first_token_timeout)
             except TimeoutError:
                 await deltas.aclose()
-                if attempt == self._first_token_attempts:
+                if last:
                     raise LLMUnavailableError("first token timeout") from None
+                continue
+            except _PROVIDER_ERRORS as error:
+                await deltas.aclose()
+                if last or not _retryable(error):
+                    raise
                 continue
             except StopAsyncIteration:
                 return _prepend("", deltas)
             return _prepend(first, deltas)
         raise LLMUnavailableError("no attempt configured")
 
-    async def _content(self, messages: Sequence[Message]) -> AsyncGenerator[str, None]:
+    async def _content(
+        self, messages: Sequence[Message], model: str
+    ) -> AsyncGenerator[str, None]:
         stream = await self._client.chat.completions.create(
-            model=self._model,
+            model=model,
             messages=cast(list[ChatCompletionMessageParam], list(messages)),
             temperature=self._temperature,
             max_tokens=self._max_tokens,

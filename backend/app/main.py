@@ -31,8 +31,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # The threshold is calibrated per embedding model (RN02): make the pairing visible.
     settings = get_settings()
     logger.info(
-        "rag_settings similarity_threshold=%s embedding_model=%s llm_model=%s",
+        "rag_settings similarity_threshold=%s embedding_model=%s llm_model=%s llm_fallback_model=%s",
         settings.similarity_threshold, settings.embedding_model, settings.llm_model,
+        settings.llm_fallback_model or "-",
     )
     yield
 
@@ -63,6 +64,7 @@ def get_orchestrator() -> RAGOrchestrator:
             max_tokens=settings.llm_max_tokens,
             first_token_timeout=settings.llm_first_token_timeout_seconds,
             first_token_attempts=settings.llm_first_token_attempts,
+            fallback_model=settings.llm_fallback_model,
         ),
         settings,
         count_tokens=lambda text: len(encoding.encode(text)),

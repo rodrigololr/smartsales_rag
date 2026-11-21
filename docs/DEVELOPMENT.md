@@ -82,6 +82,7 @@ em `http://localhost:8001/docs`.
 | backend | `REDIS_URL` | não definida | Com ela, a ingestão executa `INCR catalog:version`. Sem ela, a CLI avisa e não invalida o cache. |
 | backend | `REDIS_CONNECT_TIMEOUT_SECONDS` | `5.0` | Limite para conectar ao Redis no `INCR catalog:version`. |
 | backend | `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, `EMBEDDING_MODEL` | OpenAI, `gpt-4o-mini`, `text-embedding-3-small` | Provedor compatível com a API da OpenAI. |
+| backend | `LLM_FALLBACK_MODEL` | vazio | Modelo da segunda tentativa do RNF07 (429, 5xx, erro de rede ou primeiro token acima de `LLM_FIRST_TOKEN_TIMEOUT_SECONDS`). No Gemini gratuito a cota (RPM/RPD) é por modelo: `gemini-3.5-flash-lite` como principal e `gemini-3.1-flash-lite` como fallback somam as duas cotas. Erros 400/401/404 não trocam de modelo. **Não existe fallback de embedding:** vetores de modelos diferentes não são comparáveis, então o `EMBEDDING_MODEL` da consulta tem de ser o mesmo da ingestão. |
 | backend | `SIMILARITY_THRESHOLD` | `0.72` | Abaixo dele o turno vira `LOW_SIMILARITY_FALLBACK`. |
 | backend | `INGESTION_MAX_ATTEMPTS`, `INGESTION_BACKOFF_SECONDS` | `3`, `1.0` | Tentativas por fonte (mínimo 1) e espera inicial (dobra a cada falha). |
 | backend | `HISTORY_MAX_MESSAGES` | `6` | Mensagens do histórico que entram no prompt. A janela de 10 é a que o gateway guarda e envia; o backend usa as 6 mais recentes. |
