@@ -2,6 +2,7 @@
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "--strict-markers"
+markers = ["live: live scripted conversational suite against running gateway"]
 
 [tool.ruff]
 target-version = "py311"
