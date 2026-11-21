@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-label="Mouse sem Fio Cliqon Glide">
+<title>Mouse sem Fio Cliqon Glide</title>
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef0f4"/></radialGradient>
+<linearGradient id="body" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1f2329"/><stop offset=".55" stop-color="#3a3f47"/><stop offset="1" stop-color="#1a1d22"/></linearGradient>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9aa1ab"/><stop offset=".5" stop-color="#e9ecf0"/><stop offset="1" stop-color="#8b929c"/></linearGradient>
+<linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d1014"/><stop offset="1" stop-color="#262b33"/></linearGradient>
+<radialGradient id="shadow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="800" height="800" fill="url(#bg)"/>
+<ellipse cx="400" cy="700" rx="220.0" ry="26" fill="url(#shadow)"/>
+<path d="M400 230 Q540 230 540 420 L540 520 Q540 660 400 660 Q260 660 260 520 L260 420 Q260 230 400 230 Z" fill="url(#body)"/>
+<line x1="400" y1="232" x2="400" y2="380" stroke="#0d1014" stroke-width="4"/>
+<rect x="388" y="290" width="24" height="56" rx="12" fill="url(#steel)"/>
+<path d="M285 520 Q400 560 515 520" fill="none" stroke="#f97316" stroke-width="6" opacity=".85"/>
+<text x="400" y="620" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="20" fill="#9aa1ab">Glide</text>
+</svg>
