@@ -81,7 +81,7 @@ export function MessageFeedbackBar({
   if (message.feedback) {
     return (
       <p
-        className="flex items-center gap-1.5 text-xs text-emerald-600"
+        className="flex items-center gap-1.5 text-xs text-emerald-700"
         data-testid={`feedback-confirmation-${message.id}`}
       >
         <Check className="size-3.5" />
@@ -148,7 +148,7 @@ export function MessageFeedbackBar({
       ) : null}
 
       {error && failedAttempt ? (
-        <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-rose-600">
+        <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-rose-700">
           <span>{error}</span>
           <Button
             type="button"

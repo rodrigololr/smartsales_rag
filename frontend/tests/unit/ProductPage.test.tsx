@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ProductPageView } from "@/components/shop/ProductPageView";
 import { suggestionsFor } from "@/components/chat/ProductAssistant";
 import { findProduct } from "@/lib/mock-data";
+import { specsJsonRows } from "@/lib/format";
 
 const mockCheckout = vi.hoisted(() => vi.fn(() => new Promise<never>(() => {})));
 vi.mock("@/lib/mock-api", async (importOriginal) => ({
@@ -24,6 +25,11 @@ describe("Página do produto com Consultor IA ao lado", () => {
     const specs = screen.getByTestId("product-specs");
     expect(within(specs).getByText("1500 W")).toBeInTheDocument();
     expect(within(specs).getByText("4 L")).toBeInTheDocument();
+    // specs_json from the catalog, humanized, units preserved (R01: only data).
+    expect(within(specs).getByText("Temperatura máx.")).toBeInTheDocument();
+    expect(within(specs).getByText("200 °C")).toBeInTheDocument();
+    expect(within(specs).getByText("Timer máx.")).toBeInTheDocument();
+    expect(within(specs).getByText("60 min")).toBeInTheDocument();
     expect(screen.getByText("Sobre este item")).toBeInTheDocument();
 
     const assistant = screen.getByTestId("product-assistant");
@@ -75,5 +81,53 @@ describe("Página do produto com Consultor IA ao lado", () => {
       "Quais materiais de forma e assadeira posso utilizar?"
     );
     expect(suggestionsFor(product("KIT-SIL-01"))).toContain("Como devo fazer a limpeza?");
+  });
+
+  it("não sugere voltagem nem assadeira para itens fora desse contexto", () => {
+    const headset = { ...product("KIT-SIL-01"), voltage: "N/A" as const, subcategory: "Headsets" };
+    const blender = { ...product("AF-400-220V"), subcategory: "Liquidificadores", capacity_liters: 2 };
+    expect(suggestionsFor(headset).join(" ")).not.toMatch(/voltagem/i);
+    expect(suggestionsFor(blender).join(" ")).not.toMatch(/assadeira/i);
+  });
+
+  it("mostra 'Não se aplica' em vez de N/A e esconde o selo de voltagem", () => {
+    render(<ProductPageView product={{ ...product("KIT-SIL-01"), voltage: "N/A" }} />);
+    const specs = screen.getByTestId("product-specs");
+    expect(within(specs).getByText("Não se aplica")).toBeInTheDocument();
+    expect(screen.queryByText("N/A")).not.toBeInTheDocument();
+  });
+});
+
+describe("specsJsonRows", () => {
+  it("humaniza a chave, preserva a unidade e ignora valores não escalares", () => {
+    expect(
+      specsJsonRows({ pressao_bar: 15, frequencia_hz: 60, cesto_removivel: true, extra: null, lista: [1] })
+    ).toEqual([
+      ["Pressão", "15 bar"],
+      ["Frequência", "60 Hz"],
+      ["Cesto removível", "Sim"],
+    ]);
+    expect(specsJsonRows({ temperatura_min_c: 80, capacidade_l: 1.5 })).toEqual([
+      ["Temperatura mín.", "80 °C"],
+      ["Capacidade", "1,5 L"],
+    ]);
+    expect(
+      specsJsonRows({ desligamento_automatico: true, cesto_lavavel: true, valvula_seguranca: true, numero_funcoes: 8 })
+    ).toEqual([
+      ["Desligamento automático", "Sim"],
+      ["Cesto lavável", "Sim"],
+      ["Válvula segurança", "Sim"],
+      ["Número funções", "8"],
+    ]);
+    expect(
+      specsJsonRows({ conexao: "USB", iluminacao: "RGB", bateria_horas: 200, dpi_max: 4000, validade_meses: 24 })
+    ).toEqual([
+      ["Conexão", "USB"],
+      ["Iluminação", "RGB"],
+      ["Bateria", "200 h"],
+      ["DPI máx.", "4.000"],
+      ["Validade", "24 meses"],
+    ]);
+    expect(specsJsonRows(undefined)).toEqual([]);
   });
 });

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronRight, Sparkles, Star } from "lucide-react";
 import type { Product } from "@/types/catalog";
 import { useChatSession } from "@/hooks/use-chat-session";
-import { voltageBadgeClass } from "@/lib/format";
+import { formatNumber, hasVoltage, specsJsonRows, voltageBadgeClass, voltageLabel } from "@/lib/format";
 import { StoreHeader } from "@/components/layout/StoreHeader";
 import { ProductAssistant } from "@/components/chat/ProductAssistant";
 import { ContextualChatDrawer } from "@/components/chat/ContextualChatDrawer";
@@ -19,10 +19,11 @@ function specRows(product: Product): [string, string][] {
   const rows: [string, string][] = [
     ["Marca", product.brand],
     ["Categoria", product.subcategory],
-    ["Voltagem", product.voltage],
+    ["Voltagem", voltageLabel(product.voltage)],
   ];
   if (product.power_watts) rows.push(["Potência", `${product.power_watts} W`]);
   if (product.capacity_liters) rows.push(["Capacidade", `${product.capacity_liters} L`]);
+  rows.push(...specsJsonRows(product.specs_json));
   rows.push(["Código (SKU)", product.sku]);
   return rows;
 }
@@ -46,24 +47,38 @@ export function ProductPageView({ product }: { product: Product }) {
           <ProductAssistant product={product} chat={chat} />
         </aside>
 
-        <main className="mx-auto w-full min-w-0 max-w-[1440px] flex-1 px-4 py-5 sm:px-6 lg:px-8">
-          <nav aria-label="Navegação" className="mb-4 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-            <Link href="/" className="hover:text-foreground hover:underline">Catálogo</Link>
-            <ChevronRight className="size-3" />
-            <span>{product.category}</span>
-            <ChevronRight className="size-3" />
-            <span className="text-foreground">{product.subcategory}</span>
+        <main id="conteudo" className="mx-auto w-full min-w-0 max-w-[1440px] flex-1 px-4 pt-5 pb-24 sm:px-6 lg:px-8 lg:pb-8">
+          <nav aria-label="Trilha de navegação" className="mb-4 text-xs text-muted-foreground">
+            <ol className="flex flex-wrap items-center gap-1">
+              <li>
+                <Link href="/" className="underline-offset-2 hover:text-foreground hover:underline">Catálogo</Link>
+              </li>
+              <li aria-hidden="true"><ChevronRight className="size-3" /></li>
+              <li>{product.category}</li>
+              <li aria-hidden="true"><ChevronRight className="size-3" /></li>
+              <li aria-current="page" className="text-foreground">{product.subcategory}</li>
+            </ol>
           </nav>
 
-          <div className="grid items-start gap-6 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_260px]">
-            <ProductGallery product={product} />
+          {/* Mobile reads title → price/buy → details; desktop keeps gallery | details | buy box. */}
+          <div className="grid items-start gap-x-6 gap-y-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_260px]">
+            <div className="md:row-span-2 xl:row-span-2">
+              <ProductGallery product={product} />
+            </div>
 
-            <section className="min-w-0 space-y-3">
+            <div className="min-w-0 space-y-2">
               <h1 className="text-2xl leading-tight font-semibold text-foreground">{product.name}</h1>
-              <p className="text-sm text-primary">Marca: {product.brand}</p>
+              <p className="text-sm text-muted-foreground">
+                Marca: <span className="font-medium text-foreground">{product.brand}</span>
+              </p>
               {product.rating ? (
-                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">{product.rating.toFixed(1)}</span>
+                <p className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                  <span className="sr-only">
+                    Avaliação {formatNumber(product.rating)} de 5
+                  </span>
+                  <span aria-hidden="true" className="font-semibold tabular-nums text-foreground">
+                    {formatNumber(product.rating)}
+                  </span>
                   <span className="flex" aria-hidden="true">
                     {Array.from({ length: 5 }, (_, index) => (
                       <Star
@@ -77,40 +92,53 @@ export function ProductPageView({ product }: { product: Product }) {
                       />
                     ))}
                   </span>
-                  {product.reviews_count ? <span>({product.reviews_count} avaliações)</span> : null}
+                  {product.reviews_count ? (
+                    <span>({formatNumber(product.reviews_count, 0)} avaliações)</span>
+                  ) : null}
                 </p>
               ) : null}
-              <Badge variant="outline" className={cn("font-semibold", voltageBadgeClass(product.voltage))}>
-                {product.voltage}
-              </Badge>
+              {hasVoltage(product.voltage) ? (
+                <Badge variant="outline" className={cn("font-semibold", voltageBadgeClass(product.voltage))}>
+                  {product.voltage}
+                </Badge>
+              ) : null}
+            </div>
 
-              <table className="w-full border-t border-border text-sm" data-testid="product-specs">
-                <tbody>
-                  {specRows(product).map(([label, value]) => (
-                    <tr key={label}>
-                      <th scope="row" className="w-36 py-1.5 pr-3 text-left font-semibold text-foreground">
-                        {label}
-                      </th>
-                      <td className="py-1.5 text-muted-foreground">{value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <ProductBuyBox product={product} />
+
+            <div className="min-w-0 space-y-5 md:col-span-2 xl:col-span-1 xl:col-start-2 xl:row-start-2">
+              <section aria-labelledby="ficha-tecnica">
+                <h2 id="ficha-tecnica" className="mb-2 text-base font-semibold text-foreground">
+                  Ficha técnica
+                </h2>
+                <table className="w-full border-t border-border text-sm" data-testid="product-specs">
+                  <tbody>
+                    {specRows(product).map(([label, value]) => (
+                      <tr key={label} className="border-b border-border/60 last:border-b-0">
+                        <th scope="row" className="w-1/2 py-2 pr-3 text-left align-top font-medium text-foreground">
+                          {label}
+                        </th>
+                        <td className="py-2 text-muted-foreground">{value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
 
               {product.description || product.features?.length ? (
-                <div className="border-t border-border pt-3">
-                  <h2 className="mb-2 text-base font-semibold text-foreground">Sobre este item</h2>
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                <section aria-labelledby="sobre-item">
+                  <h2 id="sobre-item" className="mb-2 text-base font-semibold text-foreground">
+                    Sobre este item
+                  </h2>
+                  <ul className="max-w-prose list-disc space-y-1 pl-5 text-sm text-muted-foreground">
                     {product.description ? <li>{product.description}</li> : null}
                     {(product.features ?? []).map((feature) => (
                       <li key={feature}>{feature}</li>
                     ))}
                   </ul>
-                </div>
+                </section>
               ) : null}
-            </section>
-
-            <ProductBuyBox product={product} />
+            </div>
           </div>
         </main>
       </div>
