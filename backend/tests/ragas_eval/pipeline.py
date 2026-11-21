@@ -21,6 +21,9 @@ from app.recommendation.service import (
 
 from .corpus import Corpus
 from .models import ObservedOffer, ObservedTurn, PipelineInput
+from .retry import ProviderRetry, RetrySettings
+
+NO_RETRY = RetrySettings(max_retries=0)
 
 
 class Pipeline(Protocol):
@@ -76,9 +79,18 @@ class ObservedCatalog:
         return await self.source.max_similarities(skus, embedding)
 
 
+class ObservedEmbedder:
+    def __init__(self, embedder: Embedder, retry: ProviderRetry) -> None:
+        self.embedder, self.retry = embedder, retry
+
+    async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        return await self.retry.run(lambda: self.embedder.embed(texts))
+
+
 class ObservedChat:
-    def __init__(self, model: ChatModel) -> None:
+    def __init__(self, model: ChatModel, retry: ProviderRetry | None = None) -> None:
         self.model, self.calls = model, 0
+        self.retry = retry or ProviderRetry(NO_RETRY)
         self.contexts: list[str] = []
 
     async def stream(self, messages: Sequence[Message]) -> AsyncIterator[str]:
@@ -91,8 +103,20 @@ class ObservedChat:
             for value in re.findall(rf"<{tag}>(.*?)</{tag}>", system, re.DOTALL)
             if value.strip() not in {"", "[]"}
         ]
-        async for delta in self.model.stream(messages):
-            yield delta
+        attempt = 0
+        while True:
+            await self.retry.pace()
+            started = False
+            try:
+                async for delta in self.model.stream(messages):
+                    started = True
+                    yield delta
+                return
+            except Exception as error:
+                # Only a quota/timeout before the first token: nothing was published yet.
+                if started or not await self.retry.backoff(error, attempt):
+                    raise
+                attempt += 1
 
 
 class ObservedOrchestrator(RAGOrchestrator):
@@ -127,8 +151,11 @@ class ProductionPipeline:
         settings: Settings,
         corpus: Corpus,
         recommendation_catalog: RecommendationCatalog,
+        retry: ProviderRetry | None = None,
     ) -> None:
-        self.reader, self.searcher, self.embedder = reader, searcher, embedder
+        self.retry = retry or ProviderRetry(NO_RETRY)
+        self.reader, self.searcher = reader, searcher
+        self.embedder = ObservedEmbedder(embedder, self.retry)
         self.model, self.settings, self.corpus = model, settings, corpus
         self.recommendation_catalog = recommendation_catalog
         self.encoding = tiktoken.get_encoding(TOKEN_COUNT_ENCODING)
@@ -137,7 +164,7 @@ class ProductionPipeline:
         if any(stock != 0 for stock in request.stock_overrides.values()):
             raise ValueError("Only explicit depletion scenarios are supported")
         catalog = ObservedCatalog(self.reader, self.recommendation_catalog, request)
-        model = ObservedChat(self.model)
+        model = ObservedChat(self.model, self.retry)
         orchestrator = ObservedOrchestrator(
             catalog,
             self.searcher,
