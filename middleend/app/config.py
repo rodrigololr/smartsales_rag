@@ -8,9 +8,11 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Until the first SSE event the backend embeds the question, runs hybrid retrieval and the
 # recommendation queries, waits for the LLM's first token and then for a whole sentence that
-# passes G-OUT (tokens carry only validated sentences). 3 s cut healthy turns short; 8 s is
-# the p95 total-response SLA (CLAUDE.md 2.6): a turn with no first event by then has missed it.
-BACKEND_FIRST_EVENT_TIMEOUT_SECONDS = 8.0
+# passes G-OUT (tokens carry only validated sentences). It must outlast the backend's own
+# worst case (query embedding 3 s + LLM first token 3 s x 2 attempts, backend config.py),
+# otherwise the gateway gives up first and the backend's controlled LLM_UNAVAILABLE is lost.
+# Measured live with Gemini: a cold first turn took > 8 s; 12 s leaves room for that budget.
+BACKEND_FIRST_EVENT_TIMEOUT_SECONDS = 12.0
 
 
 class Settings(BaseSettings):

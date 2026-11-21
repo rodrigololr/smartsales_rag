@@ -440,7 +440,7 @@ def test_backend_does_not_retry_read_timeouts_or_client_errors(
 
 
 def test_first_event_timeout_default_covers_the_backend_path_to_a_first_sentence() -> None:
-    assert Settings().backend_first_event_timeout_seconds == 8.0
+    assert Settings().backend_first_event_timeout_seconds == 12.0
 
 
 @pytest.mark.parametrize("voltage", ["127V", "220V"])
