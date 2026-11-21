@@ -27,6 +27,7 @@ from app.sessions.cache import SessionCache
 from app.sessions.postgres_store import PostgresSessionStore
 from app.sessions.redis_store import RedisSessionStore
 from app.sessions.store import InMemorySessionStore, SessionStore
+from app.telemetry.http_errors import ResponseCounter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -174,9 +175,11 @@ def create_app(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Accept"],
+        allow_headers=["Content-Type", "Accept", "X-Admin-Token"],
         expose_headers=["Retry-After"],
     )
+    # Added last = outside CORS: counts every response, CORS preflights included (M04).
+    app.add_middleware(ResponseCounter)
     app.add_exception_handler(RedisError, redis_unavailable)
     app.add_exception_handler(DatabaseError, storage_unavailable)
     app.include_router(router)
