@@ -1,0 +1,82 @@
+name: B05 live quality evaluation (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_live:
+        description: Execute 50 cases using configured generator, embeddings and independent judge APIs
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+jobs:
+  live-quality:
+    if: inputs.confirm_live
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: smartsales
+          POSTGRES_PASSWORD: smartsales
+          POSTGRES_DB: smartsales_eval
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U smartsales" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://smartsales:smartsales@localhost:5432/smartsales_eval
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_MODEL: ${{ vars.LLM_MODEL }}
+      LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+      EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL }}
+      EVAL_JUDGE_API_KEY: ${{ secrets.EVAL_JUDGE_API_KEY }}
+      EVAL_JUDGE_MODEL: ${{ vars.EVAL_JUDGE_MODEL }}
+      EVAL_JUDGE_BASE_URL: ${{ vars.EVAL_JUDGE_BASE_URL }}
+      EVAL_EMBEDDING_MODEL: ${{ vars.EVAL_EMBEDDING_MODEL }}
+      # Optional: chat-only judges (e.g. DeepSeek) need embeddings from another provider.
+      EVAL_EMBEDDING_API_KEY: ${{ secrets.EVAL_EMBEDDING_API_KEY }}
+      EVAL_EMBEDDING_BASE_URL: ${{ vars.EVAL_EMBEDDING_BASE_URL }}
+      RAGAS_DO_NOT_TRACK: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.6'
+          python-version: '3.12'
+      - run: uv venv && uv pip install -r backend/requirements-eval.lock
+      - name: Check explicit provider configuration before API calls
+        working-directory: backend
+        run: |
+          uv run --no-project python - <<'PY'
+          import os
+          required = ('LLM_API_KEY', 'LLM_MODEL', 'EMBEDDING_MODEL',
+                      'EVAL_JUDGE_API_KEY', 'EVAL_JUDGE_MODEL', 'EVAL_EMBEDDING_MODEL')
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit('Missing configuration: ' + ', '.join(missing))
+          if os.environ['LLM_MODEL'] == os.environ['EVAL_JUDGE_MODEL']:
+              raise SystemExit('The judge model must differ from the generator')
+          PY
+      - name: Ingest the declared seed into the isolated evaluation database
+        working-directory: backend
+        run: >-
+          uv run --no-project python -m app.ingestion.run
+          --catalog ../data/catalog.json --manuals ../data/manuals
+          --relations ../data/product_relations.json
+      - name: Evaluate all 50 cases and enforce quality/audit gates
+        working-directory: backend
+        run: >-
+          uv run --no-project python -m tests.ragas_eval.eval_runner
+          --mode live --gate-check
+          --output "${RUNNER_TEMP}/b05-report.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b05-live-evaluation
+          path: ${{ runner.temp }}/b05-report.json
+          if-no-files-found: warn

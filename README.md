@@ -7,22 +7,44 @@
 
 ---
 
-## MVP: como rodar (apresentação de 10/11)
+## Como rodar (Docker Compose)
 
-Escopo do MVP: catálogo comum com poucos itens (com fotos); ao abrir um produto, a página do item mostra galeria, ficha técnica e compra, com um Consultor IA fixo ao lado (estilo Rufus/Alexa da Amazon) que responde **somente sobre aquele produto**, com RAG sobre a ficha técnica do catálogo e o manual do fabricante, citando a página da fonte. Upsell/cross-sell, cache Redis, checkout e feedback reais ficam para as próximas entregas.
+O que está implementado: catálogo com poucos itens (com fotos); ao abrir um produto, a página do item mostra galeria, ficha técnica e compra, com um Consultor IA fixo ao lado (estilo Rufus/Alexa da Amazon) que responde sobre o produto consultado com RAG na ficha técnica e no manual do fabricante (citando a página da fonte) e pode apresentar atributos verificados em SQL (`RECOMENDACOES_SQL`) das alternativas elegíveis quando prefixadas por SKU. O backend acrescenta ao turno os cards de recomendação lidos em snapshot `REPEATABLE READ` do SQL (produto consultado, upsell até +35% e cross-sell de `product_relations`). O gateway persiste sessões, histórico e idempotência de turnos de forma durável no PostgreSQL (`chat_sessions`, `chat_messages`, `chat_turn_requests`) com projeção ativa e *lease* renovável no Redis (janela de 10 mensagens, TTL de 30 min) e serve respostas repetidas pelo cache semântico (TTL de 1 h), relendo no PostgreSQL o preço, a disponibilidade e o status do produto consultado e dos cards antes de cada *cache hit* ou *replay* idempotente. Ainda não implementados: *rate limiting*, `GET /products/{sku}`, feedback, *mock checkout* e métricas (`M01`, `M04`, `M05`).
+
+Pré-requisitos: Docker com Compose v2 e uma chave de um provedor compatível com a API da OpenAI.
 
 ```bash
 cp .env.example .env          # preencha LLM_API_KEY (chave do Google Gemini)
-docker compose up --build     # db (pgvector) -> ingest -> backend -> middleend -> frontend
-# Vitrine: http://localhost:3000   Gateway: http://localhost:8000/api/v1/health
+docker compose up --build     # db (pgvector) + redis -> ingest -> backend -> middleend -> frontend
 ```
+
+| Endereço | O que é |
+| :--- | :--- |
+| `http://localhost:3000` | Vitrine e Consultor IA (Next.js) |
+| `http://localhost:8000/api/v1/health` | Saúde do gateway (`backend`, `redis`, `postgres`) |
+| `http://localhost:8000/docs` | Swagger UI do gateway, gerado pelo FastAPI |
+| `http://localhost:8000/openapi.json` | OpenAPI do gateway em execução (o contrato normativo é o [`openapi.yaml`](openapi.yaml)) |
+
+Variáveis do `.env` da raiz, lidas pelo `docker-compose.yml`:
+
+| Variável | Obrigatória | Padrão | Uso |
+| :--- | :---: | :--- | :--- |
+| `LLM_API_KEY` | sim | — | Chave do provedor de IA (respostas e embeddings). |
+| `LLM_BASE_URL` | não | vazio (OpenAI) | Endpoint compatível com a API da OpenAI; o `.env.example` aponta para o Gemini. |
+| `LLM_MODEL` | não | `gpt-4o-mini` | Modelo de geração. |
+| `EMBEDDING_MODEL` | não | `text-embedding-3-small` | Modelo de embeddings (1536 dimensões). |
+| `SIMILARITY_THRESHOLD` | não | `0.72` | Limiar do *fallback* seguro; `0.60` no `.env.example`, calibrado para o Gemini. |
+
+`DATABASE_URL`, `REDIS_URL`, `BACKEND_INTERNAL_URL` e `CORS_ALLOWED_ORIGINS` já vêm definidas no `docker-compose.yml` para a rede interna. Fora do Docker, use `backend/.env.example` e `middleend/.env.example`.
 
 - **Manuais do cliente:** coloque o PDF em `data/manuals/<SKU>.pdf` (ex.: `AF-400-220V.pdf`) e rode de novo o serviço `ingest` (`docker compose run --rm ingest`). Os `.txt` atuais são manuais **sintéticos de demonstração**.
 - **Catálogo:** `data/catalog.json` (os mesmos SKUs da vitrine do frontend).
+- **Relações de cross-sell:** `data/product_relations.json`. A tabela `product_relations` é substituída pelo conteúdo do arquivo quando a CLI recebe `--relations` (o serviço `ingest` do Compose sempre passa a flag). Sem a flag, a tabela fica como está; arquivo inexistente é erro e um seed `[]` esvazia a tabela.
+- **Ingestão (`UC08`):** a CLI adquire um *advisory lock* de sessão no PostgreSQL (execuções simultâneas terminam com código 1) e roda cada fonte sob um registro em `ingestion_jobs`, com até 3 tentativas para falhas transitórias (`LLMUnavailableError`, `psycopg.OperationalError`). Fonte que esgota as tentativas, ou que falha por erro permanente (PDF corrompido ou vazio, erro de leitura, `IntegrityError`), fica em `NEEDS_INTERVENTION`, preserva a versão anterior dos chunks, aparece na saída da CLI e faz o serviço `ingest` terminar com código 1; as demais fontes seguem sendo indexadas. Ao final, mesmo que a carga pare no meio, a CLI executa `INCR catalog:version` no Redis, o que invalida o cache de respostas. Se o Redis estiver fora do ar, o relatório traz `catalog_version_error` e a CLI também termina com código 1.
 - **Provedor de IA:** o MVP usa o Google Gemini pelo endpoint compatível com a API da OpenAI (`gemini-3.1-flash-lite` para respostas e `gemini-embedding-001` com 1536 dimensões). Para voltar à OpenAI das specs, basta trocar `LLM_BASE_URL`, `LLM_MODEL` e `EMBEDDING_MODEL` no `.env`.
 - **Limiar de similaridade:** calibrado em `0.60` para o `gemini-embedding-001` (respostas corretas ficaram entre 0.64 e 0.72; perguntas fora do escopo perto de 0.47). Ao trocar modelo ou manuais, recalibre: `cd backend && uv run --no-project python -m app.retrieval.inspect --sku AF-400-220V "Posso usar forma de vidro?"`.
 
-Fluxo: `frontend (Next.js) -> middleend :8000 (sessões, idempotência, SSE) -> backend :8001 (G-IN, busca pgvector filtrada pelo SKU, LLM via API compatível com OpenAI, G-OUT por sentença) -> PostgreSQL + pgvector`.
+Fluxo: `frontend (Next.js) -> middleend :8000 (sessões e cache no Redis, idempotência, SSE) -> backend :8001 (G-IN, busca pgvector filtrada pelo SKU, LLM via API compatível com OpenAI, G-OUT por sentença, cards do SQL) -> PostgreSQL + pgvector`.
 
 Consulte [Desenvolvimento local](docs/DEVELOPMENT.md) para rodar cada camada separadamente e executar os testes.
 

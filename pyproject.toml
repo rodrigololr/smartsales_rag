@@ -13,3 +13,11 @@ select = ["E4", "E7", "E9", "F", "I"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+
+# RAGAS 0.3.0 has no py.typed marker; the evaluator exposes typed scorer protocols.
+[[tool.mypy.overrides]]
+module = ["ragas", "ragas.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+omit = ["*/tests/ragas_eval/test_*.py", "*/tests/ragas_eval/conftest.py"]

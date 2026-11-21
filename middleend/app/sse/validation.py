@@ -98,5 +98,7 @@ def parse(item: Mapping[str, object]) -> tuple[str, Mapping[str, object]]:
         strings(payload, ("fallback_message",))
     elif event == "end":
         require(integer(payload.get("tokens_used")))
-        require("intent" not in payload or isinstance(payload["intent"], str))
+        require("finish_reason" not in payload or payload["finish_reason"] == "error")
+        require("intent" not in payload or payload["intent"] in {
+            "TECHNICAL_QA", "PRODUCT_COMPARISON", "PURCHASE_INTENT", "OUT_OF_DOMAIN"})
     return cast(str, event), payload

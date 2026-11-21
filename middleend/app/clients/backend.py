@@ -1,5 +1,6 @@
 """BackendStream adapters for sse_chat_generator: the live RAG worker and cache-free replay."""
 
+import asyncio
 import json
 from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
@@ -7,6 +8,7 @@ from typing import cast
 
 import httpx
 
+from app.schemas import Filters
 from app.sessions.store import HistoryItem
 from app.sse.models import CompletedTurn
 
@@ -19,10 +21,19 @@ class NdjsonBackendStream:
     Transport failures become TimeoutError/ConnectionError, as the M02 generator expects.
     """
 
-    def __init__(self, client: httpx.AsyncClient, url: str, payload: Mapping[str, object]) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        payload: Mapping[str, object],
+        first_event_timeout_seconds: float = 3.0,
+    ) -> None:
         self._client = client
         self._url = url
         self._payload = payload
+        self._first_timeout = first_event_timeout_seconds
+        self._published = False
+        self._retries = 0
         self._context: AbstractAsyncContextManager[httpx.Response] | None = None
         self._lines: AsyncIterator[str] | None = None
 
@@ -30,17 +41,33 @@ class NdjsonBackendStream:
         return self
 
     async def __anext__(self) -> InternalEvent:
-        try:
-            if self._lines is None:
-                self._lines = await self._open()
-            while True:
-                line = await anext(self._lines)  # StopAsyncIteration ends the stream
-                if line.strip():
-                    return cast(InternalEvent, json.loads(line))
-        except httpx.TimeoutException as error:
-            raise TimeoutError("backend timeout") from error
-        except httpx.TransportError as error:
-            raise ConnectionError("backend unreachable") from error
+        while True:
+            try:
+                if self._published:
+                    return await self._read_event()
+                async with asyncio.timeout(self._first_timeout):
+                    event = await self._read_event()
+                self._published = True
+                return event
+            except (httpx.TimeoutException, TimeoutError) as error:
+                failure: Exception = TimeoutError("backend first event/read timeout")
+                failure.__cause__ = error
+            except (httpx.TransportError, ConnectionError) as error:
+                failure = ConnectionError("backend unreachable")
+                failure.__cause__ = error
+            if self._published or self._retries >= 1:
+                raise failure
+            self._retries += 1
+            await self.aclose()
+            self._lines = None
+
+    async def _read_event(self) -> InternalEvent:
+        if self._lines is None:
+            self._lines = await self._open()
+        while True:
+            line = await anext(self._lines)
+            if line.strip():
+                return cast(InternalEvent, json.loads(line))
 
     async def _open(self) -> AsyncIterator[str]:
         self._context = self._client.stream("POST", self._url, json=dict(self._payload))
@@ -56,19 +83,34 @@ class NdjsonBackendStream:
 
 
 class BackendClient:
-    def __init__(self, client: httpx.AsyncClient, base_url: str) -> None:
+    def __init__(
+        self, client: httpx.AsyncClient, base_url: str, *, first_event_timeout_seconds: float = 3.0
+    ) -> None:
         self._client = client
+        self._first_timeout = first_event_timeout_seconds
         self._url = base_url.rstrip("/") + "/internal/rag/stream"
 
     def open_stream(
-        self, sku: str, question: str, history: Sequence[HistoryItem]
+        self,
+        sku: str,
+        question: str,
+        history: Sequence[HistoryItem],
+        *,
+        filters: Filters | None = None,
     ) -> NdjsonBackendStream:
-        payload = {
+        payload: dict[str, object] = {
             "sku": sku,
             "question": question,
             "history": [{"role": item.role, "content": item.content} for item in history],
         }
-        return NdjsonBackendStream(self._client, self._url, payload)
+        if filters is not None:
+            payload.update(
+                filters.model_dump(mode="json", exclude_none=True, exclude={"current_product_sku"})
+            )
+            if filters.budget_max is not None:
+                # JSON number at the transport boundary; money arithmetic stays Decimal.
+                payload["budget_max"] = float(filters.budget_max)
+        return NdjsonBackendStream(self._client, self._url, payload, self._first_timeout)
 
 
 class ReplayStream:
@@ -92,7 +134,7 @@ class ReplayStream:
 
 def _replay_events(turn: CompletedTurn) -> list[InternalEvent]:
     events: list[InternalEvent] = []
-    if turn.finish_reason == "fallback":
+    if turn.finish_reason in ("fallback", "error"):
         events.append(
             {
                 "event": "error",
@@ -110,6 +152,8 @@ def _replay_events(turn: CompletedTurn) -> list[InternalEvent]:
     if turn.products:
         events.append({"event": "recommendations", "data": {"products": list(turn.products)}})
     end_data: dict[str, object] = {"tokens_used": turn.tokens_used}
+    if turn.finish_reason == "error":
+        end_data["finish_reason"] = "error"
     if turn.intent is not None:
         end_data["intent"] = turn.intent
     events.append({"event": "end", "data": end_data})

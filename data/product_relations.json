@@ -1,0 +1,37 @@
+[
+  {
+    "base_sku": "AF-400-220V",
+    "related_sku": "KIT-SIL-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.950",
+    "justification_template": "Formas de silicone compatíveis com airfryers de 4L a 8L, como esta de 4L."
+  },
+  {
+    "base_sku": "AF-550-220V",
+    "related_sku": "KIT-SIL-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Formas de silicone compatíveis com airfryers de 4L a 8L, como esta de 5,5L."
+  },
+  {
+    "base_sku": "AF-800-220V",
+    "related_sku": "KIT-SIL-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Formas de silicone compatíveis com airfryers de 4L a 8L, como esta de 8L."
+  },
+  {
+    "base_sku": "CF-15B-127V",
+    "related_sku": "KIT-CAF-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Solução descalcificante e escova de limpeza para cafeteiras expresso."
+  },
+  {
+    "base_sku": "CF-20B-127V",
+    "related_sku": "KIT-CAF-01",
+    "relation_type": "CROSS_SELL",
+    "affinity_weight": "0.900",
+    "justification_template": "Solução descalcificante e escova de limpeza para cafeteiras expresso."
+  }
+]

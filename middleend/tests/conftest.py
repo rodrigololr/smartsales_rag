@@ -1,7 +1,8 @@
-"""Use the event loop supported by psycopg on Windows."""
+"""Test-wide setup shared by the gateway suites."""
 
 import asyncio
 import sys
 
 if sys.platform == "win32":
+    # psycopg's async mode cannot run on the default ProactorEventLoop (Windows dev boxes).
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())

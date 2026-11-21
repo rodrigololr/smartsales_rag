@@ -1,0 +1,303 @@
+{
+  "schema_version": 2,
+  "corpus_sha256": "722d338f4147e9e5b4147d89182cf81ee99e977e6cff2e77bde34e9229e3838e",
+  "description": "Synthetic demonstration seed; source verification is not PO/manufacturer audit.",
+  "entries": [
+    {
+      "sku": "AF-400-220V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "04522af8305ff1abdcc5c6ead7f41dd374960a6c071d909d707d648ccd8fe442",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Airfryer SmartChef 4L\nMarca: SmartChef\nCategoria: Eletroportáteis / Fritadeiras Elétricas\nVoltagem: 220V\nPotência: 1500 W\nCapacidade: 4.0 L\ntemperatura_min_c: 80\ntemperatura_max_c: 200\ntimer_max_min: 60\nfrequencia_hz: 60\nFritadeira sem óleo com controle digital de temperatura e cesto antiaderente removível de 4 Litros."
+    },
+    {
+      "sku": "AF-400-220V",
+      "source": "manual:AF-400-220V.txt",
+      "source_sha256": "ddb3ed5ee71960856e0a445db3c5b5d4b6c0b30e34ac2a6e69b256859a97ee15",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Airfryer SmartChef 4L\nModelo AF-400-220V\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "AF-400-220V",
+      "source": "manual:AF-400-220V.txt",
+      "source_sha256": "ddb3ed5ee71960856e0a445db3c5b5d4b6c0b30e34ac2a6e69b256859a97ee15",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão mergulhe o corpo do aparelho, o cabo ou o plugue em água ou outros líquidos.\nMantenha o aparelho fora do alcance de crianças.\nNão cubra as saídas de ar traseiras durante o funcionamento.\nMantenha uma distância mínima de 10 cm de paredes e outros objetos."
+    },
+    {
+      "sku": "AF-400-220V",
+      "source": "manual:AF-400-220V.txt",
+      "source_sha256": "ddb3ed5ee71960856e0a445db3c5b5d4b6c0b30e34ac2a6e69b256859a97ee15",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Painel digital de controle\n2. Cesto antiaderente removível\n3. Gaveta coletora\n4. Saídas de ar traseiras\n5. Cabo de alimentação"
+    },
+    {
+      "sku": "AF-400-220V",
+      "source": "manual:AF-400-220V.txt",
+      "source_sha256": "ddb3ed5ee71960856e0a445db3c5b5d4b6c0b30e34ac2a6e69b256859a97ee15",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Antes do primeiro uso\nRemova todo o material de embalagem e adesivos.\nLave o cesto e a gaveta com água morna, detergente neutro e esponja macia.\nFaça um ciclo de 10 minutos a 200 °C sem alimentos para eliminar o odor de fábrica."
+    },
+    {
+      "sku": "AF-400-220V",
+      "source": "manual:AF-400-220V.txt",
+      "source_sha256": "ddb3ed5ee71960856e0a445db3c5b5d4b6c0b30e34ac2a6e69b256859a97ee15",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Painel de controle\nA temperatura é ajustável de 80 °C a 200 °C, em intervalos de 10 °C.\nO timer vai de 1 a 60 minutos. Ao final do tempo o aparelho emite um sinal sonoro e desliga o aquecimento."
+    },
+    {
+      "sku": "AF-400-220V",
+      "source": "manual:AF-400-220V.txt",
+      "source_sha256": "ddb3ed5ee71960856e0a445db3c5b5d4b6c0b30e34ac2a6e69b256859a97ee15",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo opera exclusivamente em 220V / 60 Hz, com potência nominal de 1500 W.\nNão utilize extensões ou adaptadores.\nLigar o aparelho em tensão diferente da indicada danifica o produto e anula a garantia."
+    },
+    {
+      "sku": "AF-400-220V",
+      "source": "manual:AF-400-220V.txt",
+      "source_sha256": "ddb3ed5ee71960856e0a445db3c5b5d4b6c0b30e34ac2a6e69b256859a97ee15",
+      "page_number": 8,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Conecte o plugue à tomada.\n2. Coloque os alimentos no cesto sem ultrapassar a marca MAX.\n3. Ajuste a temperatura e o tempo no painel.\n4. Na metade do preparo, agite os alimentos para dourar por igual."
+    },
+    {
+      "sku": "AF-400-220V",
+      "source": "manual:AF-400-220V.txt",
+      "source_sha256": "ddb3ed5ee71960856e0a445db3c5b5d4b6c0b30e34ac2a6e69b256859a97ee15",
+      "page_number": 10,
+      "chunk_index": 0,
+      "quote": "## Tabela de preparo\n| Alimento | Temperatura | Tempo |\n| Batata congelada | 200 °C | 18 a 20 min |\n| Coxa de frango | 180 °C | 25 a 30 min |\n| Legumes em cubos | 180 °C | 12 a 15 min |\n| Pão de queijo congelado | 180 °C | 15 min |"
+    },
+    {
+      "sku": "AF-400-220V",
+      "source": "manual:AF-400-220V.txt",
+      "source_sha256": "ddb3ed5ee71960856e0a445db3c5b5d4b6c0b30e34ac2a6e69b256859a97ee15",
+      "page_number": 12,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue o aparelho da tomada e aguarde esfriar antes de limpar.\nO cesto e a gaveta podem ser lavados à mão com detergente neutro. Não use palha de aço nem produtos abrasivos, que danificam o revestimento antiaderente."
+    },
+    {
+      "sku": "AF-400-220V",
+      "source": "manual:AF-400-220V.txt",
+      "source_sha256": "ddb3ed5ee71960856e0a445db3c5b5d4b6c0b30e34ac2a6e69b256859a97ee15",
+      "page_number": 14,
+      "chunk_index": 0,
+      "quote": "## Materiais e utensílios\nPodem ser usadas formas de silicone, papel manteiga próprio para airfryer e formas de alumínio que caibam no cesto, deixando espaço para a circulação de ar.\nNão use recipientes de vidro comum nem plástico.\nO cesto de 4 litros atende de 3 a 4 pessoas e comporta até 1,2 kg de batatas pré-preparadas por fornada."
+    },
+    {
+      "sku": "AF-400-220V",
+      "source": "manual:AF-400-220V.txt",
+      "source_sha256": "ddb3ed5ee71960856e0a445db3c5b5d4b6c0b30e34ac2a6e69b256859a97ee15",
+      "page_number": 20,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre danos causados por ligação em tensão incorreta, quedas ou uso comercial."
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "eaa75f9adc96267ebd6a95cc46a625d2ad95a20c7d783385cf0a5c5e5553d799",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Airfryer SmartChef 5.5L Family\nMarca: SmartChef\nCategoria: Eletroportáteis / Fritadeiras Elétricas\nVoltagem: 220V\nPotência: 1800 W\nCapacidade: 5.5 L\ntemperatura_min_c: 80\ntemperatura_max_c: 200\ntimer_max_min: 60\nfrequencia_hz: 60\nCapacidade expandida para famílias de até 6 pessoas, timer de 60 minutos e cesto quadrado."
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "manual:AF-550-220V.txt",
+      "source_sha256": "0d07342e8cb98a5d7c9141cb7209c0d6df078b0f4c00bbe91c9ae00b071cef5a",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Airfryer SmartChef 5.5L Family\nModelo AF-550-220V\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).\n\nLeia este manual antes de usar o produto e guarde-o para consultas futuras."
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "manual:AF-550-220V.txt",
+      "source_sha256": "0d07342e8cb98a5d7c9141cb7209c0d6df078b0f4c00bbe91c9ae00b071cef5a",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNão mergulhe o corpo do aparelho, o cabo ou o plugue em água ou outros líquidos.\nMantenha o aparelho fora do alcance de crianças.\nNão cubra as saídas de ar traseiras durante o funcionamento.\nMantenha uma distância mínima de 10 cm de paredes e outros objetos."
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "manual:AF-550-220V.txt",
+      "source_sha256": "0d07342e8cb98a5d7c9141cb7209c0d6df078b0f4c00bbe91c9ae00b071cef5a",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Painel digital de controle\n2. Cesto antiaderente removível\n3. Gaveta coletora\n4. Saídas de ar traseiras\n5. Cabo de alimentação"
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "manual:AF-550-220V.txt",
+      "source_sha256": "0d07342e8cb98a5d7c9141cb7209c0d6df078b0f4c00bbe91c9ae00b071cef5a",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Antes do primeiro uso\nRemova todo o material de embalagem e adesivos.\nLave o cesto e a gaveta com água morna, detergente neutro e esponja macia.\nFaça um ciclo de 10 minutos a 200 °C sem alimentos para eliminar o odor de fábrica."
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "manual:AF-550-220V.txt",
+      "source_sha256": "0d07342e8cb98a5d7c9141cb7209c0d6df078b0f4c00bbe91c9ae00b071cef5a",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Painel de controle\nA temperatura é ajustável de 80 °C a 200 °C, em intervalos de 10 °C.\nO timer vai de 1 a 60 minutos. Ao final do tempo o aparelho emite um sinal sonoro e desliga o aquecimento."
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "manual:AF-550-220V.txt",
+      "source_sha256": "0d07342e8cb98a5d7c9141cb7209c0d6df078b0f4c00bbe91c9ae00b071cef5a",
+      "page_number": 7,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo opera exclusivamente em 220V / 60 Hz, com potência nominal de 1800 W.\nNão utilize extensões ou adaptadores.\nLigar o aparelho em tensão diferente da indicada danifica o produto e anula a garantia."
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "manual:AF-550-220V.txt",
+      "source_sha256": "0d07342e8cb98a5d7c9141cb7209c0d6df078b0f4c00bbe91c9ae00b071cef5a",
+      "page_number": 8,
+      "chunk_index": 0,
+      "quote": "## Modo de uso\n1. Conecte o plugue à tomada.\n2. Coloque os alimentos no cesto sem ultrapassar a marca MAX.\n3. Ajuste a temperatura e o tempo no painel.\n4. Na metade do preparo, agite os alimentos para dourar por igual."
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "manual:AF-550-220V.txt",
+      "source_sha256": "0d07342e8cb98a5d7c9141cb7209c0d6df078b0f4c00bbe91c9ae00b071cef5a",
+      "page_number": 10,
+      "chunk_index": 0,
+      "quote": "## Tabela de preparo\n| Alimento | Temperatura | Tempo |\n| Batata congelada | 200 °C | 18 a 20 min |\n| Coxa de frango | 180 °C | 25 a 30 min |\n| Legumes em cubos | 180 °C | 12 a 15 min |\n| Pão de queijo congelado | 180 °C | 15 min |"
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "manual:AF-550-220V.txt",
+      "source_sha256": "0d07342e8cb98a5d7c9141cb7209c0d6df078b0f4c00bbe91c9ae00b071cef5a",
+      "page_number": 12,
+      "chunk_index": 0,
+      "quote": "## Limpeza e manutenção\nDesligue o aparelho da tomada e aguarde esfriar antes de limpar.\nO cesto e a gaveta podem ser lavados à mão com detergente neutro. Não use palha de aço nem produtos abrasivos, que danificam o revestimento antiaderente."
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "manual:AF-550-220V.txt",
+      "source_sha256": "0d07342e8cb98a5d7c9141cb7209c0d6df078b0f4c00bbe91c9ae00b071cef5a",
+      "page_number": 18,
+      "chunk_index": 0,
+      "quote": "## Capacidade e porções\nO cesto de 5,5 litros comporta até 1,8 kg de batatas pré-preparadas, atendendo de 5 a 6 pessoas com uma única fornada.\nO cesto quadrado aproveita melhor a área útil do que cestos redondos de mesma capacidade.\nPodem ser usadas formas de silicone e papel manteiga próprio para airfryer."
+    },
+    {
+      "sku": "AF-550-220V",
+      "source": "manual:AF-550-220V.txt",
+      "source_sha256": "0d07342e8cb98a5d7c9141cb7209c0d6df078b0f4c00bbe91c9ae00b071cef5a",
+      "page_number": 20,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.\nA garantia não cobre danos causados por ligação em tensão incorreta, quedas ou uso comercial."
+    },
+    {
+      "sku": "CF-15B-127V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "85b05c8097985efcdcb29e55439aa005aa1d18ee17273b89fdc405d7a869839b",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Cafeteira Expresso Aroma Pro\nMarca: AromaTech\nCategoria: Eletroportáteis / Cafeteiras\nVoltagem: 127V\nPotência: 1050 W\nCapacidade: 1.5 L\npressao_bar: 15\nfrequencia_hz: 60\nBomba de 15 bar, bico vaporizador para leite e reservatório removível de 1.5 Litros."
+    },
+    {
+      "sku": "CF-15B-127V",
+      "source": "manual:CF-15B-127V.txt",
+      "source_sha256": "a0f67d67e500d32f5a88a3cca2cd716c6bf6263bdfb1382239fe3e05e73ee58a",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Cafeteira Expresso Aroma Pro\nModelo CF-15B-127V\nManual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo)."
+    },
+    {
+      "sku": "CF-15B-127V",
+      "source": "manual:CF-15B-127V.txt",
+      "source_sha256": "a0f67d67e500d32f5a88a3cca2cd716c6bf6263bdfb1382239fe3e05e73ee58a",
+      "page_number": 2,
+      "chunk_index": 0,
+      "quote": "## Instruções de segurança\nNunca remova o porta-filtro durante a extração: a água está sob pressão e em alta temperatura.\nNão ligue a cafeteira sem água no reservatório."
+    },
+    {
+      "sku": "CF-15B-127V",
+      "source": "manual:CF-15B-127V.txt",
+      "source_sha256": "a0f67d67e500d32f5a88a3cca2cd716c6bf6263bdfb1382239fe3e05e73ee58a",
+      "page_number": 3,
+      "chunk_index": 0,
+      "quote": "## Componentes\n1. Reservatório removível de 1,5 litro\n2. Porta-filtro com filtros para 1 e 2 doses\n3. Bico vaporizador de leite\n4. Bandeja coletora removível\n5. Botões de café e de vapor"
+    },
+    {
+      "sku": "CF-15B-127V",
+      "source": "manual:CF-15B-127V.txt",
+      "source_sha256": "a0f67d67e500d32f5a88a3cca2cd716c6bf6263bdfb1382239fe3e05e73ee58a",
+      "page_number": 4,
+      "chunk_index": 0,
+      "quote": "## Preparando um expresso\n1. Encha o reservatório com água filtrada.\n2. Coloque o café moído no filtro e pressione levemente com o socador.\n3. Encaixe o porta-filtro e pressione o botão de café.\nA bomba trabalha com pressão de 15 bar."
+    },
+    {
+      "sku": "CF-15B-127V",
+      "source": "manual:CF-15B-127V.txt",
+      "source_sha256": "a0f67d67e500d32f5a88a3cca2cd716c6bf6263bdfb1382239fe3e05e73ee58a",
+      "page_number": 5,
+      "chunk_index": 0,
+      "quote": "## Especificações elétricas\nEste modelo opera exclusivamente em 127V / 60 Hz, com potência nominal de 1050 W.\nNão utilize extensões ou adaptadores.\nLigar a cafeteira em 220V danifica o produto e anula a garantia."
+    },
+    {
+      "sku": "CF-15B-127V",
+      "source": "manual:CF-15B-127V.txt",
+      "source_sha256": "a0f67d67e500d32f5a88a3cca2cd716c6bf6263bdfb1382239fe3e05e73ee58a",
+      "page_number": 6,
+      "chunk_index": 0,
+      "quote": "## Vaporizador de leite\nUse uma jarra de inox com leite gelado até um terço da capacidade.\nMergulhe o bico logo abaixo da superfície do leite e abra o vapor até formar a espuma.\nApós o uso, limpe o bico com pano úmido e libere vapor por 2 segundos."
+    },
+    {
+      "sku": "CF-15B-127V",
+      "source": "manual:CF-15B-127V.txt",
+      "source_sha256": "a0f67d67e500d32f5a88a3cca2cd716c6bf6263bdfb1382239fe3e05e73ee58a",
+      "page_number": 9,
+      "chunk_index": 0,
+      "quote": "## Limpeza e descalcificação\nEsvazie e lave a bandeja coletora diariamente.\nFaça a descalcificação a cada 2 meses, ou antes se a água da região for dura, usando o Kit de Limpeza e Descalcificação AromaTech (KIT-CAF-01) conforme a embalagem.\nNão use vinagre: ele danifica as vedações internas."
+    },
+    {
+      "sku": "CF-15B-127V",
+      "source": "manual:CF-15B-127V.txt",
+      "source_sha256": "a0f67d67e500d32f5a88a3cca2cd716c6bf6263bdfb1382239fe3e05e73ee58a",
+      "page_number": 12,
+      "chunk_index": 0,
+      "quote": "## Garantia\nGarantia de 12 meses contra defeitos de fabricação. A garantia não cobre danos por ligação em tensão incorreta nem por falta de descalcificação."
+    },
+    {
+      "sku": "AF-800-220V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "04806c986359c016ab8cd1bf62e78c276608f6be140900c7429b9cff3b288039",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Airfryer SmartChef 8L Family Plus\nMarca: SmartChef\nCategoria: Eletroportáteis / Fritadeiras Elétricas\nVoltagem: 220V\nPotência: 2000 W\nCapacidade: 8.0 L\nModelo superior com cesto duplo e capacidade para até 8 pessoas."
+    },
+    {
+      "sku": "KIT-SIL-01",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "3d78751cf7d9e9cec4f9ed045bb7c9e6a83a2fe06bb4f3142d1371f278402240",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Kit de Formas de Silicone 20 cm\nMarca: SmartChef\nCategoria: Acessórios / Acessórios para Airfryer\nVoltagem: N/A\nConjunto com 3 formas de silicone compatíveis com airfryers de 4L a 8L."
+    },
+    {
+      "sku": "CF-20B-127V",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "770646c8fffec49fce271ecb9784a1a4248aa5fc3d46d92ea9898cdcdbebf6dc",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Cafeteira Expresso Aroma Pro 2L\nMarca: AromaTech\nCategoria: Eletroportáteis / Cafeteiras\nVoltagem: 127V\nPotência: 1350 W\nCapacidade: 2.0 L\npressao_bar: 19\nVersão superior com reservatório de 2L e moedor integrado."
+    },
+    {
+      "sku": "KIT-CAF-01",
+      "source": "catalog:spec_sheet",
+      "source_sha256": "3c7eabba99ff6bfa3b0ffe84ac322106851b3a4ca3eb0fbb196f71f65469f3ca",
+      "page_number": 1,
+      "chunk_index": 0,
+      "quote": "Ficha técnica oficial do catálogo: Kit de Limpeza e Descalcificação\nMarca: AromaTech\nCategoria: Acessórios / Acessórios para Cafeteira\nVoltagem: N/A\nSolução descalcificante e escova de limpeza para cafeteiras expresso."
+    }
+  ]
+}
