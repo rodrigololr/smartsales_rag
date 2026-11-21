@@ -163,7 +163,7 @@ describe("UT-F03-02: feedback ligado ao POST /api/v1/feedback do gateway", () =>
     render(<ProductPageView product={airfryer} />);
     fireEvent.click(screen.getByTestId("quick-suggestion-0"));
 
-    expect(await screen.findByText("Opera em 220V.")).toBeInTheDocument();
+    expect(await screen.findByTestId("assistant-text")).toHaveTextContent("Opera em 220V.");
     await waitFor(() => expect(screen.queryByText(/Consultando manuais/i)).not.toBeInTheDocument());
     expect(screen.queryByTestId(/^feedback-bar-/)).not.toBeInTheDocument();
     expect(feedbackBodies(fetchMock)).toEqual([]);

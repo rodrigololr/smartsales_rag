@@ -43,8 +43,9 @@ describe("UT-F02-01: streaming mockado do Consultor IA", () => {
       timeout: 4000,
     });
     expect(fallback).toHaveTextContent(/Não encontrei essa informação/i);
-    expect(fallback).toHaveTextContent(/LOW_SIMILARITY_FALLBACK/);
-    expect(screen.getByText(/Tentar novamente/i)).toBeInTheDocument();
+    expect(fallback).toHaveTextContent("Informação não encontrada no manual");
+    expect(fallback).not.toHaveTextContent(/LOW_SIMILARITY_FALLBACK/);
+    expect(screen.queryByText(/Tentar novamente/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId("citation-list")).not.toBeInTheDocument();
   });
 });

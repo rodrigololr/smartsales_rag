@@ -99,7 +99,7 @@ export function ProductPageView({ product }: { product: Product }) {
               ) : null}
               {hasVoltage(product.voltage) ? (
                 <Badge variant="outline" className={cn("font-semibold", voltageBadgeClass(product.voltage))}>
-                  {product.voltage}
+                  {voltageLabel(product.voltage)}
                 </Badge>
               ) : null}
             </div>
