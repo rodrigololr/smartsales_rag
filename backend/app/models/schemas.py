@@ -64,6 +64,7 @@ class RetrievedChunk(BaseModel):
 class ChatTurn(BaseModel):
     role: Literal["user", "assistant"]
     content: str
+    recommended_skus: list[str] = Field(default_factory=list, max_length=6)
 
 
 class RagRequest(BaseModel):
@@ -79,6 +80,29 @@ class RagRequest(BaseModel):
     budget_max: Decimal | None = Field(default=None, gt=0, decimal_places=2)
 
 
+class ConsultantRequest(BaseModel):
+    """Body of /internal/rag/stream supporting both catalog mode (sku=None) and product mode."""
+
+    sku: str | None = Field(default=None, min_length=1, max_length=64)
+    question: str = Field(min_length=1, max_length=1000)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=20)
+    preferred_voltage: Literal["127V", "220V"] | None = None
+    category: str | None = None
+    capacity_min: Decimal | None = Field(default=None, allow_inf_nan=False)
+    budget_max: Decimal | None = Field(default=None, gt=0, decimal_places=2)
+
+    def rag_request(self, sku: str) -> RagRequest:
+        return RagRequest(
+            sku=sku,
+            question=self.question,
+            history=self.history,
+            preferred_voltage=self.preferred_voltage,
+            category=self.category,
+            capacity_min=self.capacity_min,
+            budget_max=self.budget_max,
+        )
+
+
 class ProductRecommendation(BaseModel):
     """Validated SQL card facts available to the consultative publication guard."""
 
@@ -89,4 +113,4 @@ class ProductRecommendation(BaseModel):
     voltage: Voltage
     capacity_liters: Decimal | None = Field(default=None, gt=0)
     power_watts: int | None = Field(default=None, gt=0)
-    recommendation_type: Literal["PRIMARY", "UPSELL", "CROSS_SELL"]
+    recommendation_type: Literal["PRIMARY", "UPSELL", "CROSS_SELL", "OPTION"]
