@@ -52,8 +52,9 @@ def database_url() -> Iterator[str]:
     if not base_url or not REDIS_URL:
         pytest.skip("TEST_DATABASE_URL and TEST_REDIS_URL required")
     # A whole database per test: the gateway sets connection options, so search_path can't isolate.
-    with Redis.from_url(REDIS_URL) as redis:  # answers cached by other tests would skip the stub
-        stale = list(redis.scan_iter("cache:sem:*"))
+    # Cached answers would skip the stub; HTTP counters would leak into the metrics tests.
+    with Redis.from_url(REDIS_URL) as redis:
+        stale = [*redis.scan_iter("cache:sem:*"), *redis.scan_iter("metrics:http:*")]
         if stale:
             redis.delete(*stale)
     database_name = "commerce_test_" + uuid4().hex
@@ -132,12 +133,17 @@ class StubBackend:
 
 @asynccontextmanager
 async def client_for(
-    database_url: str, *, fallback: bool = False, decrement_stock: bool = True
+    database_url: str,
+    *,
+    fallback: bool = False,
+    decrement_stock: bool = True,
+    admin_token: str | None = None,
 ) -> AsyncIterator[httpx.AsyncClient]:
     settings = Settings(
         database_url=database_url,
         redis_url=REDIS_URL,
         checkout_decrement_stock=decrement_stock,
+        admin_token=admin_token,
         # Not a rate-limit test: the shared Redis bucket of 127.0.0.1 must not trip
         # (M01, #36; the field is ignored by Settings until M01 is merged).
         rate_limit_per_minute=RATE_LIMIT_OFF,
