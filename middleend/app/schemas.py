@@ -8,15 +8,28 @@ from uuid import UUID
 from pydantic import UUID4, BaseModel, ConfigDict, Field
 
 
-class ErrorDetail(BaseModel):
+class RestError(BaseModel):
+    """Error fields shared by every REST error response."""
+
     code: str
     message: str
     trace_id: str
     details: object
 
 
-class ErrorEnvelope(BaseModel):
-    error: ErrorDetail
+class Error(BaseModel):
+    """Normative openapi.yaml Error envelope (including arbitrary JSON details)."""
+
+    error: RestError
+
+
+# Advertised on 429 so clients know when to retry (openapi.yaml).
+RETRY_AFTER_HEADER = {
+    "Retry-After": {
+        "description": "Segundos até uma nova tentativa permitida.",
+        "schema": {"type": "integer", "minimum": 1},
+    }
+}
 
 
 SKU_MAX_LENGTH = 64  # products.sku VARCHAR(64)
@@ -25,14 +38,16 @@ CATEGORY_MAX_LENGTH = 64  # filter input bound; catalog categories are far short
 # Error statuses openapi.yaml documents on every public operation (CT-M01-01).
 ERROR_STATUSES = (401, 404, 409, 410, 422, 429, 500, 503)
 ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
-    status: {"model": ErrorEnvelope} for status in ERROR_STATUSES
+    status: {"model": Error, **({"headers": RETRY_AFTER_HEADER} if status == 429 else {})}
+    for status in ERROR_STATUSES
 }
 # Same envelope for a route whose 200 is not JSON (SSE): with "model", FastAPI would file the
 # schema under the route's media type. The component exists via the ERROR_RESPONSES routes.
 JSON_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     status: {
         "description": HTTPStatus(status).phrase,
-        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}},
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+        **({"headers": RETRY_AFTER_HEADER} if status == 429 else {}),
     }
     for status in ERROR_STATUSES
 }
@@ -62,3 +77,4 @@ class ChatStreamRequest(BaseModel):
     client_request_id: UUID4
     message: str = Field(min_length=1, max_length=1000)
     context_filters: Filters | None = None
+

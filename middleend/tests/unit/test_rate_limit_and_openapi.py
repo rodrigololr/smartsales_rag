@@ -19,6 +19,7 @@ from app.ratelimit import (
     client_ip_from_request,
 )
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
 from pydantic import BaseModel, ValidationError
 from redis.asyncio import Redis
 from redis.exceptions import ConnectionError as RedisConnectionError
@@ -145,7 +146,7 @@ def test_ct_m01_01_runtime_openapi_matches_normative_session_and_chat_contracts(
             assert set(served["responses"]) == set(operation["responses"]), (path, method)
             if "422" in served["responses"]:
                 schema = served["responses"]["422"]["content"]["application/json"]["schema"]
-                assert schema["$ref"].endswith("/ErrorEnvelope"), (path, method)
+                assert schema["$ref"].endswith("/Error"), (path, method)
 
     stream_ok = runtime["paths"]["/api/v1/chat/stream"]["post"]["responses"]["200"]
     assert list(stream_ok["content"]) == ["text/event-stream"]
@@ -196,6 +197,70 @@ def test_ct_m01_01_runtime_openapi_matches_normative_session_and_chat_contracts(
     rec_products = rec_branch["properties"]["data"]["properties"]["products"]
     assert rec_products["maxItems"] == 5
     assert "OPTION" in rec_products["description"]
+
+
+def _resolved_schema(document: dict, schema: object) -> object:
+    """Compare schema meaning, independently of component names and annotations."""
+    if isinstance(schema, list):
+        return [_resolved_schema(document, item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    if "$ref" in schema:
+        target = document
+        for part in schema["$ref"].removeprefix("#/").split("/"):
+            target = target[part]
+        return _resolved_schema(document, target)
+    return {
+        key: _resolved_schema(document, value)
+        for key, value in schema.items()
+        if key not in {"title", "description"}
+    }
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "request_path", "payload"),
+    [
+        ("post", "/api/v1/sessions", "/api/v1/sessions", {"session_id": "invalid"}),
+        ("delete", "/api/v1/sessions/{session_id}", "/api/v1/sessions/invalid", None),
+        ("post", "/api/v1/chat/stream", "/api/v1/chat/stream", {}),
+    ],
+)
+def test_ct_m01_01_error_responses_match_normative_contract_and_actual_payloads(
+    method: str, path: str, request_path: str, payload: dict | None
+) -> None:
+    normative = json.loads((ROOT / "openapi.yaml").read_text(encoding="utf-8"))
+    settings = Settings(backend_internal_url="http://127.0.0.1:9", rate_limit_per_minute=1)
+    with TestClient(create_app(settings, FakeBackend([TOKEN, END]))) as client:
+        runtime = client.get("/openapi.json").json()
+        responses = runtime["paths"][path][method]["responses"]
+        expected = normative["paths"][path][method]["responses"]
+        for status in ("422", "429"):
+            schema = responses[status]["content"]["application/json"]["schema"]
+            normative_schema = expected[status]["content"]["application/json"]["schema"]
+            assert _resolved_schema(runtime, schema) == _resolved_schema(normative, normative_schema)
+        retry_header = responses["429"]["headers"]["Retry-After"]
+        assert retry_header == expected["429"]["headers"]["Retry-After"]
+        assert retry_header["schema"] == {"type": "integer", "minimum": 1}
+        assert "429" not in runtime["paths"]["/api/v1/health"]["get"]["responses"]
+
+        invalid = client.request(method, request_path, json=payload)
+        assert invalid.status_code == 422
+        # Invalid chat bodies consume the coarse IP bucket before session validation.
+        attempts = CHAT_SESSIONS_PER_IP if path.endswith("/chat/stream") else 1
+        for _ in range(attempts - 1):
+            assert client.request(method, request_path, json=payload).status_code == 422
+        blocked = client.request(method, request_path, json=payload)
+        assert blocked.status_code == 429
+        assert blocked.json()["error"]["code"] == "RATE_LIMITED"
+        assert int(blocked.headers["retry-after"]) >= 1
+        for response in (invalid, blocked):
+            for document in (runtime, normative):
+                operation = document["paths"][path][method]
+                schema = operation["responses"][str(response.status_code)]["content"][
+                    "application/json"
+                ]["schema"]
+                resolved = _resolved_schema(document, schema)
+                Draft202012Validator(resolved).validate(response.json())
 
 
 def _limited_app(limit: int) -> TestClient:

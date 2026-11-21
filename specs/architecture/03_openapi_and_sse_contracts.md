@@ -302,6 +302,8 @@ Mesmos campos do *Product Card* (`sku`, `name`, `price`, `stock_quantity`, `volt
 
 #### Query params: `from`, `to` (ISO-8601, opcionais — padrão: últimos 7 dias)
 
+Para `error_5xx_rate`, uma janela sem interseção com o período disponível (até agora e dentro da retenção dos contadores) retorna `0`, sem consultar buckets de outras horas. Isso inclui janelas inteiramente futuras.
+
 #### Response (`200 OK` — `MetricsSummaryResponse`; `401` sem token válido)
 ```json
 {
@@ -336,6 +338,13 @@ Todas as rotas JSON retornam erros no formato abaixo (`422` validação Pydantic
 ```json
 { "error": { "code": "RATE_LIMITED", "message": "Limite de 30 requisições por minuto excedido.", "trace_id": "6f1c...", "details": null } }
 ```
+
+O OpenAPI de runtime (`/openapi.json`) deve usar o mesmo envelope `Error` do
+`openapi.yaml` nas respostas `422` e `429` de criação/encerramento de sessão e
+`POST /chat/stream`. UUID inválido no encerramento de sessão também retorna `422`.
+A resposta `429` documenta `Retry-After` como um inteiro de segundos, com mínimo 1.
+O teste `CT-M01-01` compara esses schemas e valida respostas reais contra ambos
+os contratos, incluindo o cabeçalho de rate limiting.
 
 ---
 
