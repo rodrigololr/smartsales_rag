@@ -36,7 +36,7 @@ class ProductCard(TypedDict):
     image_url: str
     marketplace: Literal["AMAZON", "MERCADO_LIVRE", "SHOPEE", "LOJA_OFICIAL"]
     checkout_url: str
-    recommendation_type: Literal["PRIMARY", "UPSELL", "CROSS_SELL"]
+    recommendation_type: Literal["PRIMARY", "UPSELL", "CROSS_SELL", "OPTION"]
     badge_label: str
     justification: str
 
