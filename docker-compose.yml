@@ -49,6 +49,7 @@ services:
   backend:
     build: ./backend
     environment: *backend-env
+    restart: unless-stopped
     depends_on:
       ingest:
         condition: service_completed_successfully
@@ -64,9 +65,17 @@ services:
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
     ports:
       - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    # Not tied to the ingestion: catalog/checkout come up with the database, and chat
+    # degrades to the controlled LLM_UNAVAILABLE fallback until the backend is ready.
     depends_on:
-      backend:
-        condition: service_started
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -86,7 +95,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - middleend
+      middleend:
+        condition: service_healthy
 
 volumes:
   pgdata:

@@ -17,7 +17,7 @@ Pré-requisitos: Docker com Compose v2 e uma chave de um provedor compatível co
 
 ```bash
 cp .env.example .env          # preencha LLM_API_KEY (chave do Google Gemini) e ADMIN_TOKEN
-docker compose up --build     # db (pgvector) + redis -> ingest -> backend -> middleend -> frontend
+docker compose up --build     # db (pgvector) + redis -> ingest -> backend; middleend (só db + redis) -> frontend
 ```
 
 | Endereço | O que é |
