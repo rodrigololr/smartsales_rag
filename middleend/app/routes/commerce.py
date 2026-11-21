@@ -16,6 +16,7 @@ from pydantic import AwareDatetime, BaseModel
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from app.cache.redis_storage import CATALOG_VERSION_KEY
 from app.commerce import (
     Catalog,
     CatalogNotReady,
@@ -37,7 +38,6 @@ from app.routes.chat import error_response
 from app.telemetry.http_errors import error_5xx_rate
 
 logger = logging.getLogger(__name__)
-CATALOG_VERSION_KEY = "catalog:version"
 
 
 class ErrorDetail(BaseModel):

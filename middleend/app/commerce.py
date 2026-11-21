@@ -11,7 +11,6 @@ VoltageFilter = Literal["127V", "220V"]
 RecommendationType = Literal["PRIMARY", "UPSELL", "CROSS_SELL"]
 ConflictStatus = Literal["OUT_OF_STOCK", "PRICE_CHANGED"]
 Money = Annotated[Decimal, PlainSerializer(float, return_type=float, when_used="json")]
-CENT = 0.01
 MAX_POSTGRES_INTEGER = 2_147_483_647
 
 
@@ -75,7 +74,7 @@ class CheckoutCreate(MessageReference):
     sku: str
     recommendation_type: RecommendationType
     quantity: int = Field(ge=1, le=MAX_POSTGRES_INTEGER)
-    displayed_price: Decimal = Field(gt=0, multiple_of=CENT)
+    displayed_price: Decimal = Field(gt=0, decimal_places=2)
 
     @field_validator("displayed_price", mode="before")
     @classmethod

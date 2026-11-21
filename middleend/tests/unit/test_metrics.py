@@ -1,11 +1,13 @@
 """M04 pure rules: the metrics window and the hourly 5xx counter buckets."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from app.config import Settings
 from app.metrics import DEFAULT_METRICS_WINDOW, InvalidMetricsWindow, resolve_window
-from app.telemetry.http_errors import COUNTER_RETENTION, hour_keys
+from app.telemetry.http_errors import COUNTER_RETENTION, error_5xx_rate, hour_keys
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 NOW = datetime(2026, 11, 20, 14, 30, tzinfo=UTC)
 
@@ -65,3 +67,31 @@ def test_admin_token_is_kept_secret_in_settings_repr() -> None:
     assert "segredo" not in repr(settings)
     assert settings.admin_token is not None
     assert settings.admin_token.get_secret_value() == "segredo"
+
+
+class _BrokenPipeline:
+    async def __aenter__(self) -> "_BrokenPipeline":
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        return None
+
+    def hmget(self, *args: object) -> None:
+        return None
+
+    async def execute(self) -> list[list[str | None]]:
+        raise RedisConnectionError("redis down")
+
+
+class _BrokenRedis:
+    def pipeline(self, transaction: bool = False) -> _BrokenPipeline:
+        return _BrokenPipeline()
+
+
+def test_error_rate_degrades_to_zero_when_redis_is_down() -> None:
+    # The summary page must still load: the 5xx rate is the only Redis-backed metric.
+    now = datetime(2026, 11, 20, 12, tzinfo=UTC)
+    rate = asyncio.run(
+        error_5xx_rate(_BrokenRedis(), now - timedelta(hours=2), now, now)  # type: ignore[arg-type]
+    )
+    assert rate == 0.0
