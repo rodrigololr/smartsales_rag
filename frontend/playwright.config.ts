@@ -7,6 +7,9 @@ import { defineConfig, devices } from "@playwright/test";
  *   pnpm -C frontend run test:e2e
  * E2E_BASE_URL aponta para outra vitrine.
  */
+const DEFAULT_PORT = 3004;
+const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${DEFAULT_PORT}`;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 60_000,
@@ -16,9 +19,21 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
+    baseURL,
     trace: "retain-on-failure",
   },
+  webServer: process.env.E2E_BASE_URL
+    ? undefined
+    : {
+        command: `pnpm exec next dev --port ${DEFAULT_PORT}`,
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 60_000,
+        env: {
+          NEXT_PUBLIC_API_BASE_URL: baseURL,
+          API_INTERNAL_BASE_URL: process.env.API_INTERNAL_BASE_URL ?? "http://localhost:8000",
+        },
+      },
   projects: [
     {
       name: "chromium-desktop",
