@@ -91,11 +91,19 @@ describe("specsJsonRows", () => {
     ).toEqual([
       ["Pressão", "15 bar"],
       ["Frequência", "60 Hz"],
-      ["Cesto removivel", "Sim"],
+      ["Cesto removível", "Sim"],
     ]);
     expect(specsJsonRows({ temperatura_min_c: 80, capacidade_l: 1.5 })).toEqual([
       ["Temperatura mín.", "80 °C"],
       ["Capacidade", "1,5 L"],
+    ]);
+    expect(
+      specsJsonRows({ desligamento_automatico: true, cesto_lavavel: true, valvula_seguranca: true, numero_funcoes: 8 })
+    ).toEqual([
+      ["Desligamento automático", "Sim"],
+      ["Cesto lavável", "Sim"],
+      ["Válvula segurança", "Sim"],
+      ["Número funções", "8"],
     ]);
     expect(specsJsonRows(undefined)).toEqual([]);
   });

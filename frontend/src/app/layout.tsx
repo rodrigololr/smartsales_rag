@@ -1,10 +1,8 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import React from "react";
-import { Inter } from "next/font/google";
+import { inter } from "@/lib/fonts";
 import { cn } from "@/lib/utils";
-
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
   title: "SmartSales RAG — Consultor Especialista de Vendas",
