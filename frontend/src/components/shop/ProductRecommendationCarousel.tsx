@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import type { ProductCardData, RecommendationType } from "@/types/chat";
 import { formatBRL, hasVoltage, marketplaceLabel, voltageBadgeClass, voltageLabel } from "@/lib/format";
@@ -24,6 +25,10 @@ const toneByType: Record<RecommendationType, { card: string; badge: string }> = 
     card: "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/30",
     badge: "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
   },
+  OPTION: {
+    card: "border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-950/30",
+    badge: "border-slate-200 bg-slate-100 text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200",
+  },
 };
 
 /** Fallback seal when the backend sends no `badge_label`. */
@@ -31,6 +36,7 @@ const sealByType: Record<RecommendationType, string> = {
   PRIMARY: "Ideal",
   UPSELL: "Upgrade",
   CROSS_SELL: "Acessório",
+  OPTION: "Opção",
 };
 
 const subcategoryOf = (card: ProductCardData): string => {
@@ -114,6 +120,14 @@ function RecommendationCard({
           {/* Sold-out is never offered as a purchase (R03). */}
           {inStock ? `Comprar na ${marketplaceLabel(card.marketplace)}` : "Indisponível"}
         </Button>
+
+        <Link
+          href={`/produto/${card.sku}`}
+          data-testid={`view-details-${card.sku}`}
+          className="text-center text-xs font-medium text-primary underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Ver detalhes
+        </Link>
       </CardContent>
     </Card>
   );
