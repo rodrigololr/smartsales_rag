@@ -30,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 const TOKEN_STORAGE_KEY = "smartsales.admin-token";
@@ -120,8 +121,8 @@ function MetricCard({
               className={cn(
                 "text-[10px]",
                 ok
-                  ? "border-emerald-200 bg-emerald-100 text-emerald-800"
-                  : "border-amber-200 bg-amber-100 text-amber-800"
+                  ? "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
+                  : "border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
               )}
             >
               {ok ? "Na meta" : "Fora da meta"}
@@ -243,7 +244,7 @@ export function AdminMetricsDashboard() {
                 autoComplete="off"
               />
               {authError ? (
-                <p role="alert" className="text-xs text-rose-700" data-testid="admin-error">
+                <p role="alert" className="text-xs text-danger" data-testid="admin-error">
                   {authError}
                 </p>
               ) : null}
@@ -287,6 +288,7 @@ export function AdminMetricsDashboard() {
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        <ThemeToggle />
         <div
           role="group"
           aria-label="Janela de tempo"

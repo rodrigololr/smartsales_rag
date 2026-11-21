@@ -23,11 +23,11 @@ export function ProductBuyBox({ product }: { product: Product }) {
     >
       <p className="text-3xl font-bold tabular-nums text-foreground">{formatBRL(product.price)}</p>
       {inStock ? (
-        <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-700">
+        <p className="flex items-center gap-1.5 text-sm font-medium text-success">
           <CheckCircle aria-hidden className="size-4" /> Em estoque ({product.stock_quantity} un.)
         </p>
       ) : (
-        <p className="flex items-center gap-1.5 text-sm font-medium text-rose-700">
+        <p className="flex items-center gap-1.5 text-sm font-medium text-danger">
           <ShieldAlert aria-hidden className="size-4" /> Esgotado
         </p>
       )}

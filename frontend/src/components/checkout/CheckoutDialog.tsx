@@ -173,7 +173,7 @@ export function CheckoutDialog({
         {state.phase === "confirmed" ? (
           <div data-testid="checkout-confirmed">
             <DialogHeader>
-              <div className="mb-1 flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <div className="mb-1 flex size-10 items-center justify-center rounded-full bg-success/10 text-success">
                 <CheckCircle2 className="size-5" />
               </div>
               <DialogTitle>Compra confirmada</DialogTitle>
@@ -236,7 +236,7 @@ export function CheckoutDialog({
         {state.phase === "conflict" ? (
           <div data-testid="checkout-conflict">
             <DialogHeader>
-              <div className="mb-1 flex size-10 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+              <div className="mb-1 flex size-10 items-center justify-center rounded-full bg-warning/10 text-warning">
                 <AlertTriangle className="size-5" />
               </div>
               <DialogTitle>

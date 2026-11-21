@@ -13,16 +13,16 @@ import { cn } from "@/lib/utils";
 
 const toneByType: Record<RecommendationType, { card: string; badge: string }> = {
   PRIMARY: {
-    card: "border-sky-200 bg-sky-50/50",
-    badge: "border-sky-200 bg-sky-100 text-sky-800",
+    card: "border-sky-200 bg-sky-50/50 dark:border-sky-900 dark:bg-sky-950/30",
+    badge: "border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200",
   },
   UPSELL: {
-    card: "border-violet-200 bg-violet-50/50",
-    badge: "border-violet-200 bg-violet-100 text-violet-800",
+    card: "border-violet-200 bg-violet-50/50 dark:border-violet-900 dark:bg-violet-950/30",
+    badge: "border-violet-200 bg-violet-100 text-violet-800 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200",
   },
   CROSS_SELL: {
-    card: "border-emerald-200 bg-emerald-50/50",
-    badge: "border-emerald-200 bg-emerald-100 text-emerald-800",
+    card: "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/30",
+    badge: "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
   },
 };
 
@@ -94,11 +94,11 @@ function RecommendationCard({
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-base font-bold tabular-nums text-foreground">{formatBRL(card.price)}</span>
           {inStock ? (
-            <span className="text-xs font-medium text-emerald-700">
+            <span className="text-xs font-medium text-success">
               Em estoque ({card.stock_quantity} un.)
             </span>
           ) : (
-            <span className="text-xs font-medium text-rose-700">Esgotado</span>
+            <span className="text-xs font-medium text-danger">Esgotado</span>
           )}
         </div>
 

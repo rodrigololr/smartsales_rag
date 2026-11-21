@@ -114,7 +114,7 @@ export function CatalogView({ products, unavailable = false }: CatalogViewProps)
           <p
             role="alert"
             data-testid="catalog-error"
-            className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center text-sm text-rose-800"
+            className="rounded-2xl border border-danger/30 bg-danger/10 p-6 text-center text-sm text-danger"
           >
             O catálogo está indisponível agora.{" "}
             <Link href="/" prefetch={false} className="font-medium underline underline-offset-2">

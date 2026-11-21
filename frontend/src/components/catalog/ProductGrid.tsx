@@ -73,11 +73,11 @@ export function ProductGrid({
                 ) : null}
               </div>
               {product.stock_quantity > 0 ? (
-                <span className="flex items-center gap-1 text-xs text-emerald-700">
+                <span className="flex items-center gap-1 text-xs text-success">
                   <CheckCircle aria-hidden className="size-3.5" /> Em estoque
                 </span>
               ) : (
-                <span className="flex items-center gap-1 text-xs text-rose-700">
+                <span className="flex items-center gap-1 text-xs text-danger">
                   <ShieldAlert aria-hidden className="size-3.5" /> Esgotado
                 </span>
               )}

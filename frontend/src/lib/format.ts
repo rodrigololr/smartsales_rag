@@ -20,9 +20,9 @@ export const voltageLabel = (voltage: VoltageType): string =>
   hasVoltage(voltage) ? voltage : "Não se aplica";
 
 export const voltageBadgeClass = (voltage: VoltageType): string => {
-  if (voltage === "220V") return "border-amber-200 bg-amber-100 text-amber-800";
-  if (voltage === "127V") return "border-sky-200 bg-sky-100 text-sky-800";
-  if (voltage === "BIVOLT") return "border-emerald-200 bg-emerald-100 text-emerald-800";
+  if (voltage === "220V") return "border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200";
+  if (voltage === "127V") return "border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200";
+  if (voltage === "BIVOLT") return "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
   return "border-border bg-muted text-muted-foreground";
 };
 
