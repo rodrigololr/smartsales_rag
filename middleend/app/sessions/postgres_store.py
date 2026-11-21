@@ -143,7 +143,6 @@ class PostgresSessionStore:
         )
 
     async def create(self, current_product_sku: str | None) -> SessionSnapshot:
-        await self.maintain()
         session_id = str(uuid.uuid4())
         snapshot = SessionSnapshot(session_id, current_product_sku)
         async with self._connection() as connection:

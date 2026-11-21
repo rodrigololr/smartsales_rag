@@ -197,7 +197,7 @@ class SilentBody(httpx.AsyncByteStream):
         yield b""
 
 
-def test_first_event_timeout_uses_one_retry_and_sse_contingency() -> None:
+def test_first_event_timeout_is_not_retried_and_ends_in_sse_contingency() -> None:
     attempts = []
 
     def handler(request):
@@ -213,7 +213,8 @@ def test_first_event_timeout_uses_one_retry_and_sse_contingency() -> None:
     assert [event for event, _ in frames] == ["metadata", "error", "recommendations", "done"]
     assert frames[1][1]["code"] == "LLM_UNAVAILABLE"
     assert frames[-1][1]["finish_reason"] == "error"
-    assert len(attempts) == 2 and time.monotonic() - started < 2
+    # A retry after a read timeout could pay for a second LLM generation.
+    assert len(attempts) == 1 and time.monotonic() - started < 2
 
 
 def test_transport_is_never_retried_after_a_published_token() -> None:
