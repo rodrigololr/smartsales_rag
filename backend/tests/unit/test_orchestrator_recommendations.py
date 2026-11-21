@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import httpx
 import openai
+import pytest
 from app.clients.openai_client import LLMUnavailableError, OpenAIChatModel
 from app.config import Settings
 from app.models.schemas import CatalogProduct, RagRequest, RetrievedChunk
@@ -295,3 +296,88 @@ def test_injection_never_spends_an_embedding_call() -> None:
     )
     assert names(events) == ["error", "end"]
     assert CountingEmbedder.calls == 0
+
+
+def _published(events: list[dict[str, object]]) -> str:
+    return "".join(str(e["data"]["delta"]) for e in events if e["event"] == "token")  # type: ignore[index]
+
+
+def test_alternative_request_with_no_approved_prose_publishes_the_upsell_sql_facts() -> None:
+    from app.guardrails.publication import ConsultativeVerifier
+    from app.models.schemas import ProductRecommendation
+    from app.rag.orchestrator import MISSING_EVIDENCE_NOTICE
+
+    primary = build_card(PRODUCT, "PRIMARY", "")
+    events = run(
+        Catalog(PRODUCT, [chunk()]), ChatModel([MISSING_EVIDENCE_NOTICE]),
+        Recommender([primary, CARD]),
+        question="Somos seis pessoas; mostre uma Airfryer maior sem subir mais de 35% do preço.",
+        preferred_voltage="220V",
+    )
+    assert names(events)[-2:] == ["recommendations", "end"] and "error" not in names(events)
+    sentences = [str(e["data"]["delta"]).strip() for e in events if e["event"] == "token"]  # type: ignore[index]
+    assert sentences == [
+        f"SKU {FAMILY.sku}: Possui capacidade de 5,5 L.",
+        f"SKU {FAMILY.sku}: A potência é {FAMILY.power_watts} W.",
+        f"SKU {FAMILY.sku}: Voltagem: 220V.",
+        f"SKU {FAMILY.sku}: Preço atual: R$ 629,90.",
+    ]
+    # Same one-attribute format that G-OUT verifies against the card's SQL values.
+    verifier = ConsultativeVerifier(PRODUCT, [], [ProductRecommendation.model_validate(CARD)])
+    assert all(verifier.approve(sentence) == sentence for sentence in sentences)
+    assert events[-1]["data"]["intent"] == "TECHNICAL_QA"  # type: ignore[index]
+
+
+def test_alternative_request_without_an_eligible_option_says_so_from_sql() -> None:
+    from app.rag.orchestrator import NO_ALTERNATIVE_MESSAGE
+
+    kit = build_card(PRODUCT.model_copy(update={"sku": "KIT-SIL-01", "voltage": "N/A",
+                                                "capacity_liters": None, "power_watts": None}),
+                     "CROSS_SELL", "Compatível.")
+    events = run(
+        Catalog(PRODUCT, [chunk()]), ChatModel(["Existe sim a AF-400-127V por R$ 399,90."]),
+        Recommender([kit]),
+        question="Tenho tomada 127V. Há alguma Airfryer 127V neste catálogo para eu comprar?",
+        preferred_voltage="127V",
+    )
+    assert "error" not in names(events)
+    text = _published(events)
+    assert text.startswith(NO_ALTERNATIVE_MESSAGE)
+    assert f"SKU {PRODUCT.sku}: Voltagem: 220V." in text
+    assert "AF-400-127V" not in text and "399,90" not in text
+
+
+def test_plain_technical_question_with_no_approved_prose_still_falls_back() -> None:
+    events = run(
+        Catalog(PRODUCT, [chunk()]), ChatModel(["Funciona em 127V."]), Recommender(),
+        question="Posso usar papel alumínio no cesto?",
+    )
+    assert names(events) == ["error", "recommendations", "end"]
+
+
+def test_rejected_draft_is_logged_only_at_debug(caplog: pytest.LogCaptureFixture) -> None:
+    import logging
+
+    with caplog.at_level(logging.DEBUG, logger="app.rag.orchestrator"):
+        run(Catalog(PRODUCT, [chunk()]), ChatModel(["Essa especificação específica não consta."]),
+            Recommender())
+    [record] = [r for r in caplog.records if r.msg.startswith("gout_rejected_draft")]
+    assert record.levelno == logging.DEBUG
+    assert record.draft == "Essa especificação específica não consta."  # type: ignore[attr-defined]
+
+
+def test_answered_turn_for_an_unbuyable_product_states_that_no_alternative_exists() -> None:
+    from app.rag.orchestrator import NO_ALTERNATIVE_MESSAGE
+
+    question = "Tenho tomada 127V. Há alguma Airfryer 127V para eu comprar?"
+    events = run(Catalog(PRODUCT, [chunk()]), ChatModel(["Voltagem: 220V."]), Recommender([]),
+                 question=question, preferred_voltage="127V")
+    assert names(events) == ["token", "token", "citations", "end"]
+    assert _published(events) == f"Voltagem: 220V.\n{NO_ALTERNATIVE_MESSAGE}"
+
+    with_upsell = run(Catalog(PRODUCT, [chunk()]), ChatModel(["Voltagem: 220V."]), Recommender(),
+                      question=question, preferred_voltage="127V")
+    assert NO_ALTERNATIVE_MESSAGE not in _published(with_upsell)
+    buyable = run(Catalog(PRODUCT, [chunk()]), ChatModel(["Voltagem: 220V."]), Recommender([]),
+                  question="Qual a voltagem?", preferred_voltage="220V")
+    assert NO_ALTERNATIVE_MESSAGE not in _published(buyable)

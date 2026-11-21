@@ -20,6 +20,8 @@ from app.guardrails.input import is_prompt_injection
 from app.guardrails.output import SentenceBuffer, technical_claims
 from app.guardrails.publication import CITATION_MARK, ConsultativeVerifier, normalized_words
 from app.models.schemas import CatalogProduct, ProductRecommendation, RagRequest, RetrievedChunk
+from app.recommendation.cards import option_facts
+from app.recommendation.engine import UPSELL_MAX_PRICE_INCREASE
 from app.recommendation.intent import only_consulted_product, wants_upgrade
 from app.recommendation.models import Voltage
 
@@ -43,8 +45,13 @@ MISSING_EVIDENCE_NOTICE = (
     "Essa especificação específica não consta no manual técnico oficial deste modelo. "
 )
 _NOTICE_WORDS = normalized_words(MISSING_EVIDENCE_NOTICE)
+NO_ALTERNATIVE_MESSAGE = (
+    "Não há outra opção em estoque no catálogo ativo que atenda a este pedido (mesma "
+    f"categoria, voltagem compatível e até +{UPSELL_MAX_PRICE_INCREASE:.0%} do preço)."
+)
 EXCERPT_MAX_CHARS = 400
 BLOCKED_SENTENCE_LOG_MAX_CHARS = 200  # model output only; enough to diagnose a G-OUT drop
+REJECTED_DRAFT_LOG_MAX_CHARS = 1000
 ANSWER_INTENT = "TECHNICAL_QA"
 
 
@@ -119,6 +126,32 @@ def _planned_cards(events: list[InternalEvent]) -> list[ProductRecommendation]:
     except ValidationError:
         logger.exception("invalid_recommendation_evidence")
         return []
+
+
+def _unbuyable(request: RagRequest, product: CatalogProduct) -> bool:
+    """Sold out, or not usable on the customer's stated outlet."""
+    incompatible = request.preferred_voltage is not None and product.voltage not in (
+        request.preferred_voltage, "BIVOLT", "N/A"
+    )
+    return incompatible or product.stock_quantity <= 0
+
+
+def _asks_for_alternative(request: RagRequest, product: CatalogProduct) -> bool:
+    return wants_upgrade(request.question) or _unbuyable(request, product)
+
+
+def _has_upsell(events: list[InternalEvent]) -> bool:
+    return any(card.recommendation_type == "UPSELL" for card in _planned_cards(events))
+
+
+def _alternative_answer(
+    product: CatalogProduct, cards: Sequence[ProductRecommendation]
+) -> list[str]:
+    """SQL-only answer to an alternative request: the upsell's facts, or that none exists."""
+    upsells = [card for card in cards if card.recommendation_type == "UPSELL"]
+    if upsells:
+        return [f"{fact}\n" for card in upsells for fact in option_facts(card)]
+    return [f"{NO_ALTERNATIVE_MESSAGE}\n", *(f"{fact}\n" for fact in option_facts(product))]
 
 
 async def _concurrently(
@@ -283,18 +316,50 @@ class RAGOrchestrator:
             yield _token(approved)
         tokens_used = self._count_tokens("".join(draft))
         if not gate.approved:
+            async for event in self._unapproved_draft(
+                request, product, query_embedding, "".join(draft), tokens_used
+            ):
+                yield event
+            return
+        # Deliberate second SQL read (spec 7, R09): emit the cards as they are after the
+        # stream, not the pre-prompt snapshot (stock may have sold out meanwhile).
+        final_events = await self._recommendations(
+            request, product, query_embedding, substitutes=False
+        )
+        if _unbuyable(request, product) and not _has_upsell(final_events):
+            yield _token(f"\n{NO_ALTERNATIVE_MESSAGE}")
+        cited = [chunk for chunk in chunks if chunk.chunk_id in verifier.cited_chunk_ids]
+        yield {"event": "citations", "data": {"citations": [_citation(c) for c in cited]}}
+        for event in final_events:
+            yield event
+        yield _end(tokens_used, ANSWER_INTENT)
+
+
+    async def _unapproved_draft(
+        self,
+        request: RagRequest,
+        product: CatalogProduct,
+        query_embedding: Sequence[float],
+        draft: str,
+        tokens_used: int,
+    ) -> AsyncIterator[InternalEvent]:
+        """G-OUT approved nothing: an alternative request is answered from SQL cards only;
+        anything else is the R02 safe fallback."""
+        rejected = draft.strip()[:REJECTED_DRAFT_LOG_MAX_CHARS]
+        logger.debug(
+            "gout_rejected_draft sku=%s draft=%r", request.sku, rejected,
+            extra={"sku": request.sku, "draft": rejected},
+        )
+        substitutes = await self._similar_in_stock(request, product, query_embedding)
+        if not _asks_for_alternative(request, product):
             yield _error("LOW_SIMILARITY_FALLBACK", LOW_SIMILARITY_MESSAGE)
-            for event in await self._similar_in_stock(request, product, query_embedding):
+            for event in substitutes:
                 yield event
             yield _end(tokens_used, "LOW_SIMILARITY")
             return
-        cited = [chunk for chunk in chunks if chunk.chunk_id in verifier.cited_chunk_ids]
-        yield {"event": "citations", "data": {"citations": [_citation(c) for c in cited]}}
-        # Deliberate second SQL read (spec 7, R09): emit the cards as they are after the
-        # stream, not the pre-prompt snapshot (stock may have sold out meanwhile).
-        for event in await self._recommendations(
-            request, product, query_embedding, substitutes=False
-        ):
+        for sentence in _alternative_answer(product, _planned_cards(substitutes)):
+            yield _token(sentence)
+        for event in substitutes:
             yield event
         yield _end(tokens_used, ANSWER_INTENT)
 
