@@ -76,20 +76,29 @@ class PostgresCatalog:
         return CatalogProduct.model_validate(row) if row else None
 
     async def search(self, sku: str, embedding: Sequence[float], limit: int) -> list[RetrievedChunk]:
-        """Cosine similarity restricted to the product's own chunks (stock is not filtered)."""
+        """Cosine similarity restricted to the product's own chunks (stock is not filtered).
+
+        Exact scan of that SKU's chunks: through the HNSW index the planner would take
+        the ~ef_search nearest chunks of the whole table and only then filter by sku,
+        returning 0 rows for a product outside them. A product has few chunks.
+        """
         query = vector_literal(embedding)
         async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
             cursor = conn.cursor(row_factory=dict_row)
             await cursor.execute(
                 """
+                WITH product_chunks AS MATERIALIZED (
+                    SELECT id, sku, manual_title, page_number, section_title, content, embedding
+                    FROM manual_chunks
+                    WHERE sku = %s
+                )
                 SELECT id AS chunk_id, sku, manual_title, page_number, section_title, content,
                        GREATEST(0, 1 - (embedding <=> %s::vector)) AS similarity_score
-                FROM manual_chunks
-                WHERE sku = %s
+                FROM product_chunks
                 ORDER BY embedding <=> %s::vector
                 LIMIT %s
                 """,
-                (query, sku, query, limit),
+                (sku, query, query, limit),
             )
             rows = await cursor.fetchall()
         return [RetrievedChunk.model_validate(row) for row in rows]

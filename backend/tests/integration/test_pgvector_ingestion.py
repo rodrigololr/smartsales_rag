@@ -150,3 +150,34 @@ def test_ingestion_indexes_catalog_and_manuals_then_search_stays_on_the_product(
     gone = asyncio.run(catalog.get_product("CF-15B-127V"))
     assert gone is not None and not gone.is_active
     assert asyncio.run(catalog.search("CF-15B-127V", query, 5)) == []
+
+
+async def _chunk_counts() -> dict[str, int]:
+    async with await psycopg.AsyncConnection.connect(DATABASE_URL, autocommit=True) as conn:
+        # Without the btree the planner can only filter by sku after the HNSW scan.
+        await conn.execute("DROP INDEX IF EXISTS idx_manual_chunks_sku")
+        await conn.execute("ANALYZE manual_chunks")
+        cursor = await conn.execute("SELECT sku, count(*) FROM manual_chunks GROUP BY sku")
+        return {row[0]: row[1] for row in await cursor.fetchall()}
+
+
+def test_sku_scoped_search_returns_the_product_chunks_even_when_hnsw_is_planned(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # HNSW returns ~ef_search (40) global neighbours and *then* applies WHERE sku = ...,
+    # so a product whose chunks are not among them used to get 0 rows (false fallback).
+    asyncio.run(_reset())
+    embedder = HashingEmbedder()
+    asyncio.run(ingest(DATABASE_URL, DATA_DIR / "catalog.json", DATA_DIR / "manuals", embedder, Settings()))
+    counts = asyncio.run(_chunk_counts())
+    monkeypatch.setenv("PGOPTIONS", "-c enable_seqscan=off -c enable_bitmapscan=off")
+    catalog = PostgresCatalog(DATABASE_URL)
+    [query] = asyncio.run(embedder.embed(["Qual a capacidade do cesto da airfryer em litros?"]))
+    limit = 5
+
+    for sku, count in sorted(counts.items()):
+        found = asyncio.run(catalog.search(sku, query, limit))
+        assert len(found) == min(limit, count), sku
+        assert {chunk.sku for chunk in found} == {sku}
+        scores = [chunk.similarity_score for chunk in found]
+        assert scores == sorted(scores, reverse=True)

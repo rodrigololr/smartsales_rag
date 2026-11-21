@@ -32,7 +32,17 @@ flowchart LR
     style RUNTIME fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
 ```
 
-### 1.1. Limiar de similaridade por modelo de *embedding* (`RN02`)
+### 1.1. Busca escopada por SKU
+
+A busca de *chunks* do turno é uma varredura **exata** dos *chunks* do SKU consultado
+(CTE `MATERIALIZED` filtrada por `sku`, ordenada por distância de cosseno). Ela não usa o
+índice HNSW: quando o planejador escolhe o HNSW, ele obtém só os ~`ef_search` (40)
+vizinhos da tabela inteira e aplica o filtro de `sku` depois, e um produto fora desse
+grupo voltaria com `0 chunks` (*fallback* falso). Reproduzido com o seed: 10 de 32 SKUs
+sem resultado com o plano HNSW. Cada produto tem poucos *chunks*, então o custo da
+varredura exata é baixo; o índice HNSW segue disponível para buscas sem filtro.
+
+### 1.2. Limiar de similaridade por modelo de *embedding* (`RN02`)
 
 O padrão do código continua `SIMILARITY_THRESHOLD = 0.72`, valor das specs para
 `text-embedding-3-small`. Para `gemini-embedding-001` (1536 dimensões), o limiar
