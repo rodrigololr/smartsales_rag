@@ -1,7 +1,7 @@
 # Roteiro da Demonstração Final (`EAP 7.2` · `C09` · Marco `M5`)
 
 > **Revisado em 21/11/2026** para a versão final (checkout, feedback, métricas e
-> catálogo de 32 produtos implementados). Campos marcados com **[PREENCHER]** dependem
+> catálogo de 47 produtos implementados). Campos marcados com **[PREENCHER]** dependem
 > de decisão ou medição da equipe. Aprovador: Walber. Data da demo: 24/11/2026.
 
 ## 1. Objetivo e formato
@@ -26,7 +26,7 @@ perguntas **[PREENCHER: tempo oficial]**.
    painel `/admin/metricas` pede esse valor. Com `ADMIN_TOKEN` vazio, a rota de
    métricas responde sempre `401` e o painel não abre.
 2. Rodar a ingestão completa: `docker compose up --build` e esperar o serviço `ingest`
-   terminar com código 0 (os 32 produtos e seus manuais geram embeddings no provedor).
+   terminar com código 0 (os 47 produtos, seus manuais e a base de conhecimento geram embeddings no provedor).
    Fazer isso na véspera evita que um HTTP 429 do provedor trave a pilha no dia: o
    `backend` só sobe depois que o `ingest` termina com sucesso. O Compose tenta o
    `ingest` até 3 vezes (`restart: on-failure:3`); se ainda falhar, ver
@@ -73,7 +73,7 @@ perguntas **[PREENCHER: tempo oficial]**.
 
 ### 3.1. Catálogo ampliado (opcional, cerca de 2 minutos)
 
-Mostra que as regras valem para os 32 produtos, não só para a airfryer.
+Mostra que as regras valem para os 47 produtos, não só para a airfryer.
 
 | # | Ação na tela | O que mostrar | Requisito |
 | :-: | :--- | :--- | :--- |
