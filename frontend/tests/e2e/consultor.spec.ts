@@ -8,11 +8,12 @@ import {
 } from "./support";
 
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
+const PRODUCT_SESSION_ID = "11111111-1111-4111-8111-111111111112";
 
 const sseBody = (events: [string, unknown][]): string =>
   events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
 
-test("E2E Consultor Unificado (P4): home -> pergunta -> cards OPTION -> Ver detalhes -> página do produto mantém histórico e envia current_product_sku", async ({
+test("E2E Consultor: abrir a página de uma recomendação inicia uma conversa separada do catálogo", async ({
   page,
 }) => {
   const sessionBodies: Record<string, unknown>[] = [];
@@ -23,12 +24,13 @@ test("E2E Consultor Unificado (P4): home -> pergunta -> cards OPTION -> Ver deta
       await route.fallback();
       return;
     }
-    sessionBodies.push((route.request().postDataJSON() ?? {}) as Record<string, unknown>);
+    const body = (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
+    sessionBodies.push(body);
     await route.fulfill({
       status: 201,
       contentType: "application/json",
       body: JSON.stringify({
-        session_id: SESSION_ID,
+        session_id: body.current_product_sku ? PRODUCT_SESSION_ID : SESSION_ID,
         restored: false,
         history: [],
         expires_in_seconds: 1800,
@@ -98,7 +100,7 @@ test("E2E Consultor Unificado (P4): home -> pergunta -> cards OPTION -> Ver deta
               "metadata",
               {
                 message_id: "22222222-2222-4222-8222-222222222222",
-                session_id: SESSION_ID,
+                session_id: PRODUCT_SESSION_ID,
                 cache_hit: false,
                 ttft_ms: 38,
               },
@@ -154,9 +156,8 @@ test("E2E Consultor Unificado (P4): home -> pergunta -> cards OPTION -> Ver deta
   }
   await expect(productAssistant).toBeVisible();
 
-  // The conversation started on the home page is preserved on the product page.
-  await expect(productAssistant).toContainText("Quero opções de airfryer em estoque");
-  await expect(productAssistant).toContainText("Encontrei 2 opções em estoque no catálogo:");
+  await expect(productAssistant.getByTestId("assistant-text")).toHaveCount(0);
+  await expect(productAssistant).not.toContainText("Quero opções de airfryer em estoque");
 
   await productAssistant.getByTestId("chat-prompt-input").fill("Qual é a potência deste modelo?");
   await productAssistant.getByTestId("chat-prompt-input").press("Enter");
@@ -164,7 +165,7 @@ test("E2E Consultor Unificado (P4): home -> pergunta -> cards OPTION -> Ver deta
 
   await expect(productAssistant).toContainText("A potência nominal deste modelo é de 1500 W.");
 
-  expect(sessionBodies).toEqual([{}]);
+  expect(sessionBodies).toEqual([{}, { current_product_sku: AIRFRYER_4L }]);
   expect(streamBodies).toHaveLength(2);
   expect(streamBodies[0]).toMatchObject({
     session_id: SESSION_ID,
@@ -172,7 +173,7 @@ test("E2E Consultor Unificado (P4): home -> pergunta -> cards OPTION -> Ver deta
   });
   expect(streamBodies[0]).not.toHaveProperty("context_filters");
   expect(streamBodies[1]).toMatchObject({
-    session_id: SESSION_ID,
+    session_id: PRODUCT_SESSION_ID,
     message: "Qual é a potência deste modelo?",
     context_filters: { current_product_sku: AIRFRYER_4L },
   });

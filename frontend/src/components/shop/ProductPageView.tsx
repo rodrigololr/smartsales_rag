@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Sparkles, Star } from "lucide-react";
 import type { Product } from "@/types/catalog";
@@ -30,16 +30,8 @@ function specRows(product: Product): [string, string][] {
 
 /** Product page with the consultant docked beside it (Rufus-style). */
 export function ProductPageView({ product }: { product: Product }) {
-  // One conversation shared across the store tab and between the docked panel and mobile sheet.
-  const { chat, setContextProduct } = useConsultant();
+  const { chat } = useConsultant(product.sku);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-
-  useEffect(() => {
-    setContextProduct(product);
-    return () => {
-      setContextProduct(null);
-    };
-  }, [product, setContextProduct]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

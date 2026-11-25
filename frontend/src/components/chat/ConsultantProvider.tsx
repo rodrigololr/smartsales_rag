@@ -1,38 +1,28 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useState } from "react";
-import type { Product } from "@/types/catalog";
-import { useChatSession, type ChatSession } from "@/hooks/use-chat-session";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createChatStore, useChatSession, type ChatStore } from "@/hooks/use-chat-session";
 
-export interface ConsultantContextValue {
-  chat: ChatSession;
-  contextProduct: Product | null;
-  setContextProduct: (product: Product | null) => void;
+type StoreBySku = Map<string | null, ChatStore>;
+const ConsultantContext = createContext<StoreBySku | null>(null);
+
+export function ConsultantProvider({ children }: { children: ReactNode }) {
+  const [stores] = useState<StoreBySku>(() => new Map());
+
+  useEffect(() => () => {
+    for (const store of stores.values()) store.controller?.abort();
+  }, [stores]);
+
+  return <ConsultantContext.Provider value={stores}>{children}</ConsultantContext.Provider>;
 }
 
-const ConsultantContext = createContext<ConsultantContextValue | null>(null);
-
-export function ConsultantProvider({ children }: { children: React.ReactNode }) {
-  const chat = useChatSession();
-  const [contextProduct, setContextProduct] = useState<Product | null>(null);
-  const value = useMemo(
-    () => ({ chat, contextProduct, setContextProduct }),
-    [chat, contextProduct]
-  );
-  return <ConsultantContext.Provider value={value}>{children}</ConsultantContext.Provider>;
-}
-
-export function useConsultant(): ConsultantContextValue {
-  const context = useContext(ConsultantContext);
-  const fallbackChat = useChatSession();
-  const [fallbackProduct, setFallbackProduct] = useState<Product | null>(null);
-  return useMemo(
-    () =>
-      context ?? {
-        chat: fallbackChat,
-        contextProduct: fallbackProduct,
-        setContextProduct: setFallbackProduct,
-      },
-    [context, fallbackChat, fallbackProduct]
-  );
+export function useConsultant(sku: string | null = null) {
+  const stores = useContext(ConsultantContext);
+  // Allocate a conversation only when its page is visited. Null is the catalogue chat.
+  let store = stores?.get(sku);
+  if (stores && !store) {
+    store = createChatStore(sku);
+    stores.set(sku, store);
+  }
+  return { chat: useChatSession(store) };
 }

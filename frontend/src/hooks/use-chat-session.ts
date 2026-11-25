@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import type { Product } from "@/types/catalog";
 import type {
   ChatMessage,
@@ -43,43 +43,70 @@ export const canReferenceServerMessage = (message: ChatMessage): boolean =>
 const isAbort = (error: unknown): boolean =>
   error instanceof Error && error.name === "AbortError";
 
-export function useChatSession() {
-  const [sessionId, setSessionId] = useState<string>(() => createId());
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const controllerRef = useRef<AbortController | null>(null);
-  // Server session (real API only); created lazily on the first question.
-  const serverSessionRef = useRef<string | null>(null);
-  // Turns whose last attempt was cut off, keyed by assistant message: the server may have
-  // stored them, so a manual retry must resend the same client_request_id even after other
-  // questions. An entry is dropped once its turn is retried.
-  const interruptedTurnsRef = useRef(new Map<string, string>());
-  // Product each assistant turn was asked about: a retry resends it even after the
-  // shopper moved to another page (same client_request_id must keep the same SKU).
-  const turnProductsRef = useRef(new Map<string, Product | null>());
+interface ChatSnapshot {
+  sessionId: string;
+  messages: ChatMessage[];
+  isStreaming: boolean;
+}
+
+export function createChatStore(sku: string | null = null) {
+  let snapshot: ChatSnapshot = { sessionId: createId(), messages: [], isStreaming: false };
+  let controller: AbortController | null = null;
+  let serverSession: string | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    sku,
+    get controller() { return controller; },
+    setController(value: AbortController | null) { controller = value; },
+    get serverSession() { return serverSession; },
+    setServerSession(value: string | null) { serverSession = value; },
+    interruptedTurns: new Map<string, string>(),
+    turnProducts: new Map<string, Product | null>(),
+    getSnapshot: () => snapshot,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    update(patch: Partial<ChatSnapshot>) {
+      snapshot = { ...snapshot, ...patch };
+      listeners.forEach((listener) => listener());
+    },
+  };
+}
+
+export type ChatStore = ReturnType<typeof createChatStore>;
+
+export function useChatSession(sharedStore?: ChatStore) {
+  const [localStore] = useState(() => createChatStore());
+  const store = sharedStore ?? localStore;
+  const { sessionId, messages, isStreaming } = useSyncExternalStore(
+    store.subscribe, store.getSnapshot, store.getSnapshot
+  );
+
+  const setMessages = useCallback((update: (messages: ChatMessage[]) => ChatMessage[]) => {
+    store.update({ messages: update(store.getSnapshot().messages) });
+  }, [store]);
 
   const reset = useCallback(() => {
-    controllerRef.current?.abort();
-    controllerRef.current = null;
-    interruptedTurnsRef.current.clear();
-    turnProductsRef.current.clear();
-    const serverSession = serverSessionRef.current;
-    serverSessionRef.current = null;
+    store.controller?.abort();
+    store.setController(null);
+    store.interruptedTurns.clear();
+    store.turnProducts.clear();
+    const serverSession = store.serverSession;
+    store.setServerSession(null);
     if (serverSession) {
       deleteSession(serverSession).catch((error: unknown) =>
         console.warn("chat_session_delete_failed", error)
       );
     }
-    setMessages([]);
-    setIsStreaming(false);
-    setSessionId(createId());
-  }, []);
+    store.update({ messages: [], isStreaming: false, sessionId: createId() });
+  }, [store]);
 
   useEffect(() => {
     return () => {
-      controllerRef.current?.abort();
+      localStore.controller?.abort();
     };
-  }, []);
+  }, [localStore]);
 
   const patchAssistant = useCallback(
     (id: string, patch: Partial<ChatMessage>) => {
@@ -89,7 +116,7 @@ export function useChatSession() {
         )
       );
     },
-    []
+    [setMessages]
   );
 
   const applyEvent = useCallback(
@@ -136,7 +163,7 @@ export function useChatSession() {
           break;
       }
     },
-    [patchAssistant]
+    [patchAssistant, setMessages]
   );
 
   const openStream = useCallback(
@@ -152,13 +179,16 @@ export function useChatSession() {
         yield* streamMockChat({ sessionId, message: prompt, product: activeProduct }, signal);
         return;
       }
-      if (!serverSessionRef.current) {
-        serverSessionRef.current = await createSession(null, signal);
-        setSessionId(serverSessionRef.current);
+      let serverSession = store.serverSession;
+      if (!serverSession) {
+        serverSession = await createSession(store.sku, signal);
+        signal.throwIfAborted();
+        store.setServerSession(serverSession);
+        store.update({ sessionId: serverSession });
       }
       yield* streamChat(
         {
-          sessionId: serverSessionRef.current,
+          sessionId: serverSession,
           clientRequestId,
           message: prompt,
           currentProductSku: activeProduct?.sku ?? null,
@@ -166,16 +196,16 @@ export function useChatSession() {
         signal
       );
     },
-    [sessionId]
+    [sessionId, store]
   );
 
   const run = useCallback(
     async (prompt: string, activeProduct: Product | null, replaceAssistantId?: string) => {
-      if (!prompt.trim() || controllerRef.current) return;
+      if (!prompt.trim() || store.controller) return;
       const question = prompt.trim();
 
       const assistantId = replaceAssistantId ?? createId();
-      turnProductsRef.current.set(assistantId, activeProduct);
+      store.turnProducts.set(assistantId, activeProduct);
       const userMessage: ChatMessage = {
         id: createId(),
         role: "user",
@@ -188,22 +218,22 @@ export function useChatSession() {
         errorCode: null,
       };
 
-      setMessages((previous) => {
-        const base = replaceAssistantId
-          ? previous.filter((message) => message.id !== replaceAssistantId)
-          : [...previous, userMessage];
-        return [...base, emptyAssistantMessage(assistantId)];
-      });
-      setIsStreaming(true);
-
       const controller = new AbortController();
-      controllerRef.current = controller;
+      store.setController(controller);
+      const reply = emptyAssistantMessage(assistantId);
+      const previous = store.getSnapshot().messages;
+      store.update({
+        messages: replaceAssistantId
+          ? previous.map((message) => message.id === replaceAssistantId ? reply : message)
+          : [...previous, userMessage, reply],
+        isStreaming: true,
+      });
       // One ID per explicit question, kept on the automatic reconnect and on a manual retry
       // of an interrupted turn; a new one only after the turn ended (done or terminal error).
       const interrupted = replaceAssistantId
-        ? interruptedTurnsRef.current.get(replaceAssistantId)
+        ? store.interruptedTurns.get(replaceAssistantId)
         : undefined;
-      if (replaceAssistantId) interruptedTurnsRef.current.delete(replaceAssistantId);
+      if (replaceAssistantId) store.interruptedTurns.delete(replaceAssistantId);
       const clientRequestId = interrupted ?? createId();
 
       try {
@@ -223,7 +253,7 @@ export function useChatSession() {
       } catch (error) {
         if (isAbort(error)) return;
         if (error instanceof StreamInterruptedError) {
-          interruptedTurnsRef.current.set(assistantId, clientRequestId);
+          store.interruptedTurns.set(assistantId, clientRequestId);
         }
         console.warn("chat_stream_failed", error);
         patchAssistant(assistantId, {
@@ -236,14 +266,14 @@ export function useChatSession() {
         });
       } finally {
         // A reset may already have started another turn; only clear our own.
-        if (controllerRef.current === controller) {
-          controllerRef.current = null;
-          setIsStreaming(false);
+        if (store.controller === controller) {
+          store.setController(null);
           patchAssistant(assistantId, { isStreaming: false });
+          store.update({ isStreaming: false });
         }
       }
     },
-    [applyEvent, openStream, patchAssistant]
+    [applyEvent, openStream, patchAssistant, store]
   );
 
   const send = useCallback(
@@ -261,9 +291,9 @@ export function useChatSession() {
         .reverse()
         .find((message) => message.role === "user");
       if (!userMessage) return;
-      void run(userMessage.content, turnProductsRef.current.get(assistantId) ?? null, assistantId);
+      void run(userMessage.content, store.turnProducts.get(assistantId) ?? null, assistantId);
     },
-    [messages, run]
+    [messages, run, store]
   );
 
   const submitFeedback = useCallback(

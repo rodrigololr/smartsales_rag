@@ -23,7 +23,7 @@ ROOT = `/home/antonio/Documentos/gerencia_projeto/smartsales_intfinal`. All path
 
 ```mermaid
 flowchart LR
-  FE["Frontend: ConsultantProvider (one session per tab)<br/>home → sku=null · product page → sku"] -->|POST /chat/stream| GW["Gateway: optional sku<br/>history + recommended_skus<br/>no cache when sku=null"]
+  FE["Frontend: ConsultantProvider (one session per SKU per tab)<br/>home → separate catalog session"] -->|POST /chat/stream| GW["Gateway: optional sku<br/>history + recommended_skus<br/>no cache when sku=null"]
   GW -->|"/internal/rag/stream {sku|null, history[+skus]}"| CO["ConsultantOrchestrator"]
   CO --> R{"router (pure)"}
   R -->|TECHNICAL / legacy guard| RAG["RAGOrchestrator (unchanged)"]
@@ -106,10 +106,9 @@ def conversation_state(request: ConsultantRequest) -> ConversationState: ...
 - Limits: history ≤ 20 items as received (the gateway sends ≤ 10); shown ≤ 6; cards per turn ≤ 5.
 
 **Session across pages (decision):**
-- One conversation per browser tab, held by a provider in the root layout.
-- The session is created with `current_product_sku: null`; the SKU travels per turn in `context_filters`.
-- This avoids the gateway falling back to the session's SKU on the home page.
-- A page reload starts a new conversation (accepted limitation).
+- The root provider keeps a conversation for each SKU and a separate catalog conversation in the current tab.
+- The product session is created with its SKU and sends it in `context_filters` on each turn. The catalog session omits the SKU.
+- Returning to a product in the same tab restores that product's conversation. Reloading the page starts fresh.
 
 ---
 
@@ -476,8 +475,8 @@ Fixed messages: GREETING `Olá! Posso ajudar a escolher um produto, comparar op�
 
 - **Types:** `frontend/src/types/chat.ts` adds `"OPTION"`. `ProductRecommendationCarousel.tsx` gets `toneByType.OPTION` (slate) and `sealByType.OPTION = "Opção"`, plus a "Ver detalhes" `<Link href={`/produto/${sku}`}>` on every card, which enables the home → product handoff.
 - **Provider:** new `frontend/src/components/chat/ConsultantProvider.tsx` ("use client"), mounted in `app/layout.tsx`.
-  - It exposes `useConsultant() → { chat, contextProduct, setContextProduct }`.
-  - `useChatSession()` loses its product argument: `send(prompt, product: Product | null)`, `retry(id, product)`.
+  - `useConsultant(sku) → { chat }` selects the conversation by SKU. Omitting the SKU selects the catalog conversation.
+  - The chat exposes `send(prompt, product: Product | null)` and `retry(id)`, which uses the original turn's product.
   - `createSession(null)` sends `{}`. `streamChat` omits `context_filters` when the SKU is null.
   - Mock mode with a null product yields one canned token ("O consultor do catálogo exige a API real.") followed by `done`.
 - **Panel:** `ProductAssistant` keeps its name; `product: Product | null`.
@@ -492,7 +491,7 @@ Fixed messages: GREETING `Olá! Posso ajudar a escolher um produto, comparar op�
       - Monitores: "Qual é a taxa de atualização?"
     - `CATALOG_SUGGESTIONS = ["Quero um PC para jogar Roblox até R$ 4.000", "Qual notebook gamer funciona em 127V?", "Quero um monitor para jogos", "Qual webcam serve para live na Twitch?", "Um sofá de 3 lugares cabe em 2 metros?"]`.
 - **Home:** `CatalogView` gets a floating "Pergunte ao Consultor IA" button at every width that opens `ContextualChatDrawer` with `product={null}`. The drawer's product prop becomes optional.
-- **Product page:** `ProductPageView` uses `useConsultant()` instead of its own `useChatSession`, and calls `setContextProduct(product)` on mount and `null` on unmount. The conversation started on the home page continues and the product's SKU travels per turn.
+- **Product page:** `ProductPageView` uses `useConsultant(product.sku)` for the desktop panel and mobile drawer. Opening a recommendation starts or restores that product's conversation.
 - Comparison text renders as-is (`whitespace-pre-wrap`, "- SKU …" lines). No table component.
 - `lib/format.ts` `SPEC_UNITS` gains `gb: "GB"`, `polegadas: "″"`, `fps: "fps"`, `ms: "ms"` for the new `specs_json` keys.
 
@@ -614,9 +613,9 @@ These strings and labels are the constants in `backend/app/consultant/knowledge_
 **Frontend:**
 - Vitest:
   - carousel OPTION badge "Opção" and tone; "Ver detalhes" href;
-  - hook: catalog mode omits `context_filters`, product mode sends the SKU, the session is created once with a null SKU and reused when the product changes;
+  - catalog and product histories stay separate, and the product history is restored on return;
   - home button opens the drawer with catalog suggestions; panel subtitle per mode.
-- Playwright (SSE mocked with `page.route`): home → ask → OPTION cards → "Ver detalhes" → product page panel shows the same messages → the next turn's body contains `current_product_sku`.
+- Playwright (SSE mocked with `page.route`): home → ask → OPTION cards → "Ver detalhes" → the product panel opens separately → the product turn sends `current_product_sku` and uses a different session ID.
 
 **Live scripted suite (Gemini):** `tests/live/test_consultor_dialogs.py`, `@pytest.mark.live`, skipped unless `LIVE_API_BASE_URL` is set.
 - It drives the public API with real `client_request_id`s and parses SSE.
