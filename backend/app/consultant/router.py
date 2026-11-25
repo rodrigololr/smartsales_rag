@@ -10,7 +10,7 @@ from app.consultant.slots import parse_budget, parse_category, parse_game
 from app.guardrails.input import is_prompt_injection
 from app.guardrails.output import length_measures_cm
 from app.models.schemas import CatalogProduct
-from app.recommendation.intent import folded
+from app.recommendation.intent import asks_catalog_voltage, folded
 
 CONSULTANT_CATEGORIES = frozenset({"Computadores", "Monitores", "Móveis"})
 _ACCESSORY_PREFIXES = ("KIT-", "MP-", "PT-")
@@ -35,6 +35,10 @@ BEST_RE = re.compile(
 )
 FIT_SPACE_RE = re.compile(r"\b(cabe|caber|cabera|espaco|largura|parede)\b")
 PLAY_RE = re.compile(r"\b(jogar|jogo|jogos|roda|rodar|rodaria|aguenta|consigo|da pra)\b")
+GAME_COMPATIBILITY_RE = re.compile(
+    r"\b(?:roda|rodar|rodaria|consigo jogar|posso jogar|da (?:pra|para) jogar)\s+"
+    r"(?!quant[oa]s?\b|em\b|com\b|bem\b)[a-z]"
+)
 STREAM_RE = re.compile(r"\b(live|lives|stream\w*|transmi\w*|twitch)\b")
 PURCHASE_RE = re.compile(
     r"\b(quero|queria|procuro|procurando|preciso|busco|comprar"
@@ -206,11 +210,14 @@ def route(
 
     current_game = parse_game(question)
     question_category = parse_category(question)
+    asks_about_computer = (
+        question_category is not None and question_category.category == "Computadores"
+    ) or _computers_in_context(state, current, shown_products)
     if current_game is not None and (
-        PLAY_RE.search(normalized)
-        or (question_category is not None and question_category.category == "Computadores")
-        or _computers_in_context(state, current, shown_products)
+        PLAY_RE.search(normalized) or asks_about_computer
     ):
+        return Route.GAME_FIT
+    if asks_about_computer and GAME_COMPATIBILITY_RE.search(normalized):
         return Route.GAME_FIT
 
     has_referent = bool(
@@ -225,6 +232,8 @@ def route(
         return Route.OPINION_BRAND
     if BEST_RE.search(normalized) and (DEICTIC_SET_RE.search(normalized) or filtered_shown_count > 0):
         return Route.COMPARE
+    if has_referent and asks_catalog_voltage(question):
+        return Route.TECHNICAL
 
     if (
         question_category is not None

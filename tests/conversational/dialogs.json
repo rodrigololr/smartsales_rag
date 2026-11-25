@@ -233,12 +233,11 @@
         "llm_turn": false,
         "must_contain": [
           "GTA RP é jogado no GTA V para PC por meio de servidores de roleplay. [Fonte: GTA RP no PC, p. 1].",
-          "SKU PC-VX3-BIV: sim, o manual informa 75 fps em GTA V a 1080p, predefinição Muito alto [Fonte: Manual PC Gamer Vortex X3, p. 4].",
+          "SKU PC-VX3-BIV: o manual informa 75 fps em GTA V a 1080p, predefinição Muito alto [Fonte: Manual PC Gamer Vortex X3, p. 4].",
+          "O benchmark é de GTA V. O desempenho em servidores de GTA RP não foi medido nas fontes consultadas.",
           "Informação geral:"
         ],
-        "must_not_contain": [
-          "não informa"
-        ],
+        "must_not_contain": ["sim,"],
         "expected_card_skus": []
       }
     ]
@@ -346,6 +345,25 @@
         "expected_card_skus": [
           "PC-VX3-BIV"
         ]
+      }
+    ]
+  },
+  {
+    "id": "PO-10",
+    "description": "Jogo sem benchmark na página do PC",
+    "turns": [
+      {
+        "sku": "PC-VX3-BIV",
+        "question": "Esse PC roda Elden Ring no ultra?",
+        "expected_route": "GAME_FIT",
+        "expected_intent": "TECHNICAL_QA",
+        "llm_turn": false,
+        "must_contain": [
+          "Não encontrei nas fontes do catálogo um teste que confirme o desempenho solicitado.",
+          "Se você souber os requisitos"
+        ],
+        "must_not_contain": ["Encontrei 4 opções", " fps"],
+        "expected_card_skus": []
       }
     ]
   }

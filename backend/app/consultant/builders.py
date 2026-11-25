@@ -23,6 +23,10 @@ GAME_FIT_GENERAL_INFO = (
     "Informação geral: o desempenho real varia com drivers, atualizações do jogo e "
     "configurações gráficas."
 )
+GAME_FIT_MISSING_BENCHMARK = (
+    "Não encontrei nas fontes do catálogo um teste que confirme o desempenho solicitado. "
+    "Se você souber os requisitos, posso informar as especificações do PC para a comparação.\n"
+)
 STREAM_FIT_GENERAL_INFO = (
     "Informação geral: a qualidade final da live também depende da sua conexão de internet "
     "e do computador usado na transmissão."
@@ -248,13 +252,18 @@ def discovery_answer(
 
 def game_fit_answer(
     targets: Sequence[CatalogProduct],
-    game: str,
+    game: str | None,
     rows: Mapping[str, GameRow | None],
     platform: Sequence[KbFactHit],
     alias: KbFactHit | None,
     alternative: tuple[CatalogProduct, GameRow] | None,
     consoles_in_catalog: bool,
 ) -> ConsultantAnswer:
+    if game is None:
+        return ConsultantAnswer(
+            sentences=(GAME_FIT_MISSING_BENCHMARK,), cited=(), cards=(), intent="TECHNICAL_QA"
+        )
+
     sentences: list[str] = []
     cited: list[RetrievedChunk] = []
     cards: list[ProductCard] = []
@@ -284,12 +293,13 @@ def game_fit_answer(
         )
         cited.append(alias.chunk)
 
-    effective_game = "GTA V" if alias is not None else game
+    effective_game = "GTA V" if game == "GTA RP" else game
+    confirmation = "" if game == "GTA RP" else "sim, "
     for product in targets:
         row = rows.get(product.sku)
         if row is not None:
             sentences.append(
-                f"SKU {product.sku}: sim, o manual informa {row.fps} fps em {effective_game} "
+                f"SKU {product.sku}: {confirmation}o manual informa {row.fps} fps em {effective_game} "
                 f"a {row.resolution}, predefinição {row.preset} "
                 f"[Fonte: {row.chunk.manual_title}, p. {row.chunk.page_number}].\n"
             )
@@ -311,6 +321,11 @@ def game_fit_answer(
         if alt_product.is_active and alt_product.stock_quantity > 0:
             cards.append(_option_card(alt_product))
 
+    if game == "GTA RP" and (any(rows.values()) or alternative is not None):
+        sentences.append(
+            "O benchmark é de GTA V. O desempenho em servidores de GTA RP não foi medido "
+            "nas fontes consultadas.\n"
+        )
     sentences.append(f"{GAME_FIT_GENERAL_INFO}\n")
     return ConsultantAnswer(
         sentences=tuple(sentences),

@@ -77,10 +77,12 @@ class ChatModel:
 
 
 def run(
-    catalog: Catalog, model: ChatModel, question: str = "Quantos kg cabem?"
+    catalog: Catalog, model: ChatModel, question: str = "Quantos kg cabem?",
+    *, embedder: Embedder | None = None,
 ) -> list[dict[str, object]]:
     orchestrator = RAGOrchestrator(
-        catalog, catalog, Embedder(), model, Settings(), count_tokens=lambda text: len(text.split())
+        catalog, catalog, embedder or Embedder(), model, Settings(),
+        count_tokens=lambda text: len(text.split()),
     )
 
     async def collect() -> list[dict[str, object]]:
@@ -128,6 +130,38 @@ def test_no_chunk_above_threshold_falls_back_without_calling_the_llm() -> None:
         assert names(events) == ["error", "end"]
         assert events[0]["data"]["code"] == "LOW_SIMILARITY_FALLBACK"  # type: ignore[index]
     assert model.messages == []
+
+
+@pytest.mark.parametrize(("voltage", "question", "expected"), [
+    ("220V", "Qual a voltagem desse produto", "é 220 V."),
+    ("127V", "Qual é a voltagem oficial deste modelo (220V)?", "é 127 V."),
+    ("BIVOLT", "Qual a tensão dela?", "é bivolt."),
+    ("N/A", "Voltagem?", "não se aplica a este produto."),
+])
+def test_direct_voltage_question_uses_catalog_without_model_or_manual(
+    voltage: str, question: str, expected: str,
+) -> None:
+    class UnavailableEmbedder(Embedder):
+        async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+            pytest.fail("a direct catalog question should not need embeddings")
+
+    product = PRODUCT.model_copy(update={"voltage": voltage})
+    catalog = Catalog(product, [])
+    model = ChatModel([])
+    events = run(catalog, model, question, embedder=UnavailableEmbedder())
+
+    assert names(events) == ["token", "end"]
+    assert "ficha técnica do catálogo" in events[0]["data"]["delta"]  # type: ignore[index, operator]
+    assert expected in events[0]["data"]["delta"]  # type: ignore[index, operator]
+    assert catalog.searched == []
+    assert model.messages == []
+
+
+def test_voltage_question_with_another_request_still_checks_manual() -> None:
+    catalog = Catalog(PRODUCT, [])
+    events = run(catalog, ChatModel([]), "Qual a voltagem desse produto e como limpar o cesto?")
+    assert names(events) == ["error", "end"]
+    assert catalog.searched == [(PRODUCT.sku, Settings().retrieval_top_k)]
 
 
 def test_prompt_injection_is_blocked_before_retrieval() -> None:

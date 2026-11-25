@@ -168,7 +168,7 @@ GREETING = r"^\s*(oi|ola|bom dia|boa tarde|boa noite|obrigad[oa]|valeu)\b[\s!.]*
 | 2 | GREETING | `GREETING` |
 | 3 | DIMENSION_FIT | `FIT_SPACE` and (`room_width_cm` parsed, or target subcategory is Sofás) |
 | 4 | STREAM_FIT | `STREAM` |
-| 5 | GAME_FIT | game in the *current* message and (`PLAY`, or a Computadores noun, or computers in context) |
+| 5 | GAME_FIT | known game in the *current* message and (`PLAY`, or a Computadores noun, or computers in context). An explicit performance question about a computer can also resolve a new title from its benchmark table |
 | 6 | SET_VOLTAGE | `VOLTAGE_TOPIC` and `DEICTIC_SET` and comparison set ≥ 2 |
 | 7 | PRICE_RANK | `PRICE_RANK` |
 | 8 | OPINION_BRAND | `BRAND_OPINION` |
@@ -176,6 +176,8 @@ GREETING = r"^\s*(oi|ola|bom dia|boa tarde|boa noite|obrigad[oa]|valeu)\b[\s!.]*
 | 10 | DISCOVERY | category in current message, or `BUDGET` in current message, or (`PURCHASE` and merged category) |
 | 11 | TECHNICAL | a referent exists: explicit catalog SKU in question, else `current_sku`, else shown set of size 1 |
 | 12 | KB_QA | otherwise. 0 KB chunks ≥ threshold gives: shown ≥ 2 → deterministic "which product?" clarification; else R02 `LOW_SIMILARITY_FALLBACK` with the catalog message |
+
+A direct voltage question identifying one product uses the active product's catalog voltage. It takes precedence over discovery when the question names a category and requires neither a manual chunk nor generation. Multi-part questions still use the normal routes.
 
 **Legacy guard (D3), checked before rows 3–12:**
 - `current.category ∉ CONSULTANT_CATEGORIES = {"Computadores", "Monitores", "Móveis"}` → only these routes are allowed:
@@ -356,6 +358,8 @@ GAME_FIT
 - platform: `{KB_GTA6_PLATFORMS} [Fonte…]` + `{KB_GTA6_NO_PC} [Fonte…]` + `Por isso, nenhum computador do catálogo roda {jogo} hoje.` + (if no Consoles subcategory) `O catálogo ativo não tem consoles.` + `Se quiser, mostro o desempenho informado nos manuais em outros jogos, como GTA V e Roblox.`
 - alias: `{KB_GTA_RP} [Fonte…]` (the rows then use "GTA V")
 - row: `SKU {sku}: sim, o manual informa {fps} fps em {jogo} a {res}, predefinição {preset} [Fonte: {title}, p. {page}].`
+- GTA RP: report the GTA V benchmark as measured and state that the sources do not measure performance on roleplay servers.
+- Title missing from the available benchmark tables: state that the catalog cannot confirm the requested performance and offer to share the computer's specifications. No compatibility claims or recommendation cards.
 - missing: `SKU {sku}: o manual não informa desempenho em {jogo}, então não confirmo que roda.`
 - alternative (single target missing): `Este outro tem desempenho informado em {jogo}: SKU {alt}: {fps} fps a {res}, predefinição {preset} [Fonte…].` + OPTION card
 - `Informação geral: o desempenho real varia com drivers, atualizações do jogo e configurações gráficas.`

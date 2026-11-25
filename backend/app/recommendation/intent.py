@@ -25,6 +25,12 @@ _UPGRADE_PATTERNS = (
     r"\bupgrade\b",
 )
 _UPGRADE = re.compile("|".join(_UPGRADE_PATTERNS))
+_CATALOG_VOLTAGE_QUESTION = re.compile(
+    r"(?:qual (?:e )?(?:a )?)?(?:voltagem|tensao)(?: (?:oficial|nominal|eletrica))?"
+    r"(?: (?:(?:deste|desse|do|desta|dessa|da) "
+    r"(?:produto|modelo|aparelho|airfryer|pc|notebook|computador)|dele|dela))?"
+    r"(?: (?:127 ?v?|220 ?v?|bivolt|n a))?"
+)
 
 
 def folded(text: str) -> str:
@@ -33,6 +39,11 @@ def folded(text: str) -> str:
 
 
 _folded = folded
+
+
+def asks_catalog_voltage(question: str) -> bool:
+    words = re.sub(r"[^a-z0-9]+", " ", folded(question)).strip()
+    return _CATALOG_VOLTAGE_QUESTION.fullmatch(words) is not None
 
 
 def wants_upgrade(question: str) -> bool:

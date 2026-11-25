@@ -22,7 +22,7 @@ from app.guardrails.publication import CITATION_MARK, ConsultativeVerifier, norm
 from app.models.schemas import CatalogProduct, ProductRecommendation, RagRequest, RetrievedChunk
 from app.recommendation.cards import option_facts
 from app.recommendation.engine import UPSELL_MAX_PRICE_INCREASE
-from app.recommendation.intent import only_consulted_product, wants_upgrade
+from app.recommendation.intent import asks_catalog_voltage, only_consulted_product, wants_upgrade
 from app.recommendation.models import Voltage
 
 logger = logging.getLogger(__name__)
@@ -53,6 +53,14 @@ EXCERPT_MAX_CHARS = 400
 BLOCKED_SENTENCE_LOG_MAX_CHARS = 200  # model output only; enough to diagnose a G-OUT drop
 REJECTED_DRAFT_LOG_MAX_CHARS = 1000
 ANSWER_INTENT = "TECHNICAL_QA"
+
+
+def _catalog_voltage_answer(voltage: Voltage) -> str:
+    if voltage == "N/A":
+        return "Segundo a ficha técnica do catálogo, a voltagem não se aplica a este produto."
+    if voltage == "BIVOLT":
+        return "Segundo a ficha técnica do catálogo, este produto é bivolt."
+    return f"Segundo a ficha técnica do catálogo, a voltagem deste produto é {voltage[:-1]} V."
 
 
 class ProductReader(Protocol):
@@ -188,7 +196,10 @@ class RAGOrchestrator:
 
     async def stream(self, request: RagRequest) -> AsyncIterator[InternalEvent]:
         injected = is_prompt_injection(request.question)
-        product, query_embedding = await self._product_and_embedding(request, embed=not injected)
+        catalog_voltage = asks_catalog_voltage(request.question)
+        product, query_embedding = await self._product_and_embedding(
+            request, embed=not injected and not catalog_voltage
+        )
         if product is None or not product.is_active:
             yield _error("LOW_SIMILARITY_FALLBACK", UNAVAILABLE_PRODUCT_MESSAGE)
             yield _end(0, "UNAVAILABLE_PRODUCT")
@@ -197,6 +208,12 @@ class RAGOrchestrator:
             logger.warning("guardrail_blocked", extra={"sku": request.sku})
             yield _error("GUARDRAIL_BLOCKED", BLOCKED_MESSAGE)
             yield _end(0, "BLOCKED")
+            return
+        if catalog_voltage:
+            yield _token(_catalog_voltage_answer(product.voltage))
+            for event in await self._recommendations(request, product, None, substitutes=False):
+                yield event
+            yield _end(0, ANSWER_INTENT)
             return
         if query_embedding is None:
             yield _error("LLM_UNAVAILABLE", LLM_UNAVAILABLE_MESSAGE)
