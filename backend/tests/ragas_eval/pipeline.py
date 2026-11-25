@@ -9,7 +9,7 @@ from typing import Protocol, cast
 
 import tiktoken
 from app.config import Settings
-from app.generation.prompt import Message
+from app.generation.prompt import Message, catalog_block
 from app.main import TOKEN_COUNT_ENCODING
 from app.models.schemas import CatalogProduct, RagRequest, RetrievedChunk
 from app.rag.orchestrator import ChatModel, ChunkSearcher, Embedder, ProductReader, RAGOrchestrator
@@ -130,6 +130,10 @@ class ObservedOrchestrator(RAGOrchestrator):
         self.retrieved = await super()._evidence(request, query_embedding)
         return self.retrieved
 
+    async def _catalog_evidence(self, sku: str, source_text: str) -> list[RetrievedChunk]:
+        self.retrieved = await super()._catalog_evidence(sku, source_text)
+        return self.retrieved
+
 
 class BlockedSentences(logging.Handler):
     def __init__(self, sku: str) -> None:
@@ -207,7 +211,10 @@ class ProductionPipeline:
             logger.setLevel(previous_level)
             turn.blocked_sentences = blocked.count
         turn.products, turn.generation_calls = catalog.products, model.calls
-        turn.evidence_contexts = model.contexts
+        turn.evidence_contexts[:0] = model.contexts
+        if not model.calls and turn.action == "ANSWER":
+            turn.evidence_contexts.extend(catalog_block(product) for product in catalog.products.values())
+            turn.evidence_contexts.extend(chunk.content for chunk in turn.retrieved)
         return turn
 
     def _observe_event(self, turn: ObservedTurn, event: dict[str, object]) -> None:
@@ -232,6 +239,7 @@ class ProductionPipeline:
         elif kind == "citations":
             self._citations(turn, cast(list[dict[str, object]], payload["citations"]))
         elif kind == "recommendations":
+            cards = cast(list[dict[str, object]], payload["products"])
             turn.offers = [
                 ObservedOffer.model_validate(
                     {
@@ -242,8 +250,13 @@ class ProductionPipeline:
                         "voltage": item["voltage"],
                     }
                 )
-                for item in cast(list[dict[str, object]], payload["products"])
+                for item in cards
             ]
+            # The deterministic explanation uses the same fresh SQL snapshot as the cards.
+            for item in cards:
+                reason = item.get("justification")
+                if isinstance(reason, str) and reason and reason in turn.answer:
+                    turn.evidence_contexts.append(f"SKU {item['sku']} ({item['name']}). {reason}")
         elif kind == "error":
             # Match the Gateway: error replaces partial content and clears citations/cards.
             turn.answer = str(payload["fallback_message"])

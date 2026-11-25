@@ -103,6 +103,22 @@ class PostgresCatalog:
             rows = await cursor.fetchall()
         return [RetrievedChunk.model_validate(row) for row in rows]
 
+    async def catalog_sheet(self, sku: str) -> list[RetrievedChunk]:
+        """Read the indexed catalog sheet for one SKU without a vector search."""
+        async with await psycopg.AsyncConnection.connect(self._conninfo) as conn:
+            cursor = conn.cursor(row_factory=dict_row)
+            await cursor.execute(
+                """
+                SELECT id AS chunk_id, sku, manual_title, page_number, section_title, content,
+                       1.0 AS similarity_score
+                FROM manual_chunks
+                WHERE sku = %s AND manual_source = 'catalog:spec_sheet'
+                ORDER BY page_number, chunk_index
+                """,
+                (sku,),
+            )
+            return [RetrievedChunk.model_validate(row) for row in await cursor.fetchall()]
+
     @asynccontextmanager
     async def snapshot(self) -> AsyncIterator["PostgresCatalog"]:
         """One committed revision for all prices, stock, relations and vectors."""

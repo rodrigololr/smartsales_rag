@@ -135,6 +135,18 @@ def test_llm_outage_still_offers_deterministic_cards() -> None:
     assert names(events) == ["error", "recommendations", "end"]
 
 
+def test_requested_accessory_explains_the_validated_relationship() -> None:
+    relation = "Formas de silicone compatíveis com airfryers de 4L a 8L."
+    accessory = build_card(FAMILY, "CROSS_SELL", relation)
+    events = run(
+        Catalog(PRODUCT, [chunk()]),
+        ChatModel(GROUNDED),
+        Recommender([accessory]),
+        question="Mostre um acessório de formas compatível com esta Airfryer.",
+    )
+    assert relation in _published(events)
+
+
 def test_provider_http_error_ends_as_llm_unavailable_with_cards() -> None:
     # A bad key / unknown model (HTTP 4xx) must not break the NDJSON stream.
     request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")

@@ -213,6 +213,24 @@ def test_valid_sql_price_and_units_are_not_reported_as_hallucinations(corpus: Co
         ), text
 
 
+def test_pressure_in_catalog_sheet_only_supports_its_recorded_value(corpus: Corpus) -> None:
+    product = corpus.products["CF-20B-127V"]
+    citation = (product.sku, "Ficha técnica Aroma Pro 2L", 1)
+
+    def violations(pressure: int) -> list[str]:
+        return technical_violations(
+            f"A pressão é de {pressure} bar [Fonte: Ficha técnica Aroma Pro 2L, p. 1].",
+            {product.sku: "pressao_bar: 19\nOutro manual menciona 21 bar."},
+            [citation],
+            primary_sku=product.sku,
+            products={product.sku: product},
+            evidence_by_page={citation: "pressao_bar: 19\r\n"},
+        )
+
+    assert not violations(19)
+    assert violations(21)
+
+
 def test_citation_page_must_support_the_claim_not_just_exist(corpus: Corpus) -> None:
     product = corpus.products["AF-400-220V"]
     answer = "A potência é 1500 W [Fonte: Manual Airfryer SmartChef 4L, p. 7]."

@@ -7,6 +7,7 @@ mandatory `end` marker.
 
 import asyncio
 import logging
+import re
 from collections.abc import AsyncIterator, Callable, Coroutine, Sequence
 from decimal import Decimal
 from typing import Any, Protocol, TypeVar
@@ -53,6 +54,41 @@ EXCERPT_MAX_CHARS = 400
 BLOCKED_SENTENCE_LOG_MAX_CHARS = 200  # model output only; enough to diagnose a G-OUT drop
 REJECTED_DRAFT_LOG_MAX_CHARS = 1000
 ANSWER_INTENT = "TECHNICAL_QA"
+_DIRECT_SPEC = re.compile(
+    r"(?:qual (?:e )?(?:a |o )?|informe (?:a |o )?)"
+    r"(?P<fact>pressao|diametro|tamanho)(?P<subject>(?: [a-z0-9]+)*)"
+)
+_SPEC_COMPOSITE = re.compile(r"\b(?:e|ou|mas|como|quando|porque)\b")
+_NOMINAL_SIZE = re.compile(r"\b(\d+(?:[.,]\d+)?)\s*cm\s*$", re.IGNORECASE)
+_ACCESSORY_REQUEST = re.compile(
+    r"^(?:mostre|indique|recomende|quero(?: comprar| ver)?|procuro)(?: tambem)? "
+    r"(?:(?:um|uma|o|a|algum|alguma) )?(?:acessorio|kit de limpeza|kit de formas)\b"
+)
+
+
+def _direct_spec_name(question: str) -> str | None:
+    match = _DIRECT_SPEC.fullmatch(normalized_words(question))
+    if match is None or _SPEC_COMPOSITE.search(match["subject"]):
+        return None
+    return match["fact"]
+
+
+def _catalog_spec_answer(fact: str, product: CatalogProduct) -> tuple[str, str] | None:
+    if fact == "pressao":
+        pressure = product.specs_json.get("pressao_bar")
+        if type(pressure) in (int, float) and Decimal(str(pressure)).is_finite():
+            value = Decimal(str(pressure))
+            if value > 0:
+                number = format(value.normalize(), "f").replace(".", ",")
+                return f"A pressão indicada no catálogo para {product.name} é de {number} bar.", (
+                    f"pressao_bar: {pressure}"
+                )
+    elif product.subcategory == "Acessórios para Airfryer":
+        size = _NOMINAL_SIZE.search(product.name)
+        if size is not None and re.search(r"\bformas?\b", normalized_words(product.name)):
+            answer = f"O catálogo informa o tamanho nominal de {size[1]} cm para {product.name}."
+            return answer, f"Ficha técnica oficial do catálogo: {product.name}"
+    return None
 
 
 def _catalog_voltage_answer(voltage: Voltage) -> str:
@@ -71,6 +107,8 @@ class ChunkSearcher(Protocol):
     async def search(
         self, sku: str, embedding: Sequence[float], limit: int
     ) -> list[RetrievedChunk]: ...
+
+    async def catalog_sheet(self, sku: str) -> list[RetrievedChunk]: ...
 
 
 class Embedder(Protocol):
@@ -152,6 +190,22 @@ def _has_upsell(events: list[InternalEvent]) -> bool:
     return any(card.recommendation_type == "UPSELL" for card in _planned_cards(events))
 
 
+def _explain_recommendations(
+    question: str, cards: Sequence[ProductRecommendation]
+) -> list[str]:
+    wants_accessory = _ACCESSORY_REQUEST.search(normalized_words(question)) is not None
+    wants_larger = wants_upgrade(question)
+    explanations = []
+    for card in cards:
+        if not card.justification or card.stock_quantity <= 0:
+            continue
+        if (card.recommendation_type == "UPSELL" and wants_larger) or (
+            card.recommendation_type == "CROSS_SELL" and wants_accessory
+        ):
+            explanations.append(f"SKU {card.sku} ({card.name}). {card.justification}")
+    return explanations
+
+
 def _alternative_answer(
     product: CatalogProduct, cards: Sequence[ProductRecommendation]
 ) -> list[str]:
@@ -197,8 +251,9 @@ class RAGOrchestrator:
     async def stream(self, request: RagRequest) -> AsyncIterator[InternalEvent]:
         injected = is_prompt_injection(request.question)
         catalog_voltage = asks_catalog_voltage(request.question)
+        direct_spec = _direct_spec_name(request.question)
         product, query_embedding = await self._product_and_embedding(
-            request, embed=not injected and not catalog_voltage
+            request, embed=not (injected or catalog_voltage or direct_spec)
         )
         if product is None or not product.is_active:
             yield _error("LOW_SIMILARITY_FALLBACK", UNAVAILABLE_PRODUCT_MESSAGE)
@@ -215,6 +270,22 @@ class RAGOrchestrator:
                 yield event
             yield _end(0, ANSWER_INTENT)
             return
+        if direct_spec is not None:
+            fact = _catalog_spec_answer(direct_spec, product)
+            if fact is not None:
+                answer, source_text = fact
+                sheet = await self._catalog_evidence(product.sku, source_text)
+                if sheet:
+                    source = sheet[0]
+                    answer = f"{answer.rstrip('.')} [Fonte: {source.manual_title}, p. {source.page_number}]."
+                yield _token(answer)
+                if sheet:
+                    yield {"event": "citations", "data": {"citations": [_citation(sheet[0])]}}
+                for event in await self._recommendations(request, product, None, substitutes=False):
+                    yield event
+                yield _end(0, ANSWER_INTENT)
+                return
+            query_embedding = await self._embed_question(request)
         if query_embedding is None:
             yield _error("LLM_UNAVAILABLE", LLM_UNAVAILABLE_MESSAGE)
             for event in await self._recommendations(request, product, None, substitutes=True):
@@ -264,6 +335,12 @@ class RAGOrchestrator:
         )
         return [c for c in found if c.sku == request.sku
                 and c.similarity_score >= self._settings.similarity_threshold]
+
+    async def _catalog_evidence(self, sku: str, source_text: str) -> list[RetrievedChunk]:
+        for chunk in await self._chunks.catalog_sheet(sku):
+            if chunk.sku == sku and source_text in chunk.content.splitlines():
+                return [chunk]
+        return []
 
     async def _recommendations(
         self,
@@ -347,6 +424,8 @@ class RAGOrchestrator:
         )
         if _unbuyable(request, current or product) and not _has_upsell(final_events):
             yield _token(f"\n{NO_ALTERNATIVE_MESSAGE}")
+        for explanation in _explain_recommendations(request.question, _planned_cards(final_events)):
+            yield _token(f"\n{explanation}")
         cited = [chunk for chunk in chunks if chunk.chunk_id in verifier.cited_chunk_ids]
         yield {"event": "citations", "data": {"citations": [_citation(c) for c in cited]}}
         for event in final_events:
