@@ -107,6 +107,15 @@ def _match_game_rows(
     return matched
 
 
+def _game_named_in_tables(question: str, chunks: Sequence[RetrievedChunk]) -> str | None:
+    normalized = folded(question)
+    for chunk in chunks:
+        for row in parse_game_rows(chunk):
+            if re.search(rf"(?<!\w){re.escape(folded(row.game))}(?!\w)", normalized):
+                return row.game
+    return None
+
+
 def _publish_deterministic(answer: ConsultantAnswer) -> list[InternalEvent]:
     events: list[InternalEvent] = [_token(sentence) for sentence in answer.sentences]
     if answer.cited:
@@ -307,7 +316,7 @@ class ConsultantOrchestrator:
         shown_products: Sequence[CatalogProduct],
         by_sku: dict[str, CatalogProduct],
     ) -> ConsultantAnswer:
-        game = parse_game(request.question) or state.slots.game or "GTA V"
+        game = parse_game(request.question)
         if game == "GTA 6":
             kb_chunks = await self._catalog.knowledge_doc(KB_GTA6_PLATFORMS.doc_id)
             platform_hits: list[KbFactHit] = []
@@ -323,13 +332,11 @@ class ConsultantOrchestrator:
             return game_fit_answer((), game, {}, platform_hits, None, None, consoles)
 
         alias_hit: KbFactHit | None = None
-        lookup_game = game
         if game == "GTA RP":
             rp_chunks = await self._catalog.knowledge_doc(KB_GTA_RP.doc_id)
             rp_chunk = kb_sentence(rp_chunks, KB_GTA_RP.text)
             if rp_chunk is not None:
                 alias_hit = KbFactHit(KB_GTA_RP.text, rp_chunk)
-            lookup_game = "GTA V"
 
         if state.mentioned_skus:
             targets = [by_sku[sku] for sku in state.mentioned_skus if sku in by_sku]
@@ -355,6 +362,11 @@ class ConsultantOrchestrator:
 
         target_skus = [p.sku for p in targets]
         table_chunks = await self._catalog.game_tables(target_skus)
+        if game is None:
+            game = _game_named_in_tables(request.question, table_chunks)
+            if game is None:
+                return game_fit_answer((), None, {}, (), None, None, False)
+        lookup_game = "GTA V" if game == "GTA RP" else game
         rows = _match_game_rows(target_skus, table_chunks, lookup_game)
 
         alternative: tuple[CatalogProduct, GameRow] | None = None

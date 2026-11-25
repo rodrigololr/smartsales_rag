@@ -14,7 +14,7 @@ from app.recommendation.intent import folded
 logger = logging.getLogger(__name__)
 
 _GAME_ROW_RE = re.compile(
-    r"^\|\s*(?P<game>[^|]+?)\s*\|\s*(?P<res>\d{3,4}p)\s*\|\s*(?P<preset>[^|]+?)\s*\|\s*(?P<fps>\d+)\s*fps\s*\|$",
+    r"^\|\s*(?P<game>[^|]+?)\s*\|\s*(?P<res>\d{3,4}p)\s*\|\s*(?P<preset>[^|]+?)\s*\|\s*(?P<fps>\d+)\s*fps\s*\|\r?$",
     re.MULTILINE | re.IGNORECASE,
 )
 _KB_MEASURE_ROW_RE = re.compile(

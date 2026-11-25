@@ -399,6 +399,9 @@ def test_no_alternative_notice_uses_the_stock_read_after_the_stream() -> None:
     from app.rag.orchestrator import NO_ALTERNATIVE_MESSAGE
 
     catalog = RestockedCatalog([chunk()])
-    events = run(catalog, ChatModel(["Voltagem: 220V."]), Recommender([]), question="Qual a voltagem?")
+    events = run(
+        catalog, ChatModel(["Voltagem: 220V."]), Recommender([]),
+        question="O que o manual diz sobre a voltagem?",
+    )
     assert catalog.reads == 2
     assert NO_ALTERNATIVE_MESSAGE not in _published(events)

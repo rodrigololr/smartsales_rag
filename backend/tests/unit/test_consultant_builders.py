@@ -317,7 +317,8 @@ def test_ut_cu_10_game_fit_answer_templates() -> None:
     )
     assert ans_rp.sentences == (
         f"{KB_GTA_RP.text} [Fonte: GTA RP no PC, p. 1].\n",
-        "SKU PC-VX3-BIV: sim, o manual informa 75 fps em GTA V a 1080p, predefinição Muito alto [Fonte: Manual PC Gamer Vortex X3, p. 4].\n",
+        "SKU PC-VX3-BIV: o manual informa 75 fps em GTA V a 1080p, predefinição Muito alto [Fonte: Manual PC Gamer Vortex X3, p. 4].\n",
+        "O benchmark é de GTA V. O desempenho em servidores de GTA RP não foi medido nas fontes consultadas.\n",
         f"{GAME_FIT_GENERAL_INFO}\n",
     )
     assert ans_rp.cited == (rp_chunk, m_chunk)

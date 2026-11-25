@@ -347,6 +347,29 @@ def test_conversational_dialogs_offline_replay(dialog: dict[str, object]) -> Non
         )
 
 
+def test_game_fit_uses_a_new_title_from_the_product_manual() -> None:
+    catalog = FakeConsultantCatalog()
+    sku = "PC-VX3-BIV"
+    page = next(chunk for chunk in catalog.manual_chunks[sku] if chunk.page_number == 4)
+    catalog.manual_chunks[sku] = [
+        page.model_copy(update={"content": page.content + "\n| Elden Ring | 1080p | Ultra | 58 fps |\r\n"})
+    ]
+    embedder = FakeEmbedder()
+    chat_model = FakeChatModel()
+    orchestrator = ConsultantOrchestrator(catalog, embedder, chat_model, rag=FakeRag(catalog))
+
+    async def collect() -> list[dict[str, object]]:
+        request = ConsultantRequest(sku=sku, question="Esse PC roda Elden Ring no ultra?")
+        return [event async for event in orchestrator.stream(request)]
+
+    events = asyncio.run(collect())
+    assert _valid_event_sequence(events)
+    assert "58 fps em Elden Ring" in str(events[0]["data"])
+    assert [event["event"] for event in events].count("citations") == 1
+    assert embedder.calls == []
+    assert chat_model.calls == []
+
+
 def test_technical_route_delegates_exact_rag_request() -> None:
     catalog = FakeConsultantCatalog()
     fake_rag = FakeRag(catalog)
