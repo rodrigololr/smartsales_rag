@@ -32,6 +32,7 @@ _FIGURE = re.compile(
     re.I,
 )
 _BIVOLT = re.compile(r"\bbivolt\b", re.I)
+_PRESSURE_FIELD = re.compile(r"^[ \t]*pressao_bar:[ \t]*(\d+(?:[.,]\d+)?)[ \t]*\r?$", re.M)
 _SKU = re.compile(r"\b[A-Z]+(?:-[A-Z0-9]+)+\b", re.I)
 DENIAL = re.compile(
     r"\b(?:nao|nunca|jamais)\s+(?:(?:e|eh|opera|funciona|suporta|tem|possui|custa|"
@@ -62,6 +63,8 @@ def canonical_claim(claim: Claim) -> Claim:
 def supported_claims(text: str) -> set[Claim]:
     # Independent numeric scan for hard attributes, in addition to general units.
     claims = {canonical_claim(c) for c in technical_claims(text)}
+    for raw in _PRESSURE_FIELD.findall(text):
+        claims.add(canonical_claim((raw.replace(",", "."), "bar")))
     for match in _FIGURE.finditer(text):
         value, unit = Decimal(match[1].replace(",", ".")), match[2].lower()
         if unit in {"v", "volt", "volts"}:
@@ -119,6 +122,12 @@ def _catalog_claims(product: CatalogProduct | None, evidence: str) -> set[Claim]
         claims.add((str(product.power_watts), "W"))
     if product.capacity_liters is not None:
         claims.add((format((product.capacity_liters * 1000).normalize(), "f"), "mL"))
+    pressure = product.specs_json.get("pressao_bar")
+    if type(pressure) in (int, float):
+        value = Decimal(str(pressure))
+        if value.is_finite() and value > 0:
+            claims = {claim for claim in claims if claim[1] != "bar"}
+            claims.add((format(value.normalize(), "f"), "bar"))
     return claims
 
 

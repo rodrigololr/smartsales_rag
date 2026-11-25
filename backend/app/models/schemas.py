@@ -114,3 +114,4 @@ class ProductRecommendation(BaseModel):
     capacity_liters: Decimal | None = Field(default=None, gt=0)
     power_watts: int | None = Field(default=None, gt=0)
     recommendation_type: Literal["PRIMARY", "UPSELL", "CROSS_SELL", "OPTION"]
+    justification: str = Field(default="", exclude=True)
