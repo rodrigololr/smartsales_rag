@@ -1,0 +1,22 @@
+Monitor Gamer Lumina 24 FHD
+Modelo MN-LM24-BIV
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o monitor e guarde-o para consultas futuras.
+## Instruções de segurança
+Apoie a base do monitor sobre mesa nivelada e estável.
+Não pressione a superfície do painel LCD nem borrife líquidos diretamente na tela.
+Desconecte o cabo de energia durante tempestades elétricas ou longos períodos sem uso.## Especificações técnicas
+Tela de 24 polegadas com painel IPS antirreflexo e resolução Full HD de 1920 x 1080 pixels.
+Taxa de atualização máxima de 165 Hz e tempo de resposta de 1 ms.
+Suporte a sincronização adaptativa de quadros para placas de vídeo compatíveis.## Especificações elétricas
+Fonte de 30 W com seleção automática de tensão (bivolt automática).
+Funciona em tomadas de 127V ou 220V sem necessidade de chave seletora.
+Consumo nominal em operação de 30 W.## Entradas e compatibilidade
+Equipado com 2x HDMI 2.0 e 1x DisplayPort 1.4, além de saída de áudio para fones.
+Compatível com PCs gamer, notebooks e consoles por conexão HDMI ou DisplayPort.
+Acompanham na caixa o cabo DisplayPort e o cabo de alimentação.## Montagem VESA e ergonomia
+Base com ajuste de inclinação e furação traseira padrão VESA 100 x 100 mm para suporte articulado.
+Para limpeza do painel, utilize pano de microfibra seco e limpo com o monitor desligado.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre trincas no painel por impacto, quedas, umidade ou uso fora das especificações.

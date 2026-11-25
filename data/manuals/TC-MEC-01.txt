@@ -1,0 +1,21 @@
+Teclado Mecânico Cliqon Strike
+Modelo TC-MEC-01
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o produto e guarde-o para consultas futuras.## Instruções de segurança
+Não derrame líquidos sobre o teclado.
+Faça pausas regulares durante longos períodos de digitação.## Componentes
+1. Teclado mecânico ABNT2 com teclado numérico
+2. Pés retráteis de inclinação
+3. Extrator de teclas## Especificações técnicas
+Este produto não é ligado diretamente à tomada: é alimentado pela porta USB do computador.
+Layout ABNT2 com teclado numérico e cedilha.
+Cabo USB de 1,8 metro.## Instalação e atalhos
+Conecte o cabo a uma porta USB do computador; não é necessário instalar programas.
+Pressione Fn e as setas para cima ou para baixo para ajustar o brilho da iluminação.
+Pressione Fn e a tecla Windows para bloquear a tecla Windows durante jogos.## Limpeza e manutenção
+Desconecte o teclado antes de limpar.
+Remova as teclas com o extrator para limpar entre os switches com pincel macio.
+Limpe as teclas com pano levemente úmido.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre quedas, mau uso, uso comercial ou reparos feitos por terceiros.

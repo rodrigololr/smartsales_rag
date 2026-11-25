@@ -1,0 +1,105 @@
+# MVP local: docker compose up --build  (requer LLM_API_KEY no arquivo .env da raiz)
+# Vitrine: http://localhost:3000  | Gateway: http://localhost:8000/api/v1/health
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: smartsales
+      POSTGRES_PASSWORD: smartsales
+      POSTGRES_DB: smartsales
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartsales"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Sessões, cache semântico e catalog:version (specs/architecture/02, seção 4).
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Indexa catálogo base + consultor + data/manuals/ + data/knowledge/ (UC08). Fontes inalteradas são puladas.
+  # Para avaliação isolada RAGAS B05 (base-only): python -m app.ingestion.run --catalog ../data/catalog.json --manuals ../data/manuals --relations ../data/product_relations.json
+  ingest:
+    build: ./backend
+    # Falhas transitórias (ex.: HTTP 429 do provedor) não travam a pilha de primeira.
+    restart: on-failure:3
+    command: ["python", "-m", "app.ingestion.run", "--catalog", "/data/catalog.json", "--catalog", "/data/catalog_consultor.json", "--manuals", "/data/manuals", "--relations", "/data/product_relations.json", "--relations", "/data/product_relations_consultor.json", "--knowledge", "/data/knowledge"]
+    environment: &backend-env
+      DATABASE_URL: postgresql://smartsales:smartsales@db:5432/smartsales
+      REDIS_URL: redis://redis:6379/0
+      LLM_API_KEY: ${LLM_API_KEY:?defina LLM_API_KEY no .env da raiz}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      SIMILARITY_THRESHOLD: ${SIMILARITY_THRESHOLD:-0.72}
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  backend:
+    build: ./backend
+    environment: *backend-env
+    restart: unless-stopped
+    depends_on:
+      ingest:
+        condition: service_completed_successfully
+
+  middleend:
+    build: ./middleend
+    environment:
+      DATABASE_URL: postgresql://smartsales:smartsales@db:5432/smartsales
+      BACKEND_INTERNAL_URL: http://backend:8001
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      REDIS_URL: redis://redis:6379/0
+      CHECKOUT_DECREMENT_STOCK: ${CHECKOUT_DECREMENT_STOCK:-true}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    # Not tied to the ingestion: catalog/checkout come up with the database, and chat
+    # degrades to the controlled LLM_UNAVAILABLE fallback until the backend is ready.
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    # Build de produção: NEXT_PUBLIC_* entra no bundle no build; as páginas buscam o catálogo por requisição.
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm build && pnpm start --hostname 0.0.0.0"
+    environment:
+      # Lido pelo navegador (embutido no build), por isso aponta para a porta publicada no host.
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      # Lido pelo servidor Next (catálogo SSR) dentro da rede do compose.
+      API_INTERNAL_BASE_URL: http://middleend:8000
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      middleend:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  frontend_node_modules:

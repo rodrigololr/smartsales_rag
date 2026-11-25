@@ -120,7 +120,10 @@ class Contracts(unittest.TestCase):
         self.assertEqual(len(self.api['components']['schemas']['StreamEvent']['oneOf']),7)
 
     def test_python_examples_compile(self):
-        for path in ROOT.rglob('*.md'):
+        # Only project documentation is normative; installed dependency READMEs
+        # can contain illustrative, intentionally non-executable snippets.
+        paths = [*ROOT.glob('*.md'), *(ROOT / 'specs').rglob('*.md')]
+        for path in paths:
             for code in blocks(str(path.relative_to(ROOT))):
                 ast.parse(textwrap.dedent(code))
 

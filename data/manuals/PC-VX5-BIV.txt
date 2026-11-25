@@ -1,0 +1,28 @@
+PC Gamer Vortex X5
+Modelo PC-VX5-BIV
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o computador e guarde-o para consultas futuras.
+## Instruções de segurança
+Posicione o gabinete em local seco, plano e longe de fontes de calor ou umidade.
+Não obstrua as ventoinhas frontais nem a saída traseira de exaustão.
+Desconecte o cabo de energia antes de realizar limpeza interna.## Especificações técnicas
+Processador AMD Ryzen 5 7600 de 6 núcleos e 12 threads.
+Placa de vídeo dedicada NVIDIA GeForce RTX 4060 com 8 GB de VRAM GDDR6.
+Memória instalada de 16 GB DDR5 em dual-channel.
+Armazenamento em SSD NVMe M.2 de 1000 GB.
+Conexões de vídeo da placa dedicada: HDMI 2.1 e DisplayPort 1.4a.## Especificações elétricas
+Fonte de 650 W com seleção automática de tensão (bivolt automática).
+Opera em redes de 127V ou 220V sem necessidade de ajuste manual.
+Recomenda-se tomada aterrada dedicada para o computador e o monitor.## Desempenho em jogos
+| Jogo | Resolução | Predefinição | Desempenho médio |
+| Roblox | 1080p | Alto | 200 fps |
+| GTA V | 1080p | Muito alto | 105 fps |
+| Fortnite | 1080p | Alto | 120 fps |
+| Counter-Strike 2 | 1080p | Alto | 185 fps |
+Valores medidos pelo fabricante em ambiente de teste.## Dimensões e gabinete
+Gabinete mid-tower com painel frontal telado e três ventoinhas pré-instaladas.
+Largura de 22 cm, altura de 46 cm e profundidade de 44 cm.
+Remova o filtro superior e o filtro inferior da fonte para limpeza periódica a seco.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre mau uso, violação dos lacres internos ou danos por descarga atmosférica.

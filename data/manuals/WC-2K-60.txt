@@ -1,0 +1,22 @@
+Webcam Cliqon Pro 2K60
+Modelo WC-2K-60
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar a webcam e guarde-o para consultas futuras.
+## Instruções de segurança
+Mantenha a webcam longe de fontes de calor, vapor e respingos de líquidos.
+Não desmonte o corpo da câmera nem remova o cabo USB fixo.
+Utilize o obturador físico integrado para proteger a lente contra poeira.## Especificações técnicas
+Este produto não é ligado diretamente à tomada: é alimentado exclusivamente via porta USB do computador.
+Resolução máxima Quad HD de 2560 x 1440 pixels a 60 fps, também operável em 1920 x 1080 a 60 fps.
+Foco automático de alta precisão e microfone estéreo duplo com redução de ruído ambiente.## Instalação USB
+1. Fixe a base articulada na borda superior do monitor ou monte na rosca metálica para tripé.
+2. Conecte o cabo a uma porta USB do computador sem necessidade de instalar drivers adicionais.
+3. Ajuste a inclinação vertical para enquadrar o rosto na altura dos olhos.## Uso em transmissões
+Compatível com softwares de streaming e videoconferência em 1080p a 60 fps ou 1440p a 60 fps.
+Permite enquadramento fechado sem perda de nitidez em cenas de transmissão ao vivo.
+Iluminação uniforme no ambiente preserva a fluidez de 60 quadros por segundo sem ruído digital.## Limpeza e manutenção
+Passe apenas flanela de microfibra seca sobre o elemento óptico frontal.
+Guarde em local seco quando desconectada do computador.## Garantia
+Garantia de 24 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre danos por queda, tração excessiva no cabo, umidade ou abertura do produto.

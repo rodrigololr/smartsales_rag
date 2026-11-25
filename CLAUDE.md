@@ -10,7 +10,7 @@ O **SmartSales RAG** é um assistente especialista de vendas consultivas B2B/B2B
 1. **Busca Híbrida (`PostgreSQL + pgvector`)**: similaridade vetorial (`cosine similarity`, dimensão `1536`, índice `HNSW`) nos *chunks* de manuais PDF + filtragem relacional estrita (`estoque > 0`, `voltagem`, `capacidade`, `categoria`, `preco_atual`) na tabela de catálogo.
 2. **Orquestração RAG Determinística (`Python + LangChain + OpenAI`)**: geração ancorada exclusivamente nas evidências recuperadas, com citação obrigatória (`[Fonte: Manual <Produto>, p. <X>]`), *guardrails* anti-alucinação e motor de regras de **Cross-sell** (acessórios compatíveis) e **Upsell** (modelos de capacidade/linha superior dentro do teto de `+35%` de preço).
 3. **Middle-end / API Gateway (`FastAPI Async + Redis Upstash`)**: gerenciamento de sessão, histórico multi-turno, cache semântico (`TTL = 3600s`), *rate limiting*, telemetria (`TTFT`, latência, uso de tokens), rota de *mock checkout* e transmissão em tempo real via **Server-Sent Events (`SSE`)**.
-4. **Frontend Conversacional (`Next.js 14+ App Router + React 18 + TypeScript + Tailwind CSS`)**: vitrine de produtos integrada com **Painel Lateral do Consultor IA (*Contextual Side-Drawer* estilo Amazon Rufus)** que abre ao selecionar um produto (injetando automaticamente o `current_product_sku` na sessão), renderização progressiva token a token via SSE, *badges* clicáveis de citação da fonte, vitrine dinâmica de *Product Cards* com **link direto de checkout/afiliado (`checkout_url` / `marketplace`: Amazon, Mercado Livre, Shopee, Loja Oficial)** rastreado pelo endpoint `/api/v1/checkout/mock`, e coleta de feedback (*like/dislike*).
+4. **Frontend Conversacional (`Next.js 16 App Router + React 19 + TypeScript + Tailwind CSS 4 + shadcn/ui`)**: vitrine de produtos integrada com **Painel Lateral do Consultor IA (*Contextual Side-Drawer* estilo Amazon Rufus)** que abre ao selecionar um produto (injetando automaticamente o `current_product_sku` na sessão), renderização progressiva token a token via SSE, *badges* clicáveis de citação da fonte, vitrine dinâmica de *Product Cards* com **link direto de checkout/afiliado (`checkout_url` / `marketplace`: Amazon, Mercado Livre, Shopee, Loja Oficial)** rastreado pelo endpoint `/api/v1/checkout/mock`, e coleta de feedback (*like/dislike*).
 
 ---
 
@@ -18,7 +18,7 @@ O **SmartSales RAG** é um assistente especialista de vendas consultivas B2B/B2B
 
 > [!CAUTION]
 > **NUNCA VIOLE ESTAS 6 REGRAS EM NENHUM COMPONENTE DO SISTEMA:**
-> 1. **Proibição Absoluta de Alucinação Técnica (`R01`)**: O LLM jamais deve inferir, adivinhar ou extrapolar voltagem (`127V` vs `220V` vs `Bivolt`), potência (`W`), capacidade (`Litros`), compatibilidade ou preço que não estejam explicitamente presentes nos *chunks* ou metadados SQL retornados pelo banco.
+> 1. **Proibição Absoluta de Alucinação Técnica (`R01`)**: O LLM jamais deve inferir, adivinhar ou extrapolar voltagem (`127V` vs `220V` vs `Bivolt`), potência (`W`), capacidade (`Litros`), compatibilidade ou preço que não estejam explicitamente presentes nos *chunks* de manuais, na base de conhecimento curada (`knowledge_chunks`) ou nos metadados SQL retornados pelo banco. Emenda de conhecimento híbrido (PO 21/11/2026): fatos externos técnicos/numéricos devem vir exclusivamente da base curada com citação `[Fonte: <título KB>, p. <N>]`; contexto geral não numérico só é permitido em sentenças iniciadas por `"Informação geral:"` sem dígitos, unidades, preços, especificações ou ranking de marcas.
 > 2. **Fallback Seguro Obrigatório (`score < SIMILARITY_THRESHOLD` ou `0 chunks`)**: Quando a busca híbrida retornar `0 chunks` ou `similarity_score < 0.72` (valor inicial, calibrado no *Golden Set*), o orquestrador **NÃO deve invocar geração aberta**. Deve emitir o evento SSE `error` com `code = "LOW_SIMILARITY_FALLBACK"` e a mensagem segura padronizada informando que a especificação exata não consta no manual/catálogo ativo, seguido de `recommendations` com itens similares em estoque.
 > 3. **Filtro Rígido de Estoque (`stock_quantity > 0`)**: Nenhum produto esgotado (`stock_quantity <= 0`) pode ser recomendado como opção de compra principal, *upsell* ou *cross-sell* (a busca de *chunks* de manual **não** filtra estoque, para permitir responder dúvidas sobre itens esgotados).
 > 4. **Sincronização de Preço e Estoque no Card e Checkout (`R09`)**: O preço e a disponibilidade exibidos no *Product Card* e validados no *Mock Checkout* devem vir sempre da consulta determinística ao PostgreSQL (nunca de texto livre gerado pelo LLM).
@@ -103,7 +103,7 @@ smartsales_rag/
 │   │   ├── middleware/                # Rate limiting, CORS, correlação de trace_id e telemetria TTFT
 │   │   └── schemas/                   # Contratos OpenAPI 3.1 / Pydantic v2
 │   └── tests/                         # Pytest Async + httpx/sse-starlette tests
-└── frontend/                          # Camada 1: Next.js 14+ UI, Streaming Chat e Product Cards (F01–F05)
+└── frontend/                          # Camada 1: Next.js 16 UI, Streaming Chat e Product Cards (F01–F05)
     ├── src/
     │   ├── app/                       # App Router Next.js (vitrine + /admin/metricas — UC09)
     │   ├── components/
@@ -125,7 +125,7 @@ Toda comunicação de *streaming* entre o **Middle-end** e o **Frontend** deve e
 2. `event: token` — Fragmento incremental de texto renderizado em tempo real na UI: `{"delta": "..."}`.
 3. `event: correction` *(opcional)* — Emitido pelo `OutputGuardrail (G-OUT)` apenas para fallback seguro em falha de transporte; o Frontend **substitui** o texto da bolha: `{"violation_code": "STREAM_INTERRUPTED", "content": "<texto completo corrigido>"}`.
 4. `event: citations` — Fontes técnicas verificadas: `{"citations": [{"chunk_id": "...", "sku": "...", "manual_title": "...", "page_number": 14, "section_title": "...", "similarity_score": 0.89, "excerpt": "..."}]}`.
-5. `event: recommendations` — *Product Cards* validados no SQL (máx. 3: 1 `PRIMARY`, até 1 `UPSELL`, até 1 `CROSS_SELL`): `{"products": [{"sku": "...", "name": "...", "price": 649.90, "stock_quantity": 12, "voltage": "220V", "capacity_liters": 4.0, "power_watts": 1500, "image_url": "...", "marketplace": "AMAZON | MERCADO_LIVRE | SHOPEE | LOJA_OFICIAL", "checkout_url": "https://...", "recommendation_type": "PRIMARY | UPSELL | CROSS_SELL", "badge_label": "...", "justification": "..."}]}`.
+5. `event: recommendations` — *Product Cards* validados no SQL (máx. 5 no modo consultor: até 1 `PRIMARY`, até 1 `UPSELL`, até 1 `CROSS_SELL`, até 4 `OPTION`; até 3 nos turnos legados de produto): `{"products": [{"sku": "...", "name": "...", "price": 649.90, "stock_quantity": 12, "voltage": "220V", "capacity_liters": 4.0, "power_watts": 1500, "image_url": "...", "marketplace": "AMAZON | MERCADO_LIVRE | SHOPEE | LOJA_OFICIAL", "checkout_url": "https://...", "recommendation_type": "PRIMARY | UPSELL | CROSS_SELL | OPTION", "badge_label": "...", "justification": "..."}]}`.
 6. `event: error` — Falha controlada ou *fallback* (**não** encerra o stream): `{"code": "GUARDRAIL_BLOCKED | LOW_SIMILARITY_FALLBACK | LLM_UNAVAILABLE | INTERNAL_ERROR", "recoverable": true, "fallback_message": "..."}`.
 7. `event: done` — **Sempre o último evento**: `{"finish_reason": "stop | fallback | error", "total_latency_ms": 2140, "tokens_used": 412}`.
 
@@ -154,8 +154,8 @@ cd backend && python -m app.ingestion.run --catalog ../data/catalog.json --manua
 cd middleend && pytest tests -v --cov=app --cov-fail-under=70
 
 # Frontend (Next.js / Vitest / Playwright)
-npm --prefix frontend run test:unit
-npm --prefix frontend run test:e2e
+pnpm -C frontend run test:unit
+pnpm -C frontend run test:e2e
 ```
 
 ---

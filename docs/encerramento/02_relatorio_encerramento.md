@@ -1,0 +1,141 @@
+# Relatório de Encerramento do Projeto (`EAP 7.3` · Marco `M5`)
+
+> **Rascunho de 11/11/2026.** Estrutura e dados já conhecidos do repositório. Os
+> campos **[PREENCHER]** dependem do fechamento da homologação (16/11 a 24/11) e do
+> apontamento de horas. Aprovador: Antônio Rodrigo. Responsável: Walber.
+
+## 1. Identificação
+
+| Campo | Valor |
+| :--- | :--- |
+| Projeto | SmartSales RAG — assistente de vendas consultivas com RAG |
+| Período planejado | 22/09/2026 a 24/11/2026 (9 semanas) |
+| Gerente do projeto | Antônio Rodrigo |
+| Product Owner | Walber |
+| Tech Lead | Filipe |
+| Data de encerramento | **[PREENCHER]** |
+
+## 2. Balanço de escopo
+
+Situação dos pacotes em 11/11/2026, pelas issues do repositório, atualizada em
+21/11/2026 pelos PRs. Os PRs #35 a #42 estão abertos, aguardando revisão e merge na
+`develop` (#37, #39, #41 e #42 estão empilhados: cada um tem como base o PR anterior da
+mesma trilha); a branch `integration/all` reúne todos e corresponde à versão final.
+Atualizar na data de encerramento.
+
+| Pacote | Entrega | Situação em 11/11 (atualizada em 21/11) | Situação final |
+| :---: | :--- | :--- | :---: |
+| `G01`, `G03` | Specs SDD/TDD e baseline de gestão | Concluído (PR #1). | **[PREENCHER]** |
+| `F01`, `F02` | Protótipos, setup e chat com SSE | Concluídos (PRs #23 e #24). | **[PREENCHER]** |
+| `B01` | Docker, pgvector, ingestão do catálogo | Concluído e mesclado na `develop` (PR #27). | **[PREENCHER]** |
+| `B02` | Busca híbrida e orquestração LLM | Implementado (PR #25). Falta comprovar o TTFT com medição. | **[PREENCHER]** |
+| `B03` | Ingestão de manuais e guardrails | Implementado (PR #25); controle por `ingestion_jobs` e `catalog:version` no PR #28. | **[PREENCHER]** |
+| `B04` | Motor de recomendação | Motor mesclado (PR #22); ligação ao fluxo do RAG no PR #29. | **[PREENCHER]** |
+| `B05` | Golden Set e runner RAGAS | Mesclado na `develop` (PR #26, 07/11). Falta executar a avaliação e registrar o relatório (seção 5). | **[PREENCHER]** |
+| `M01` | Gateway, contratos e segurança base | Implementado no PR #36 (*rate limiting* de 30 req/min por sessão e por IP, envelope de erro `422` e contrato OpenAPI), aguardando revisão. | **[PREENCHER]** |
+| `M02` | SSE e sessões no Redis | SSE mesclado; sessões no Redis no PR #30. | **[PREENCHER]** |
+| `M03` | Cache e invalidação | Chave canônica mesclada; cache no Redis com revalidação no PR #31. | **[PREENCHER]** |
+| `M04`, `M05` | Catálogo, telemetria, checkout e feedback | Implementados, aguardando revisão: catálogo, feedback e *mock checkout* no PR #35; `GET /api/v1/metrics/summary` no PR #37. Catálogo de demonstração ampliado para 32 produtos no PR #40. | **[PREENCHER]** |
+| `F03`, `F04` | Citação, feedback, cards e painel | Implementados, aguardando revisão: citações e *like*/*dislike* no PR #39; cards com checkout, painel `/admin/metricas` e vitrine via API no PR #41; refinamento visual no PR #42. | **[PREENCHER]** |
+| `F05` | Testes E2E e aferição de KPIs | Suíte Playwright e sonda de SLA no PR #33. Em 16/11, na pilha real: 6 testes E2E passando e 4 `fixme`; sonda com código 1 (seção 5). | **[PREENCHER]** |
+| `G04` | Documentação técnica | README e guia de desenvolvimento atualizados no PR #32; monitoramento e controle (`EAP 6.1`–`6.3`) no PR #38, aguardando revisão. | **[PREENCHER]** |
+| `G02` | Demo, relatório e lições | Este documento. | **[PREENCHER]** |
+
+Mudanças de escopo aprovadas: **[PREENCHER: listar com data e aprovador, por
+exemplo o uso do Google Gemini no lugar da OpenAI no MVP]**.
+
+Itens não entregues e motivo: **[PREENCHER]**.
+
+## 3. Balanço de prazo
+
+| Marco | Data planejada | Data real | Desvio (dias úteis) |
+| :---: | :---: | :---: | :---: |
+| `M1` — Fundação e contratos | 02/10/2026 | **[PREENCHER]** | **[PREENCHER]** |
+| `M2` — Streaming ponta a ponta | 16/10/2026 | **[PREENCHER]** | **[PREENCHER]** |
+| `M3` — RAG Fiel com Guardrails, Citação e Cache | 29/10/2026 | **[PREENCHER]** | **[PREENCHER]** |
+| `M4` — Vendas Consultivas, Cards e Checkout Integrados | 10/11/2026 | **[PREENCHER]** | **[PREENCHER]** |
+| `M5` — Entrega final e pitch | 24/11/2026 | **[PREENCHER]** | **[PREENCHER]** |
+
+Em 11/11/2026 havia 16 issues abertas, entre elas sete pacotes com prazo vencido em
+outubro (`B01`, `M01`, `B02`, `M02`, `F03`, `M03`, `B03`). Registrar aqui a causa do atraso e a
+ação tomada: **[PREENCHER]**.
+
+Índice de desempenho de prazo no encerramento: `SPI = EV / PV` =
+**[PREENCHER]** (limiar de controle: ≥ 0,90).
+
+## 4. Balanço de custos
+
+O projeto tem dois cenários (`specs/diagrams_and_pm/09_quadro_custos_eac.md`): o
+simulado de mercado, usado como linha de base, e o real acadêmico, sem desembolso.
+
+| Categoria | Orçado (simulado) | Realizado (`AC`) | Variação |
+| :--- | ---: | ---: | ---: |
+| 1. Recursos humanos (1.440 h) | R$ 99.000,00 | **[PREENCHER: horas apontadas × valor-hora]** | **[PREENCHER]** |
+| 2. Materiais, serviços e aquisições cloud | R$ 3.500,00 | **[PREENCHER]** | **[PREENCHER]** |
+| 3. Maquinário, infraestrutura e ferramental | R$ 2.655,00 | **[PREENCHER]** | **[PREENCHER]** |
+| 4. Reserva de contingência (10%) | R$ 10.515,50 | **[PREENCHER: quanto foi consumido]** | **[PREENCHER]** |
+| **Total (`BAC`)** | **R$ 115.670,50** | **[PREENCHER]** | **[PREENCHER]** |
+
+| Indicador | Fórmula | Valor | Limiar |
+| :--- | :--- | :---: | :---: |
+| Valor agregado (`EV`) | % concluído × `BAC` | **[PREENCHER]** | — |
+| Custo real (`AC`) | soma do realizado | **[PREENCHER]** | — |
+| `CPI` | `EV / AC` | **[PREENCHER]** | ≥ 0,95 |
+| Estimativa no término (`EAC`) | `BAC / CPI` | **[PREENCHER]** | — |
+| Variação no término (`VAC`) | `BAC − EAC` | **[PREENCHER]** | — |
+
+Custo real no cenário acadêmico: R$ 0,00 planejado. Confirmar se houve gasto com a
+chave do provedor de IA: **[PREENCHER]**.
+
+## 5. Árvore de qualidade
+
+Metas de `specs/diagrams_and_pm/10_qualidade_arvore_metricas.md`.
+
+| Métrica | Meta | Medido | Atendida | Evidência |
+| :--- | :---: | :---: | :---: | :--- |
+| Fidelidade do RAG | ≥ 0,85 | **[PREENCHER]** | **[ ]** | Relatório RAGAS (`B05`). |
+| Precisão das respostas técnicas | ≥ 90% | **[PREENCHER]** | **[ ]** | Gabarito do Golden Set. |
+| Taxa de alucinação | ≤ 5% | **[PREENCHER]** | **[ ]** | Relatório RAGAS. |
+| `P@5` | ≥ 0,80 | **[PREENCHER]** | **[ ]** | Relatório RAGAS. |
+| Aderência aos filtros de negócio | 100% | **[PREENCHER]** | **[ ]** | Testes de recomendação e E2E-02. |
+| TTFT p95 | ≤ 2 s | **[PREENCHER]** | **[ ]** | `python -m app.telemetry.sla_probe` (`ttft_p95_ms`; informar o n de `generated`). |
+| Tempo total p95 | ≤ 8 s | **[PREENCHER]** | **[ ]** | `sla_probe` (`total_p95_ms`, mesmo n). |
+| Taxa de acerto do cache | ≥ 30% | **[PREENCHER]** | **[ ]** | `cache_hit_ratio` de `GET /api/v1/metrics/summary`, no painel `/admin/metricas` (PR #37). Não é o `synthetic_load_cache_hit_ratio` do `sla_probe` (carga sintética, 0 numa execução normal). |
+| Disponibilidade do chat | ≥ 99% | **[PREENCHER]** | **[ ]** | Monitoramento da homologação. |
+| Taxa de erro da API | ≤ 1% | **[PREENCHER]** | **[ ]** | Logs do gateway. |
+| Aprovação das respostas | ≥ 80% | **[PREENCHER]** | **[ ]** | `feedback_logs` (`like_ratio` no painel `/admin/metricas`). |
+| Cliques em "Comprar agora" | ≥ 10% dos cards | **[PREENCHER]** | **[ ]** | `checkout_events` (`card_ctr` no painel `/admin/metricas`). |
+| Cobertura de testes | ≥ 70% | **[PREENCHER]** | **[ ]** | CI da `develop`. |
+| Defeitos críticos abertos | 0 | **[PREENCHER]** | **[ ]** | Issues com rótulo de defeito. |
+| `SPI` | ≥ 0,90 | **[PREENCHER]** | **[ ]** | Seção 3. |
+| Itens aceitos na *Sprint Review* | ≥ 90% | **[PREENCHER]** | **[ ]** | Atas das revisões (`C08`). |
+
+Já registrado no repositório em 07/11/2026: com o Gemini, o TTFT medido ficou entre
+1,3 s e 6 s (comentário da issue #7), acima da meta. Informar a medição final e a
+decisão tomada: **[PREENCHER]**.
+
+Execução única da sonda em 16/11/2026 na pilha real (Gemini, `--concurrency 2`); não é
+resultado de homologação: código de saída 1, 30 requisições, 23 geradas, 2 *fallbacks* e
+5 falhas `LLM_UNAVAILABLE` (HTTP 429 do provedor); TTFT p50 de 1431 ms e p95 de 4739 ms
+(teto 2000 ms); tempo total p95 de 5081 ms (teto 8000 ms).
+Ela não preenche a tabela acima.
+
+## 6. Riscos
+
+| Risco | Ocorreu? | Impacto | Resposta aplicada |
+| :--- | :---: | :--- | :--- |
+| `R01` (Top 5 `R1`) — alucinação técnica | **[PREENCHER]** | **[PREENCHER]** | Guardrails em três níveis e Golden Set. |
+| `R09` (Top 5 `R2`) — falha na ingestão do catálogo e preço ou estoque dessincronizado | **[PREENCHER]** | **[PREENCHER]** | `ingestion_jobs` com novas tentativas; cards lidos do SQL e revalidação no *cache hit*. |
+| Indisponibilidade ou latência do provedor de IA | **[PREENCHER]** | **[PREENCHER]** | *Fallback* `LLM_UNAVAILABLE` e provedor configurável. |
+| **[PREENCHER: demais riscos de `16_gestao_riscos.md`]** | | | |
+
+## 7. Aceite formal
+
+| Entrega | Critério | Aceite | Data | Quem |
+| :--- | :--- | :---: | :---: | :--- |
+| Produto em homologação | Smoke test da demo aprovado. | **[ ]** | **[PREENCHER]** | Walber |
+| Documentação técnica | Guia reproduzido em máquina limpa. | **[ ]** | **[PREENCHER]** | Filipe |
+| Relatório de qualidade | Metas bloqueantes atendidas ou desvio aprovado. | **[ ]** | **[PREENCHER]** | Antônio Rodrigo |
+| Encerramento do projeto | Este relatório e as lições aprendidas. | **[ ]** | **[PREENCHER]** | Patrocinador |
+
+Pendências transferidas e para quem: **[PREENCHER]**.

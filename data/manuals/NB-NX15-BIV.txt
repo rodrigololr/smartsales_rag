@@ -1,0 +1,28 @@
+Notebook Gamer Nimbus 15
+Modelo NB-NX15-BIV
+Manual de demonstração do MVP SmartSales RAG (conteúdo sintético; substitua pelo PDF oficial do fabricante com o mesmo nome de arquivo).
+
+Leia este manual antes de usar o notebook e guarde-o para consultas futuras.
+## Instruções de segurança
+Utilize o notebook sobre mesa plana e rígida para não bloquear as entradas inferiores de ar.
+Não apoie o aparelho sobre colchões, almofadas ou tapetes durante sessões de jogo.
+Use exclusivamente a fonte externa original fornecida na embalagem.## Especificações técnicas
+Processador Intel Core i5-12450H.
+Placa de vídeo dedicada NVIDIA GeForce RTX 3050.
+Memória instalada de 16 GB e armazenamento em SSD NVMe de 512 GB.
+Tela IPS de 15,6 polegadas Full HD com taxa de atualização de 144 Hz.
+Saída HDMI para monitor externo, portas USB e teclado retroiluminado ABNT2.## Especificações elétricas
+Fonte de 180 W com seleção automática de tensão (bivolt automática).
+Opera em tomadas de 127V ou 220V sem chave seletora.
+Para desempenho máximo da placa dedicada em jogos, mantenha o carregador de 180 W conectado à tomada.## Desempenho em jogos
+| Jogo | Resolução | Predefinição | Desempenho médio |
+| Roblox | 1080p | Alto | 145 fps |
+| GTA V | 1080p | Muito alto | 68 fps |
+| Fortnite | 1080p | Médio | 82 fps |
+| Counter-Strike 2 | 1080p | Alto | 125 fps |
+Valores medidos pelo fabricante em ambiente de teste.## Dimensões e estrutura
+Chassi compacto com peso aproximado de 2,3 kg e sistema duplo de ventoinhas.
+Limpe a tela apenas com pano de microfibra seco e sem pressão excessiva sobre o painel.
+Mantenha as grelhas traseiras e laterais desobstruídas.## Garantia
+Garantia de 12 meses contra defeitos de fabricação, contados a partir da data da nota fiscal.
+A garantia não cobre derramamento de líquidos, trincas na tela por impacto ou uso de carregador paralelo.

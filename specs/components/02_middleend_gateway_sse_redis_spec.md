@@ -11,7 +11,7 @@
 ```mermaid
 flowchart LR
     CLIENT["Frontend Next.js"] --> RL["<b>RateLimit & CORS Middleware</b><br/>30 req/min por IP/Sessão"]
-    RL --> SESS["<b>SessionManager (Redis)</b><br/>Carrega/atualiza histórico (10 turnos)<br/>e máquina de estados"]
+    RL --> SESS["<b>SessionManager (Redis)</b><br/>Carrega/atualiza histórico (10 mensagens, 5 turnos)<br/>e máquina de estados"]
     SESS --> CACHE["<b>SemanticCacheService (Redis)</b><br/>Lookup por SHA-256 normalizado<br/>+ catalog:version (TTL 3600s)"]
     CACHE -->|"CACHE HIT (≥ 30%)"| SSE_GEN["<b>SSEEventGenerator</b><br/>Emite metadata, token, correction,<br/>citations, recommendations, error, done"]
     CACHE -->|"CACHE MISS"| PROXY["<b>BackendStreamClient (httpx)</b><br/>Consome /internal/rag/stream<br/>com timeout e retry"]
@@ -33,11 +33,11 @@ Toda requisição em `POST /api/v1/chat/stream` transita a sessão `session:{id}
 
 | Estado Interno | Evento Gatilho | Ação Executada pelo Gateway | Próximo Estado |
 | :--- | :--- | :--- | :--- |
-| `IDLE` | Recebimento de `POST /api/v1/chat/stream` | Valida payload, adquire *lock* leve de geração da sessão e carrega últimos `10` turnos do Redis. | `VALIDATING_CACHE` |
+| `IDLE` | Recebimento de `POST /api/v1/chat/stream` | Valida payload, adquire *lock* leve de geração da sessão e carrega as últimas `10` mensagens (5 turnos) do Redis. | `VALIDATING_CACHE` |
 | `VALIDATING_CACHE` | Lookup em `cache:sem:{ver}:{hash}` | Se *Cache Hit*, prepara *stream* acelerado ($\text{TTFT} \le 120\text{ ms}$). Se *Cache Miss*, despacha ao Backend RAG. | `STREAMING_TOKENS` |
 | `STREAMING_TOKENS` | Recepção dos deltas do Backend / Cache | Emite `event: metadata` (registrando `ttft_ms`), seguido de múltiplos `event: token`. | `EMITTING_CARDS_AND_CITATIONS` |
 | `EMITTING_CARDS_AND_CITATIONS` | Fim dos tokens textuais | Emite `event: correction` (somente fallback de transporte), `event: citations`, `event: recommendations` e persiste resposta validada/registro idempotente. Atualiza cache e histórico; só então emite `event: done`. | `IDLE` |
-| `ERROR_CONTINGENCY` | *Timeout* (`> 3 s` sem 1º token, após 1 nova tentativa) ou erro `5xx` no LLM | Aciona contingência (`RNF07`): `event: metadata` → `event: error` (`LLM_UNAVAILABLE`) → `event: recommendations` determinísticas do SQL → `event: done` (`finish_reason: "error"`); libera o *lock* da sessão. | `IDLE` |
+| `ERROR_CONTINGENCY` | *Timeout* (`> 12 s` sem 1º evento, sem nova tentativa; maior que o pior caso do backend: *embedding* 3 s + primeiro token 3 s × 2) ou erro de conexão / `5xx` do backend após 1 nova tentativa | Aciona contingência (`RNF07`): `event: metadata` → `event: error` (`LLM_UNAVAILABLE`) → `event: recommendations` determinísticas do SQL → `event: done` (`finish_reason: "error"`); libera o *lock* da sessão. | `IDLE` |
 
 > **Mapeamento de estados**: os estados acima são **estados de turno** guardados em `session:{id}:state` (Redis). O ciclo de vida persistido da sessão em `chat_sessions.state` é apenas `ACTIVE | ENDED` (Máquina 1 de [`06_diagrama_estados.md`](../diagrams_and_pm/06_diagrama_estados.md)); os estados visuais do Frontend (`CONNECTING`, `STREAMING`, `ENRICHING`, `COMPLETED`) são derivados dos eventos SSE recebidos.
 
@@ -157,7 +157,19 @@ async def sse_chat_generator(request, session_id, message_id, backend_stream, ca
    - Todo turno finalizado registra em `chat_messages`: `ttft_ms`, `total_latency_ms`, `tokens_used`, `intent` e `cache_hit`.
    - Expõe agregações em `GET /api/v1/metrics/summary` (cabeçalho `X-Admin-Token`, consumido pela página `/admin/metricas` — `UC09`): `ttft_p50_ms`, `ttft_p95_ms`, `total_latency_p95_ms`, `cache_hit_ratio`, `error_5xx_rate`, `like_ratio`, `card_ctr`, `confirmed_checkouts` e `top_questions`.
 2. **Validação Atômica no Mock Checkout (`POST /api/v1/checkout/mock` — `RN10`)**:
+   - Feedback e checkout validam a sessão dentro da transação SQL antes de gravar: estado `ACTIVE`, inatividade menor que `SESSION_TTL_SECONDS` e idade inferior à retenção máxima da M02. Sessão expirada retorna `410 SESSION_ENDED`, mesmo antes da manutenção periódica, sem gravar eventos nem alterar estoque. A linha da sessão fica bloqueada contra encerramento/atualização até a transação terminar; a operação não renova o TTL.
    - Abre transação SQL com `SELECT ... FOR UPDATE` na linha do `SKU` em `products`:
      - Se `stock_quantity < quantity`: grava `checkout_events` com `status = 'OUT_OF_STOCK'` e retorna `HTTP 409 Conflict` com `current_stock`;
      - Se `price != displayed_price`: grava `status = 'PRICE_CHANGED'`, executa `INCR catalog:version` e retorna `HTTP 409 Conflict` com o `current_price`;
      - Caso contrário: decrementa `stock_quantity` (configurável por `CHECKOUT_DECREMENT_STOCK=true`), grava `status = 'CONFIRMED'` e retorna `HTTP 200 OK` com `redirect_checkout_url = products.checkout_url` (link de afiliado/anúncio do marketplace); se o estoque chegar a `0`, executa `INCR catalog:version`.
+
+## 6. Sessões duráveis e leases M02
+
+- Produção: `PostgresSessionStore` + `SessionCache`. Histórico de 10 mensagens (5 pares completos), TTL de sessão 1800s, lock Redis `SET ... EX 60` renovado a cada 10s pelo proprietário; o lease SQL também é renovado. A reserva transacional SQL por sessão é a autoridade de exclusão entre réplicas, mesmo após perda do Redis.
+- `VALIDATING_CACHE` começa na aquisição; tokens ativam `STREAMING_TOKENS`; citações/cards/finalização ativam `EMITTING_CARDS_AND_CITATIONS`; falhas ativam `ERROR_CONTINGENCY`; cleanup do dono devolve `IDLE`. Replays não adquirem nem alteram o lock de outro turno.
+- Falha/perda do lease impede reconhecer sucesso. Conclusão grava mensagens, métricas lógicas e payload terminal na mesma transação antes de `done`. Falhas são gravadas como `FAILED`, sem texto parcial no histórico. Um worker órfão vira falha terminal na próxima tentativa; o mesmo pedido nunca é regenerado automaticamente. Nova tentativa explícita após falha exige novo `client_request_id`.
+- Toda resposta HTTP traz o cabeçalho `X-Request-ID`: o valor recebido do cliente quando é um UUID válido, senão um UUID gerado. Ele é o `trace_id` do envelope de erro, é repassado ao backend no mesmo cabeçalho e aparece em cada linha de log junto com o `session_id`.
+- O cliente HTTP interno limita a espera pelo primeiro evento em 8s (`BACKEND_FIRST_EVENT_TIMEOUT_SECONDS`: cobre *embedding*, busca híbrida, recomendações, primeiro token do LLM e a primeira frase validada) e permite uma nova tentativa antes de qualquer evento apenas quando a geração não pode ter começado: erro de conexão ou HTTP `5xx`. *Timeout* de leitura e HTTP `4xx` não são repetidos (evita pagar duas gerações do LLM). Depois do primeiro evento, não reinicia geração; timeouts posteriores usam `BACKEND_TIMEOUT_SECONDS` (30s). EOF sem `end` continua erro. `end.finish_reason="error"` é opcional e usado pelo replay interno para preservar uma falha após tokens.
+- Desconexão/cancelamento/falha no envio dos cabeçalhos ou corpo fecha o adaptador e encerra a reserva, inclusive quando o iterador SSE nunca chegou a ser lido. Cleanup compara o token do proprietário.
+- O contrato vigente recupera sessão por `POST /api/v1/sessions` com `session_id`, retornando 200 e `restored:true`. O GET citado na issue #8 não integra `openapi.yaml`; sua inclusão depende de uma alteração contratual, não é condição inventada de aprovação desta implementação.
+- Antes de reproduzir cards idempotentes, o Gateway confere preço, estoque, atividade e atributos atuais em um único SELECT SQL. Divergência substitui a entrega por fallback seguro sem cards e exige pergunta nova; não reescreve o terminal lógico nem gera novamente. Invalidação de cache por catálogo/política, inclusive respostas sem cards, pertence à integração M03; SLA nominal/p95 e Upstash precisam de homologação de ambiente. Testes com transportes controlados não demonstram latência real de LLM.

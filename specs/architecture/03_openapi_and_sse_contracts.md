@@ -37,6 +37,7 @@ Este documento define o contrato formal de comunicação entre **Frontend**, **M
   }
 }
 ```
+*(`context_filters.current_product_sku` é opcional: quando omitido na requisição e ausente na sessão, o turno executa em **modo catálogo** com `sku: null` no contrato interno e sem consultar nem gravar o cache semântico.)*
 
 ### 2.2. Sequência Formal de Eventos no Stream (`Content-Type: text/event-stream`)
 
@@ -112,7 +113,8 @@ data: {
 }
 ```
 
-#### Evento 5: `recommendations` (Emitido com os *Product Cards* validados no SQL — máximo de 3)
+#### Evento 5: `recommendations` (Emitido com os *Product Cards* validados no SQL — máximo de 5: `PRIMARY`, `UPSELL` e `CROSS_SELL` até 1 cada; `OPTION` até 4)
+*(`recommendation_type` ∈ `PRIMARY | UPSELL | CROSS_SELL | OPTION`; no modo catálogo ou em comparações/alternativas do consultor unificado são emitidos até 4 cards `OPTION` com `badge_label: "Opção"`.)*
 ```text
 event: recommendations
 data: {
@@ -300,6 +302,8 @@ Mesmos campos do *Product Card* (`sku`, `name`, `price`, `stock_quantity`, `volt
 
 #### Query params: `from`, `to` (ISO-8601, opcionais — padrão: últimos 7 dias)
 
+Para `error_5xx_rate`, uma janela sem interseção com o período disponível (até agora e dentro da retenção dos contadores) retorna `0`, sem consultar buckets de outras horas. Isso inclui janelas inteiramente futuras.
+
 #### Response (`200 OK` — `MetricsSummaryResponse`; `401` sem token válido)
 ```json
 {
@@ -335,22 +339,33 @@ Todas as rotas JSON retornam erros no formato abaixo (`422` validação Pydantic
 { "error": { "code": "RATE_LIMITED", "message": "Limite de 30 requisições por minuto excedido.", "trace_id": "6f1c...", "details": null } }
 ```
 
+O OpenAPI de runtime (`/openapi.json`) deve usar o mesmo envelope `Error` do
+`openapi.yaml` nas respostas `422` e `429` de criação/encerramento de sessão e
+`POST /chat/stream`. UUID inválido no encerramento de sessão também retorna `422`.
+A resposta `429` documenta `Retry-After` como um inteiro de segundos, com mínimo 1.
+O teste `CT-M01-01` compara esses schemas e valida respostas reais contra ambos
+os contratos, incluindo o cabeçalho de rate limiting.
+
 ---
 
 ## 4. Contrato Interno Gateway → Backend (`POST /internal/rag/stream`)
 
 Rede interna (`BACKEND_INTERNAL_URL`), não exposto publicamente. Resposta em `application/x-ndjson` (1 objeto JSON por linha) usando os **mesmos nomes de evento** do SSE público, exceto `metadata` e `done`, que são gerados pelo Gateway.
 
-#### Request (`RagStreamRequest`)
+#### Request (`RagStreamRequest` / `ConsultantRequest`)
 ```json
 {
-  "session_id": "550e8400-e29b-41d4-a716-446655440000",
-  "message_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
-  "message": "Essa Airfryer de 4L serve para 5 pessoas?",
-  "history": [ { "role": "user", "content": "..." }, { "role": "assistant", "content": "..." } ],
-  "context_filters": { "preferred_voltage": "220V", "category": "eletroportateis", "current_product_sku": "AF-400-220V" }
+  "sku": "AF-400-220V",
+  "question": "Essa Airfryer de 4L serve para 5 pessoas?",
+  "history": [
+    { "role": "user", "content": "..." },
+    { "role": "assistant", "content": "...", "recommended_skus": ["AF-400-220V", "AF-550-220V"] }
+  ],
+  "preferred_voltage": "220V",
+  "category": "eletroportateis"
 }
 ```
+*(`sku` é `null` no modo catálogo; `recommended_skus` acompanha os turnos do assistente na janela de histórico quando houve cards emitidos.)*
 
 #### Linhas emitidas (exemplo)
 ```text

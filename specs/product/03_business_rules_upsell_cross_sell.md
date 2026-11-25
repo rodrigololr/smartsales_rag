@@ -18,6 +18,9 @@ Este documento define as **Regras de Negócio (`RN01` a `RN10`)** e os algoritmo
 | **RN08** | **Validação de Grandezas antes da Publicação** | Afirmações estruturadas por SKU, atributo, valor e unidade | Reter cada sentença; validar voltagem, preço, capacidade, potência e suporte da citação antes de emitir tokens. Substituir sentença privada inválida por template seguro; jamais publicar fato incorreto para corrigi-lo depois. | `R01` |
 | **RN09** | **Identidade de Cache** | SHA-256 de JSON canônico com versão de catálogo/política, consulta em ordem, filtros resolvidos e histórico cronológico | Ver função normativa de cache em `components/02_middleend_gateway_sse_redis_spec.md`; cache compartilhado somente para histórico vazio. | `R10`, `R09` |
 | **RN10** | **Revalidação Atômica no Mock Checkout (`UC05`)** | `SELECT stock_quantity, price FROM products WHERE sku = :sku FOR UPDATE` no instante do clique | Se o estoque zerou ou o preço mudou entre a exibição do card e o clique em `Comprar agora`, o endpoint retorna `HTTP 409` (`OUT_OF_STOCK` ou `PRICE_CHANGED`) com os valores atuais em vez de confirmar pedido inválido. | `R09` |
+| **RN11** | **Cards de Opção do Consultor (`OPTION`)** | `recommendation_type == 'OPTION'` com `stock_quantity > 0` E `is_active == TRUE`, máx. `4` `OPTION` e máx. `5` cards totais por turno | Nas rotas de descoberta, comparação, filtro de voltagem e adequação de uso/espaço, o consultor emite até 4 cards `OPTION` (selo `"Opção"`) lidos diretamente do SQL, mantendo unicidade para `PRIMARY`, `UPSELL` e `CROSS_SELL`. | `R03`, `R09` |
+| **RN12** | **Conhecimento Híbrido e Sentenças `"Informação geral:"`** | Prefixo `"Informação geral:"` sem dígitos, unidades técnicas, SKUs, preços, citações ou termos de especificação/ranking (máx. 2 por resposta) | O `G-OUT` autoriza contexto geral somente sob o prefixo `"Informação geral:"` sem valores numéricos/técnicos; qualquer dado numérico externo deve estar ancorado e citado em `knowledge_chunks`. | `R01` |
+| **RN13** | **Opinião de Marca Ancorada em Critérios Objetivos** | Pergunta sobre confiabilidade/ranking de marcas (`OPINION_BRAND`) | O sistema declara que não possui dados de taxa de defeito ou ranking subjetivo de marcas e apresenta exclusivamente `garantia_meses`, `avaliacao_media` e `avaliacoes_total` dos produtos mostrados no SQL. | `R01` |
 
 ---
 
@@ -81,3 +84,20 @@ Onde $\text{PesoRelação}(\text{base}, c) \in [0, 1]$ é o peso de afinidade ca
 ### 3.3. Definição operacional do ranking
 
 `sim(q,u)` é o máximo cosseno entre a query e chunks ativos do candidato, limitado a [0,1]; zero se não há chunk. `gain(u) = min(1, max(0, (capacity_u-capacity_base)/capacity_base))` quando ambas capacidades são positivas; nos demais casos usa `min(1, max(0, (tier_u-tier_base)/4))`. `pricefit(u) = max(0, min(1, 1-(price_u-price_base)/(0.35*price_base)))`. Calcular com Decimal, sem arredondar intermediários; ordenar score decrescente, preço crescente e SKU lexicográfico crescente. `Sim_contexto` no cross-sell usa a mesma regra de sim; relação explícita fornece affinity_weight, compatibilidade por categoria comprovada sem relação recebe peso 0.5. Sem prova de compatibilidade, rejeitar. Não inferir ganho de litros para monitor. Base de preço deve ser positiva; nulos não satisfazem comparações de capacidade e a elegibilidade por tier permanece possível.
+
+
+### Integração B04 no turno
+
+O Gateway repassa `context_filters.preferred_voltage` ao worker, inclusive em fallback, sem restringir a recuperação do SKU consultado. A preferência elétrica incompatível e o estoque esgotado abrem a busca de alternativas mesmo em dúvida técnica. Esta decisão usa o produto relido no momento de montar cards.
+
+Base, candidatos, relações e similaridades são lidos em uma única transação somente leitura REPEATABLE READ; não misturar preços de revisões distintas para calcular os tetos. O snapshot vale para a emissão, e o checkout continua revalidando no clique. Preservar precisão do cosseno convertido para Decimal até a ordenação, sem truncá-lo previamente. Pedidos explicitamente negativos de upgrade não abrem upsell; recusas de capacidade ("não atende 5 pessoas") podem abrir alternativas.
+
+Filtros resolvidos de categoria, capacidade mínima e orçamento também chegam ao worker. Categoria e capacidade mínima restringem PRIMARY/UPSELL antes do ranking; acessórios não são rejeitados por terem outra categoria ou não possuírem litros, pois sua elegibilidade vem da relação explícita. O orçamento máximo limita cada card, inclusive acessórios, e não representa um orçamento de carrinho. Necessidade estruturada acima da capacidade base abre upsell sem estimar litros por pessoa. Não filtrar as evidências do SKU explícito por essas restrições de compra.
+
+O prompt consultivo recebe os cards SQL selecionados antes da geração. Cada sentença sobre outra opção deve identificar explicitamente `SKU <código>:` e usar uma estrutura verificável por atributo. O G-OUT valida essa sentença contra os valores daquele SKU; números pertencentes a outro produto não a autorizam. Não inferir número de pessoas, tempo de preparo ou compatibilidade física a partir de litros/tier. Fatos de manuais continuam limitados aos chunks do SKU consultado; para opções recomendadas sem evidência de manual, só publicar dados SQL estruturados. Os cards são relidos ao término da geração, antes de emitir o evento de recomendações.
+
+Uma restrição explícita de compra/exibição somente do produto consultado (por
+exemplo, "comprar somente essa cafeteira") desabilita UPSELL e CROSS_SELL, inclusive
+em fallback ou estoque zero. Ela nunca autoriza emitir PRIMARY esgotado ou
+incompatível; nesse caso a seleção pode ficar vazia. A palavra "somente" em uma
+pergunta técnica, sozinha, não configura essa restrição comercial.

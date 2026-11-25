@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-label="Sofá Aurora 2 Lugares">
+<title>Sofá Aurora 2 Lugares</title>
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef0f4"/></radialGradient>
+<linearGradient id="body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1f2329"/><stop offset="1" stop-color="#3a3f47"/></linearGradient>
+</defs>
+<rect width="800" height="800" fill="url(#bg)"/>
+<rect x="180" y="200" width="440" height="340" rx="28" fill="url(#body)"/>
+<rect x="210" y="230" width="380" height="240" rx="14" fill="#0f172a"/>
+<text x="400" y="345" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="28" fill="#e2e8f0">SF-2L-150</text>
+<text x="400" y="390" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="400" font-size="20" fill="#94a3b8">Sofás</text>
+<text x="400" y="640" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="24" fill="#334155">Sofá Aurora 2 Lugares</text>
+</svg>

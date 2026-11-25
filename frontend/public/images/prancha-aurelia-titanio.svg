@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-label="Prancha Alisadora Aurélia Titânio 230">
+<title>Prancha Alisadora Aurélia Titânio 230</title>
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef0f4"/></radialGradient>
+<linearGradient id="body" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1f2329"/><stop offset=".55" stop-color="#3a3f47"/><stop offset="1" stop-color="#1a1d22"/></linearGradient>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9aa1ab"/><stop offset=".5" stop-color="#e9ecf0"/><stop offset="1" stop-color="#8b929c"/></linearGradient>
+<linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d1014"/><stop offset="1" stop-color="#262b33"/></linearGradient>
+<radialGradient id="shadow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="800" height="800" fill="url(#bg)"/>
+<ellipse cx="400" cy="700" rx="220.0" ry="26" fill="url(#shadow)"/>
+<g transform="rotate(-18 400 450)">
+<rect x="360" y="170" width="44" height="540" rx="22" fill="url(#body)"/>
+<rect x="408" y="170" width="44" height="540" rx="22" fill="url(#body)"/>
+<rect x="366" y="190" width="32" height="220" rx="10" fill="url(#steel)"/><rect x="414" y="190" width="32" height="220" rx="10" fill="url(#steel)"/>
+<rect x="414" y="470" width="32" height="70" rx="10" fill="url(#glass)"/>
+<circle cx="430" cy="580" r="7" fill="#e11d48"/>
+</g>
+<text x="600" y="670" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="22" fill="#4b525c">230 °C</text>
+</svg>

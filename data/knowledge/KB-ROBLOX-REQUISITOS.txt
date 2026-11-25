@@ -1,0 +1,30 @@
+Requisitos do Roblox para PC
+Fonte de referência: https://en.help.roblox.com/hc/en-us/articles/203312800; consultado em 21/11/2026 (curadoria SmartSales).
+## Sistemas operacionais e hardware (computador)
+Windows: o Roblox instala em versões 64 bits do Windows 10 ou Windows 11.
+Mac: o Roblox instala no macOS 10.13 (High Sierra) ou superior.
+Linux: o Roblox não é suportado no Linux.
+Chrome OS: exige versão 53 ou superior, com a Google Play Store ativada.
+O recurso de gravação de vídeo do Roblox só funciona no Windows 10 e no Windows 11.
+Placa de vídeo: no Windows, o Roblox exige suporte a DirectX 10 (feature level) ou superior.
+Para melhor desempenho, a Roblox recomenda um computador com menos de 5 anos e placa de vídeo dedicada, ou um notebook com menos de 3 anos com vídeo integrado.
+Processador: a Roblox recomenda processador recente (2005 ou mais novo) com clock de 1,6 GHz ou mais.
+A Roblox informa que houve problemas com processadores AMD mais antigos.
+Memória: a Roblox recomenda pelo menos 1 GB de RAM no Windows 10 ou 11.
+Armazenamento: a Roblox recomenda pelo menos 300 MB livres para instalar.
+A Roblox recomenda conexão mínima de 4 a 8 Mb/s para uma residência de uso individual.
+Em residências com mais usuários, a Roblox recomenda banda maior.
+## Celulares, tablets e plataformas disponíveis
+iPhone e iPad: exige iOS 14 ou iPadOS 14 ou superior (a partir do iPhone 6s, iPhone SE, iPad Air 2, iPad mini 4 e iPad 5ª geração).
+Android: exige Android 8.0 ou superior, com suporte a OpenGL ES 3.0.
+Amazon Fire: a partir de Fire 7 (9ª geração), Fire HD 8 (8ª geração), Fire HD 10 (9ª geração) e Fire Max 11 (13ª geração).
+O Roblox está disponível em Windows, Mac, iOS/iPadOS, Android, Amazon Fire, Chromebook (Chrome OS), Xbox, PlayStation e Meta Quest.
+No Meta Quest, são suportados Quest 2, Quest Pro e Quest 3; o Quest 1 não é suportado.
+O Roblox no Meta Quest exige software v57 ou superior e idade mínima de 10 anos.
+O Roblox Studio (criação de jogos) tem requisitos próprios, publicados na documentação de criadores.
+## Fontes
+https://en.help.roblox.com/hc/en-us/articles/203312800 (verificado em 21/11/2026)
+https://en.help.roblox.com/hc/en-us/articles/203625474 (verificado em 21/11/2026)
+https://en.help.roblox.com/hc/en-us/articles/17810433924628-Meta-Quest-FAQ (verificado em 21/11/2026)
+https://en.help.roblox.com/hc/en-us/categories/200217944 (lista PlayStation e Xbox; verificado em 21/11/2026)
+https://create.roblox.com/docs/studio/setup (requisitos do Roblox Studio; não detalhados aqui)

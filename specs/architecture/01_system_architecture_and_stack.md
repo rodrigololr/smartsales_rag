@@ -15,7 +15,7 @@ flowchart TB
     end
 
     subgraph TIER1 ["Camada 1 — Frontend (Vercel / Container :3000)"]
-        NEXT["<b>Next.js 14+ App Router (React 18 + TS)</b><br/>• UI Conversacional Responsiva<br/>• Hook useSSEChatStream<br/>• Renderizador de Citações e Product Cards<br/>• Modal de Mock Checkout & Feedback UI"]
+        NEXT["<b>Next.js 16 App Router (React 19 + TS)</b><br/>• UI Conversacional Responsiva<br/>• Hook useSSEChatStream<br/>• Renderizador de Citações e Product Cards<br/>• Modal de Mock Checkout & Feedback UI"]
     end
 
     subgraph TIER2 ["Camada 2 — Middle-end / API Gateway (Railway / Container :8000)"]
