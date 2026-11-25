@@ -2,8 +2,8 @@
 
 [![Arquitetura](https://img.shields.io/badge/Arquitetura-3--Tier%20RAG%20%2B%20SSE-0288d1)](#5-arquitetura-em-3-camadas-e-stack-tecnológica)
 [![Metodologia](https://img.shields.io/badge/Engenharia-SDD%20%2B%20TDD-2e7d32)](#8-engenharia-guiada-por-especificações-sdd-e-testes-tdd)
-[![Faithfulness](https://img.shields.io/badge/RAG%20Faithfulness-%E2%89%A5%2090%25%20(CI%20%E2%89%A5%200.85)-7b1fa2)](#3-objetivos-do-projeto-metas-smart)
-[![TTFT](https://img.shields.io/badge/Streaming%20TTFT-%E2%89%A4%201.5s%20(SLA%20p95%20%E2%89%A4%202.0s)-ef6c00)](#3-objetivos-do-projeto-metas-smart)
+[![Faithfulness](https://img.shields.io/badge/Meta%20de%20Faithfulness-%E2%89%A5%2090%25-7b1fa2)](#3-objetivos-do-projeto-metas-smart)
+[![TTFT](https://img.shields.io/badge/Meta%20de%20TTFT-%E2%89%A4%201.5s%20(SLA%20p95%20%E2%89%A4%202.0s)-ef6c00)](#3-objetivos-do-projeto-metas-smart)
 
 ---
 
@@ -11,7 +11,7 @@
 
 ### O que está implementado
 
-- **Vitrine:** 47 produtos de demonstração com fotos, em 9 categorias. Vão de eletroportáteis e cosméticos a PCs gamer, notebooks, monitores, webcams e sofás. A vitrine lê o catálogo do PostgreSQL pelo gateway (`GET /api/v1/products`). Item esgotado sai da lista, mas a página `/produto/<SKU>` continua abrindo, com o aviso "Esgotado".
+- **Vitrine:** 47 produtos de demonstração com ilustrações, em 9 categorias. Vão de eletroportáteis e cosméticos a PCs gamer, notebooks, monitores, webcams e sofás. A vitrine lê o catálogo do PostgreSQL pelo gateway (`GET /api/v1/products`). Item esgotado sai da lista, mas a página `/produto/<SKU>` continua abrindo, com o aviso "Esgotado".
 - **Consultor IA (estilo Rufus da Amazon):** o mesmo chat atende na vitrine e na página do produto, e a conversa acompanha a navegação. Ele responde a três tipos de pergunta:
   - **Técnicas:** RAG no manual e na ficha técnica, com citação da página da fonte. Exemplos: "Posso usar forma de vidro?" e "Esse PC liga em 127V?".
   - **De descoberta:** "Quero um computador novo", "Consigo jogar Roblox nesse PC?", "Dá para fazer live na Twitch com essa câmera?" e "Esse sofá cabe numa sala de 2 m?". Usam o SQL e uma base de conhecimento curada (`data/knowledge/`), com as fontes.
@@ -79,15 +79,15 @@ No comércio eletrônico moderno, catálogos extensos e produtos tecnicamente co
 
 Nossa solução resolve essa dor integrando a inteligência contextual de Grandes Modelos de Linguagem (LLMs) aos dados dinâmicos do catálogo de produtos por meio da arquitetura **RAG (*Retrieval-Augmented Generation*)**. A solução atua como um **consultor de vendas 24/7** capaz de responder dúvidas técnicas com citação verificável da fonte (manuais oficiais), sugerir itens complementares (*cross-selling*) ou modelos superiores (*upselling*) respeitando o estoque em tempo real, e encurtar a jornada do usuário até a conversão de compra.
 
-### Como Funciona na Prática (Vitrine Contextual + Painel Lateral IA Estilo Amazon + Checkout Direto)
+### Como experimentar o consultor
 
-Quando o usuário entra em um produto na nossa plataforma, o **Painel Lateral do Consultor IA (*Side-Drawer / Split-View*)** abre automaticamente ao lado do item, já contextualizado com a ficha técnica e o manual PDF oficial daquele produto:
+Abra a página do [PC Vortex VX3 no ambiente local](http://localhost:3000/produto/PC-VX3-BIV) e pergunte **“Roda GTA RP nesse PC?”**. O manual de demonstração registra um teste de GTA V. A base de conhecimento explica a relação entre GTA RP e GTA V. Ao conferir a resposta, observe a qual jogo, resolução e configuração gráfica pertence o FPS citado.
 
-> **Exemplo Real de Uso:**  
-> Em vez de ficar perdido lendo 500 comentários contraditórios no Mercado Livre ou na Shopee, o cliente entra no **SmartSales RAG**, vê os produtos na nossa plataforma e pergunta no chat lateral:  
-> *"Tô em dúvida entre esse monitor gamer LG e o Samsung, qual tem DisplayPort 1.4 real no manual e qual cabo eu preciso comprar junto?"*  
->
-> O **SmartSales RAG** consulta os manuais PDF oficiais indexados no `pgvector`, responde em **menos de 1,5 segundo (`TTFT`)** citando a página exata do manual (`[Fonte: Manual LG UltraGear, p. 11]`), e exibe logo abaixo os **Product Cards interativos** (o produto principal, uma sugestão de *Upsell* e o cabo DisplayPort 1.4 como *Cross-sell*), cada um com **link direto de compra/afiliado para Amazon, Mercado Livre ou Shopee** rastreado pelo nosso motor de conversão!
+Na vitrine, experimente **“Quero um computador novo”** e depois **“Desses, qual é o mais barato?”** para testar se o consultor mantém o contexto e compara os preços do catálogo.
+
+### Como verificar a qualidade do RAG
+
+O conjunto de avaliação contém 50 casos do catálogo base. O modo `validate` verifica as perguntas e as referências aos manuais. O modo `live` mede as respostas do pipeline com um juiz independente. A homologação exige o relatório completo e a auditoria humana das fontes. Consulte o [procedimento de avaliação](backend/tests/ragas_eval/README.md) e o [registro de homologação](backend/tests/ragas_eval/RAGAS_HOMOLOGATION_REPORT.md).
 
 ---
 
@@ -96,7 +96,7 @@ Quando o usuário entra em um produto na nossa plataforma, o **Painel Lateral do
 | Dimensão | Definição Estratégica e Limiares Técnicos |
 | :---: | :--- |
 | **S (*Específico*)** | Desenvolver uma aplicação web *full-stack* com assistente conversacional inteligente que realiza recomendações contextualizadas e responde dúvidas técnicas com base no catálogo de produtos e manuais indexados. |
-| **M (*Mensurável*)** | • **Fidelidade de Contexto (*Faithfulness*) e Precisão Técnica**: atingir índice de fidelidade e precisão técnica **$\ge 90\%$** nos testes de RAG (com piso mínimo bloqueante de CI de **$\ge 0,85$** no framework RAGAS e **Taxa de Alucinação $\le 5\%$**), evitando alucinação de preços, voltagem (`127V`/`220V`) e especificações.<br/>• **Latência de Streaming (*Time to First Token — TTFT*)**: manter tempo de resposta para o primeiro token **$\text{TTFT} \le 1,5\text{ s}$** (alvo nominal via *streaming* SSE, com teto de SLA de homologação **$\le 2,0\text{ s p95}$** e tempo total **$\le 8,0\text{ s p95}$**).<br/>• **Relevância de Recomendação**: atingir **$\text{Precision@5 (P@5)} \ge 0,80$** e **100% de aderência** aos filtros de negócio (`estoque > 0`, voltagem e capacidade).<br/>• **Eficiência e Conversão**: atingir **$\text{Cache Hit Ratio} \ge 30\%$** no Redis, aprovação do usuário (**likes $\ge 80\%$**) e taxa de cliques no card (**CTR $\ge 10\%$**). |
+| **M (*Mensurável*)** | • **Fidelidade de Contexto (*Faithfulness*) e Precisão Técnica**: atingir índice de fidelidade e precisão técnica **$\ge 90\%$** nos testes de RAG (com piso de homologação de **$\ge 0,85$** no framework RAGAS e **Taxa de Alucinação $\le 5\%$**), evitando alucinação de preços, voltagem (`127V`/`220V`) e especificações.<br/>• **Latência de Streaming (*Time to First Token — TTFT*)**: manter tempo de resposta para o primeiro token **$\text{TTFT} \le 1,5\text{ s}$** (alvo nominal via *streaming* SSE, com teto de SLA de homologação **$\le 2,0\text{ s p95}$** e tempo total **$\le 8,0\text{ s p95}$**).<br/>• **Relevância de Recomendação**: atingir **$\text{Precision@5 (P@5)} \ge 0,80$** e **100% de aderência** aos filtros de negócio (`estoque > 0`, voltagem e capacidade).<br/>• **Eficiência e Conversão**: atingir **$\text{Cache Hit Ratio} \ge 30\%$** no Redis, aprovação do usuário (**likes $\ge 80\%$**) e taxa de cliques no card (**CTR $\ge 10\%$**). |
 | **A (*Atingível*)** | Utilizar modelos pré-treinados via API de inferência rápida (`gpt-4o-mini` / `text-embedding-3-small`) e banco vetorial gerenciado (`PostgreSQL + pgvector` via Supabase + `Redis` via Upstash), viabilizando o escopo dentro do prazo acadêmico e com custo financeiro direto zero (`R$ 0,00`) na UFAL via *free tiers*. |
 | **R (*Relevante*)** | Conectar diretamente conceitos de Engenharia de Software, IA Generativa, Arquitetura de Sistemas Distribuídos e Gestão de Produtos ao mercado de *MarTech* e Varejo Digital. |
 | **T (*Temporal*)** | Entregar a solução completa, testada e documentada ao longo de **4 Sprints** (**9 semanas / 41 dias úteis** no calendário UFAL 2026.2, de **22/09/2026 a 24/11/2026**). |
@@ -178,7 +178,7 @@ A tabela acima e as specs descrevem a stack planejada. A implementação entregu
 
 | Planejado | Implementado | Onde conferir |
 | :--- | :--- | :--- |
-| LangChain + OpenAI (`gpt-4o-mini`, `text-embedding-3-small`) | SDK `openai` chamando qualquer endpoint compatível com a API da OpenAI; no MVP, Google Gemini (`gemini-3.1-flash-lite` e `gemini-embedding-001`). LangChain aparece só no ambiente opcional de avaliação RAGAS. | `backend/requirements.txt`, `backend/requirements-eval.txt` |
+| LangChain + OpenAI (`gpt-4o-mini`, `text-embedding-3-small`) | SDK `openai` chamando qualquer endpoint compatível com a API da OpenAI; no MVP, Google Gemini (modelos configurados no `.env`). LangChain aparece só no ambiente opcional de avaliação RAGAS. | `backend/requirements.txt`, `backend/requirements-eval.txt` |
 | SQLAlchemy 2.0 + `asyncpg` + Alembic | `psycopg` 3 com SQL explícito; o esquema fica em `schema.sql` idempotente, aplicado pela ingestão e na inicialização do gateway. | `backend/app/db/schema.sql`, `middleend/app/db/schema.sql`, `middleend/requirements.txt` |
 | Vercel, Railway, Supabase e Upstash | Docker Compose local (`pgvector/pgvector:pg16`, `redis:7-alpine`, backend, gateway e frontend). | `docker-compose.yml` |
 
