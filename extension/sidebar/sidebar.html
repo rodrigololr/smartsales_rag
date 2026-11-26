@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Consultor SmartSales</title>
+    <link rel="stylesheet" href="sidebar.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 9 9 0 0 1-3.8-.8L3 21l1.9-5.1a8 8 0 0 1-1.4-4.4A8.4 8.4 0 0 1 12 3.2a8.4 8.4 0 0 1 9 8.3Z" />
+              <path d="M8.5 11.5h7M8.5 8.5h4" />
+            </svg>
+          </span>
+          <div class="brand__text">
+            <strong>Consultor IA</strong>
+            <span>SmartSales</span>
+          </div>
+        </div>
+        <div class="topbar__actions">
+          <button id="settings-button" class="icon-button" type="button" title="Configurações" aria-label="Abrir configurações"></button>
+          <button id="reset-button" class="icon-button" type="button" title="Reiniciar conversa" aria-label="Reiniciar conversa"></button>
+        </div>
+      </header>
+
+      <div id="connection-banner" class="banner banner--error" role="alert" hidden>
+        <span id="connection-text"></span>
+        <button id="connection-action" class="link-button" type="button">Configurar</button>
+      </div>
+
+      <div id="notice-banner" class="banner banner--info" hidden>
+        <span id="notice-text"></span>
+        <button id="notice-dismiss" class="icon-button icon-button--tiny" type="button" aria-label="Fechar aviso"></button>
+      </div>
+
+      <section id="context-bar" class="context" aria-live="polite" hidden></section>
+
+      <main id="chat-log" class="chat" aria-busy="false">
+        <div id="messages" class="messages"></div>
+        <p id="chat-announcer" class="sr-only" aria-live="polite"></p>
+      </main>
+
+      <form id="composer" class="composer" autocomplete="off">
+        <label class="sr-only" for="prompt">Pergunta para o consultor</label>
+        <div class="composer__box">
+          <textarea
+            id="prompt"
+            rows="1"
+            maxlength="1000"
+            placeholder="Pergunte sobre o produto ou o catálogo"
+          ></textarea>
+          <button id="send-button" type="submit" class="send-button" aria-label="Enviar pergunta" disabled></button>
+        </div>
+        <div class="composer__meta">
+          <span class="composer__hint">Respostas ancoradas em manuais e no catálogo.</span>
+          <span id="counter" class="counter" aria-hidden="true"></span>
+        </div>
+      </form>
+
+      <footer class="footer">
+        <span>Preços e estoque validados no catálogo.</span>
+        <span id="connection-dot" class="status-dot" title="Conexão com o gateway" aria-hidden="true"></span>
+      </footer>
+    </div>
+
+    <dialog id="checkout-dialog" class="dialog" aria-labelledby="checkout-title">
+      <div class="dialog__card">
+        <header class="dialog__header">
+          <h2 id="checkout-title">Confirmar compra</h2>
+          <button id="checkout-close" class="icon-button" type="button" aria-label="Fechar"></button>
+        </header>
+        <div id="checkout-body" class="dialog__body"></div>
+        <footer class="dialog__footer">
+          <button id="checkout-cancel" class="button button--ghost" type="button">Cancelar</button>
+          <button id="checkout-confirm" class="button" type="button">Comprar</button>
+        </footer>
+      </div>
+    </dialog>
+
+    <script type="module" src="sidebar.js"></script>
+  </body>
+</html>

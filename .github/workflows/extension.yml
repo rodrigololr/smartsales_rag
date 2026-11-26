@@ -1,0 +1,24 @@
+name: Firefox Extension
+on:
+  pull_request:
+    paths: ['extension/**', '.github/workflows/extension.yml']
+  push:
+    branches: [main, develop]
+    paths: ['extension/**', '.github/workflows/extension.yml']
+permissions:
+  contents: read
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - run: npm run test:coverage
+      - run: npm run validate
+      - run: npx --yes web-ext lint --source-dir .

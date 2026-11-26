@@ -72,6 +72,7 @@ flowchart TD
 | **M05** | `4.8` | `UC05`, `UC06` | `RF14`, `RF15`, `RN06`, `RN10` | [`components/02_middleend_gateway_sse_redis_spec.md`](components/02_middleend_gateway_sse_redis_spec.md)<br/>[`architecture/03_openapi_and_sse_contracts.md`](architecture/03_openapi_and_sse_contracts.md) | `UT-M05-01`, `IT-M05-01` | **Well**, **Pablo** |
 | **F04** | `4.10` | `UC03`, `UC04`, `UC05`, `UC09` | `RF13`, `RF15`, `RF16`, `RN06` | [`components/03_frontend_chat_and_cards_spec.md`](components/03_frontend_chat_and_cards_spec.md) | `UT-F04-01`, `E2E-02`, `E2E-03`, `E2E-04`, `E2E-08` | **Victor Hugo**, **Eduardo** |
 | **F05** *(Crítico)* | `5.2`, `5.3`, `5.4` | `UC01` a `UC09` | Todos (`RF01–RF16`, `RNF01–RNF12`) | [`tdd_and_quality/02_test_cases_unit_int_e2e.md`](tdd_and_quality/02_test_cases_unit_int_e2e.md) | `E2E-01` a `E2E-08` + Stress SSE | **Victor Hugo**, **Well**, **Eduardo** |
+| **EXT** *(canal adicional)* | — | `UC01` a `UC07` | `RF10–RF15`, `RNF08`, `RNF10`, `R01`, `R03`, `R09` | [`components/05_firefox_extension_spec.md`](components/05_firefox_extension_spec.md) | `UT-EXT-01` a `UT-EXT-15` | — |
 | **G04** | `7.1` | Documentação | `RNF11` | [`architecture/03_openapi_and_sse_contracts.md`](architecture/03_openapi_and_sse_contracts.md) | Validação OpenAPI 3.1 (`openapi.yaml`) / Links | **Antônio Rodrigo**, **Filipe**, **Pablo** |
 | **G02** *(Crítico)* | `7.2`, `7.3`, `7.4` | Demo Final (`M5`) | Todos os KPIs da Árvore | [`diagrams_and_pm/10_qualidade_arvore_metricas.md`](diagrams_and_pm/10_qualidade_arvore_metricas.md) | Smoke Test Final da Demo | **Antônio Rodrigo**, **Walber** |
 
@@ -93,6 +94,7 @@ flowchart TD
 7. **[`01_backend_rag_and_guardrails_spec.md`](components/01_backend_rag_and_guardrails_spec.md)** — Especificação de Engenharia do Backend e IA (`B01` a `B05`): pipeline de ingestão, busca híbrida `pgvector`, *System Prompts*, *Guardrails* e motor consultivo.
 8. **[`02_middleend_gateway_sse_redis_spec.md`](components/02_middleend_gateway_sse_redis_spec.md)** — Especificação de Engenharia do Middle-end (`M01` a `M05`): Gateway FastAPI, máquina de estados da sessão, cache semântico Redis, *streaming* SSE e *mock checkout*.
 9. **[`03_frontend_chat_and_cards_spec.md`](components/03_frontend_chat_and_cards_spec.md)** — Especificação de Engenharia do Frontend (`F01` a `F05`): arquitetura de componentes Next.js/React, hook `useSSEChatStream`, *Product Cards*, citações e feedback.
+   - **Canal adicional:** **[`05_firefox_extension_spec.md`](components/05_firefox_extension_spec.md)** — Extensão Firefox (MV3): detecção de produto por dados estruturados, sidebar SSE, citações, cards, checkout, feedback e suíte `UT-EXT-*`. Não altera contratos do Gateway.
 
 ### 3.4. Especificações de Qualidade, TDD e RAGAS (`specs/tdd_and_quality/`)
 10. **[`01_sdd_tdd_workflow_and_dod.md`](tdd_and_quality/01_sdd_tdd_workflow_and_dod.md)** — Metodologia SDD + TDD, Pirâmide de Testes, Pipeline GitHub Actions CI/CD e *Definition of Done (DoD)*.

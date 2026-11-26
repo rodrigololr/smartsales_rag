@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Configurações — Consultor SmartSales</title>
+		<link rel="stylesheet" href="options.css" />
+	</head>
+	<body>
+		<main class="page">
+			<header class="page__header">
+				<span class="brand-mark" aria-hidden="true">
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path
+							d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3 9 9 0 0 1-3.8-.8L3 21l1.9-5.1a8 8 0 0 1-1.4-4.4A8.4 8.4 0 0 1 12 3.2a8.4 8.4 0 0 1 9 8.3Z"
+						/>
+						<path d="M8.5 11.5h7M8.5 8.5h4" />
+					</svg>
+				</span>
+				<div>
+					<h1>Consultor SmartSales</h1>
+					<p>
+						Configure a extensão que leva o consultor de vendas ao seu
+						navegador.
+					</p>
+				</div>
+				<span id="version" class="version"></span>
+			</header>
+
+			<section class="card" aria-labelledby="connection-title">
+				<div class="card__heading">
+					<h2 id="connection-title">Conexão com o gateway</h2>
+					<span id="connection-status" class="status" role="status"
+						>Ainda não testada</span
+					>
+				</div>
+				<label class="field">
+					<span class="field__label">URL base da API</span>
+					<input
+						id="api-url"
+						name="api-url"
+						type="url"
+						inputmode="url"
+						spellcheck="false"
+						autocomplete="off"
+						placeholder="http://localhost:8000"
+					/>
+					<span class="field__hint">
+						Endereço do gateway (o mesmo da vitrine). Para rodar
+						localmente, suba o
+						<code>docker compose</code> e use
+						<code>http://localhost:8000</code>.
+					</span>
+				</label>
+				<div class="actions">
+					<button
+						id="test-button"
+						class="button button--ghost"
+						type="button"
+					>
+						Testar conexão
+					</button>
+					<span
+						id="test-result"
+						class="inline-status"
+						role="status"
+					></span>
+				</div>
+			</section>
+
+			<section class="card" aria-labelledby="preferences-title">
+				<h2 id="preferences-title">Preferências do consultor</h2>
+				<div class="grid">
+					<label class="field">
+						<span class="field__label">Voltagem preferida</span>
+						<select id="preferred-voltage" name="preferred-voltage">
+							<option value="">Sem preferência</option>
+							<option value="127V">127V</option>
+							<option value="220V">220V</option>
+						</select>
+						<span class="field__hint">
+							Viaja em <code>context_filters.preferred_voltage</code> a
+							cada pergunta.
+						</span>
+					</label>
+					<label class="field">
+						<span class="field__label">Orçamento máximo (R$)</span>
+						<input
+							id="budget-max"
+							name="budget-max"
+							type="number"
+							min="0"
+							step="0.01"
+							inputmode="decimal"
+							placeholder="Sem limite"
+						/>
+						<span class="field__hint">
+							Viaja em <code>context_filters.budget_max</code>; deixe
+							vazio para não limitar.
+						</span>
+					</label>
+				</div>
+
+				<label class="toggle">
+					<input
+						id="floating-button"
+						name="floating-button"
+						type="checkbox"
+					/>
+					<span>
+						<strong>Mostrar botão flutuante em páginas de produto</strong>
+						<small>
+							O botão aparece apenas quando a página publica dados
+							estruturados de produto (JSON-LD, Open Graph, microdados)
+							ou usa a rota <code>/produto/&lt;SKU&gt;</code>. Nome e SKU
+							podem ser usados para localizar o item no catálogo; nenhum
+							outro conteúdo da página é enviado ao gateway.
+						</small>
+					</span>
+				</label>
+			</section>
+
+			<section class="card" aria-labelledby="privacy-title">
+				<h2 id="privacy-title">Permissões e privacidade</h2>
+				<ul class="notes">
+					<li>
+						A extensão lê apenas
+						<strong>nome, SKU, marca e URL</strong> publicados pela página
+						para identificar o produto no catálogo SmartSales. Nome e SKU
+						podem ser enviados ao gateway na busca do catálogo; marca e
+						URL ficam no navegador.
+					</li>
+					<li>
+						As perguntas que você digita e as respostas trafegam apenas
+						entre o navegador e o gateway configurado acima.
+					</li>
+					<li>
+						Preço, estoque e checkout vêm sempre da API
+						(<code>/api/v1</code>); a extensão não altera valores nem
+						inventa especificações técnicas.
+					</li>
+					<li>
+						Sessão e histórico recente ficam no gateway; a extensão guarda
+						apenas o
+						<code>session_id</code> na sessão do navegador.
+					</li>
+				</ul>
+			</section>
+
+			<div class="footer-actions">
+				<button id="save-button" class="button" type="button">
+					Salvar configurações
+				</button>
+				<button
+					id="reset-defaults"
+					class="button button--ghost"
+					type="button"
+				>
+					Restaurar padrões
+				</button>
+				<button
+					id="open-consultor"
+					class="button button--ghost"
+					type="button"
+				>
+					Abrir consultor
+				</button>
+				<span id="save-status" class="inline-status" role="status"></span>
+			</div>
+		</main>
+
+		<script type="module" src="options.js"></script>
+	</body>
+</html>

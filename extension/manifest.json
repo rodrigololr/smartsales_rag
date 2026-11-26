@@ -1,0 +1,49 @@
+{
+	"manifest_version": 3,
+	"name": "SmartSales Consultor",
+	"version": "0.1.0",
+	"description": "Consultor de vendas SmartSales no navegador: dúvidas técnicas com citação, recomendações e checkout.",
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "consultor@smartsales.example",
+			"strict_min_version": "142.0",
+			"data_collection_permissions": {
+				"required": ["personalCommunications", "websiteContent"]
+			}
+		}
+	},
+	"permissions": ["storage"],
+	"host_permissions": ["http://*/*", "https://*/*"],
+	"background": {
+		"scripts": ["background.js"],
+		"type": "module"
+	},
+	"action": {
+		"default_title": "Abrir Consultor SmartSales",
+		"default_icon": {
+			"48": "icons/icon.svg",
+			"96": "icons/icon.svg"
+		}
+	},
+	"sidebar_action": {
+		"default_title": "Consultor SmartSales",
+		"default_panel": "sidebar/sidebar.html",
+		"default_icon": "icons/icon.svg",
+		"open_at_install": false
+	},
+	"options_ui": {
+		"page": "options/options.html",
+		"open_in_tab": true
+	},
+	"content_scripts": [
+		{
+			"matches": ["http://*/*", "https://*/*"],
+			"js": ["src/domain/product-detection.js", "src/ui/content-script.js"],
+			"run_at": "document_idle"
+		}
+	],
+	"icons": {
+		"48": "icons/icon.svg",
+		"96": "icons/icon.svg"
+	}
+}

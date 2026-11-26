@@ -1,0 +1,17 @@
+{
+	"name": "smartsales-rag-firefox-extension",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Extensão Firefox (WebExtension MV3) do Consultor SmartSales RAG.",
+	"type": "module",
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"test": "node --test",
+		"test:coverage": "node --experimental-test-coverage --test",
+		"validate": "node scripts/validate-extension.mjs",
+		"start:firefox": "npx --yes web-ext run --source-dir . --browser-console",
+		"package": "npx --yes web-ext build --source-dir . --artifacts-dir web-ext-artifacts --overwrite-dest"
+	}
+}

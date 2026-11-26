@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="SmartSales Consultor">
+  <rect width="96" height="96" rx="22" fill="#4f46e5" />
+  <path
+    d="M24 30a8 8 0 0 1 8-8h32a8 8 0 0 1 8 8v22a8 8 0 0 1-8 8H49L36 72v-12h-4a8 8 0 0 1-8-8V30Z"
+    fill="#ffffff"
+  />
+  <path d="M34 36h28M34 45h18" stroke="#4f46e5" stroke-width="4" stroke-linecap="round" />
+  <path
+    d="M72 18l1.8 4.7L78.5 24.5l-4.7 1.8L72 31l-1.8-4.7-4.7-1.8 4.7-1.8L72 18Z"
+    fill="#c7d2fe"
+  />
+</svg>

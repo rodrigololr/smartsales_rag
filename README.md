@@ -27,6 +27,23 @@ docker compose up --build     # db (pgvector) + redis -> ingest -> backend; midd
 | `http://localhost:8000/docs` | Swagger UI do gateway, gerado pelo FastAPI |
 | `http://localhost:8000/openapi.json` | OpenAPI do gateway em execução (o contrato normativo é o [`openapi.yaml`](openapi.yaml)) |
 
+### Extensão Firefox (canal adicional)
+
+O módulo [`extension/`](extension/README.md) empacota o consultor como uma WebExtension
+MV3: sidebar com streaming SSE, citações, cards, feedback e mock checkout, além de um
+botão flutuante em páginas que publicam dados estruturados de produto ou na rota de produto da vitrine. Ela consome apenas
+`/api/v1` e não altera o backend.
+
+```bash
+# testes e validação estática
+cd extension && npm test && npm run validate
+
+# carregar no Firefox (about:debugging → Carregar add-on temporário → extension/manifest.json)
+npx --yes web-ext run --source-dir extension
+```
+
+Especificação: [`specs/components/05_firefox_extension_spec.md`](specs/components/05_firefox_extension_spec.md).
+
 Variáveis do `.env` da raiz, lidas pelo `docker-compose.yml`:
 
 | Variável | Obrigatória | Padrão | Uso |
@@ -224,6 +241,7 @@ Este repositório utiliza **SDD (*Spec-Driven Development*)** e **TDD (*Test-Dri
   - [`specs/components/01_backend_rag_and_guardrails_spec.md`](specs/components/01_backend_rag_and_guardrails_spec.md) — Especificação do Backend: Ingestão, Busca Híbrida, Prompts e Guardrails (`B01–B05`)
   - [`specs/components/02_middleend_gateway_sse_redis_spec.md`](specs/components/02_middleend_gateway_sse_redis_spec.md) — Especificação do Middle-end: Gateway, Sessões, Cache Semântico, SSE e Checkout (`M01–M05`)
   - [`specs/components/03_frontend_chat_and_cards_spec.md`](specs/components/03_frontend_chat_and_cards_spec.md) — Especificação do Frontend: Chat Streaming, Citações, Product Cards e Feedback (`F01–F05`)
+  - [`specs/components/05_firefox_extension_spec.md`](specs/components/05_firefox_extension_spec.md) — Especificação da Extensão Firefox: Detecção de Produto, Sidebar, SSE, Checkout e Testes (`EXT`)
 - **Qualidade, TDD e Avaliação RAGAS (`specs/tdd_and_quality/`)**:
   - [`specs/tdd_and_quality/01_sdd_tdd_workflow_and_dod.md`](specs/tdd_and_quality/01_sdd_tdd_workflow_and_dod.md) — Guia de Ciclo SDD + TDD, Pirâmide de Testes, Gates de CI/CD e *Definition of Done*
   - [`specs/tdd_and_quality/02_test_cases_unit_int_e2e.md`](specs/tdd_and_quality/02_test_cases_unit_int_e2e.md) — Catálogo de Casos de Teste Unitários, Integração, Contrato e E2E (`Given/When/Then`)
